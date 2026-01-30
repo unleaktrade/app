@@ -12,6 +12,8 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
+      // Support Figma Make asset imports in Vite
+      "figma:asset": path.resolve(__dirname, "./src/assets"),
       // Alias @ to the src directory
       "@": path.resolve(__dirname, "./src"),
     },

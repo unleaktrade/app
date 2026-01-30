@@ -1,7 +1,7 @@
 import { Button } from "@/app/components/ui/button";
 import { motion } from "motion/react";
 import { Plus, Search, LayoutDashboard, Menu, X, FileText } from "lucide-react";
-import logo from "../../assets/6d73120824de2c8c6632c71cddef1ae782b1c254.png";
+import logo from "figma:asset/6d73120824de2c8c6632c71cddef1ae782b1c254.png";
 import { useState } from "react";
 
 interface NavigationProps {
