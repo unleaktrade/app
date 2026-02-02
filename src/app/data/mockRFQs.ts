@@ -3,7 +3,7 @@ import { RFQ, RFQState } from "@/app/App";
 export const mockRFQs: RFQ[] = [
   {
     id: "RFQ-001",
-    pair: "SOL/USDC",
+    pair: "wSOL/USDC",
     baseMint: "So11111111111111111111111111111111111111112",
     quoteMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
     baseAmount: 50000,
@@ -43,7 +43,7 @@ export const mockRFQs: RFQ[] = [
   },
   {
     id: "RFQ-003",
-    pair: "RAY/SOL",
+    pair: "RAY/wSOL",
     baseMint: "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
     quoteMint: "So11111111111111111111111111111111111111112",
     baseAmount: 25000,
@@ -63,7 +63,7 @@ export const mockRFQs: RFQ[] = [
   },
   {
     id: "RFQ-004",
-    pair: "SOL/USDT",
+    pair: "wSOL/USDT",
     baseMint: "So11111111111111111111111111111111111111112",
     quoteMint: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
     baseAmount: 75000,
@@ -245,7 +245,7 @@ export const mockRFQs: RFQ[] = [
   },
   {
     id: "A7kpMn...Zy9qWx",
-    pair: "JUP/SOL",
+    pair: "JUP/wSOL",
     baseMint: "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
     quoteMint: "So11111111111111111111111111111111111111112",
     baseAmount: 150000,
@@ -290,7 +290,7 @@ export const getStatusConfig = (status: RFQState) => {
       color: "text-green-400", 
       bgColor: "bg-green-500/20", 
       label: "Open",
-      description: "RFQ is open and accepting commitments. Takers can now submit ZK proof commitments to participate."
+      description: "RFQ is open and accepting commitments. Takers can now submit cryptographic proof commitments to participate."
     },
     Committed: { 
       color: "text-blue-400", 

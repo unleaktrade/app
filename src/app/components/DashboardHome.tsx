@@ -268,7 +268,7 @@ export function DashboardHome({ onCreateRFQ, onBrowseRFQs, onViewRFQ, onQuoteRFQ
             <Button
               variant={showMyRFQs ? "default" : "outline"}
               onClick={() => setShowMyRFQs(!showMyRFQs)}
-              className={showMyRFQs ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white" : "border-white/20 text-white hover:bg-white/10"}
+              className={showMyRFQs ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white" : "bg-white/10 border-white/30 text-white/90 hover:bg-white/[0.15] hover:border-white/40 hover:text-white"}
             >
               My RFQs
             </Button>
@@ -369,7 +369,7 @@ export function DashboardHome({ onCreateRFQ, onBrowseRFQs, onViewRFQ, onQuoteRFQ
                             size="sm"
                             variant="outline"
                             onClick={() => onViewRFQ(rfq.id)}
-                            className="flex-1 border-white/20 text-white hover:bg-white/10"
+                            className="flex-1 bg-white/10 border-white/30 text-white/90 hover:bg-white/[0.15] hover:border-white/40 hover:text-white"
                           >
                             <Eye className="mr-2 h-3.5 w-3.5" />
                             View
@@ -462,56 +462,6 @@ export function DashboardHome({ onCreateRFQ, onBrowseRFQs, onViewRFQ, onQuoteRFQ
               </motion.div>
             )}
           </AnimatePresence>
-        </motion.div>
-
-        {/* Bottom CTAs */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="grid sm:grid-cols-2 gap-6 mt-8"
-        >
-          {/* Create RFQ - For Makers */}
-          <div className="relative overflow-hidden bg-gradient-to-br from-purple-500/10 via-purple-600/10 to-purple-700/10 backdrop-blur-sm border border-purple-500/20 rounded-xl p-8 group hover:border-purple-500/40 transition-all">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl -mr-32 -mt-32 group-hover:bg-purple-500/20 transition-all" />
-            <div className="relative">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 mb-4 group-hover:scale-110 transition-transform">
-                <Plus className="h-6 w-6 text-white" />
-              </div>
-              <h3 className="text-xl font-bold text-white mb-2">Create Request for Quote</h3>
-              <p className="text-sm text-white/60 mb-1 font-medium">FOR MAKERS</p>
-              <p className="text-sm text-white/50 mb-6">
-                Post your trading intent and receive competitive quotes from institutional counterparties with complete privacy.
-              </p>
-              <Button
-                onClick={onCreateRFQ}
-                className="w-full bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 hover:from-purple-600 hover:via-purple-700 hover:to-purple-800 text-white font-medium"
-              >
-                Create New RFQ
-              </Button>
-            </div>
-          </div>
-
-          {/* Browse & Quote - For Takers */}
-          <div className="relative overflow-hidden bg-gradient-to-br from-cyan-500/10 via-blue-500/10 to-blue-600/10 backdrop-blur-sm border border-cyan-500/20 rounded-xl p-8 group hover:border-cyan-500/40 transition-all">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl -mr-32 -mt-32 group-hover:bg-cyan-500/20 transition-all" />
-            <div className="relative">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 mb-4 group-hover:scale-110 transition-transform">
-                <Eye className="h-6 w-6 text-white" />
-              </div>
-              <h3 className="text-xl font-bold text-white mb-2">Browse & Quote</h3>
-              <p className="text-sm text-white/60 mb-1 font-medium">FOR TAKERS</p>
-              <p className="text-sm text-white/50 mb-6">
-                Discover active RFQs and submit competitive quotes with zero-knowledge proof of funds and fair settlement.
-              </p>
-              <Button
-                onClick={onBrowseRFQs}
-                className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-medium"
-              >
-                Browse RFQs
-              </Button>
-            </div>
-          </div>
         </motion.div>
       </div>
     </div>

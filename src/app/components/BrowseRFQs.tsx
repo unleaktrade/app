@@ -63,7 +63,7 @@ export function BrowseRFQs({ myRFQsOnly = false, onViewRFQ, onQuoteRFQ }: Browse
             <Button
               variant={filterExpiringSoon ? "default" : "outline"}
               onClick={() => setFilterExpiringSoon(!filterExpiringSoon)}
-              className={filterExpiringSoon ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white" : "border-white/20 text-white hover:bg-white/10"}
+              className={filterExpiringSoon ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white" : "bg-white/10 border-white/30 text-white/90 hover:bg-white/[0.15] hover:border-white/40 hover:text-white"}
             >
               <Filter className="mr-2 h-4 w-4" />
               Expires Soon
@@ -141,7 +141,7 @@ export function BrowseRFQs({ myRFQsOnly = false, onViewRFQ, onQuoteRFQ }: Browse
                         size="sm"
                         variant="outline"
                         onClick={() => onViewRFQ(rfq.id)}
-                        className="flex-1 border-white/20 text-white hover:bg-white/10"
+                        className="flex-1 bg-white/10 border-white/30 text-white/90 hover:bg-white/[0.15] hover:border-white/40 hover:text-white"
                       >
                         <Eye className="mr-2 h-3.5 w-3.5" />
                         View
