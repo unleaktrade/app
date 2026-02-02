@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "motion/react";
 import { Button } from "@/app/components/ui/button";
-import { Search, TrendingUp, Eye, Filter } from "lucide-react";
+import { Search, Coins, Eye, Filter } from "lucide-react";
 import { RFQ } from "@/app/App";
 import { mockRFQs, getCardGradient, getCardBorder, getCardGlow } from "@/app/data/mockRFQs";
 import { StatusBadge } from "@/app/components/StatusBadge";
@@ -102,7 +102,7 @@ export function BrowseRFQs({ myRFQsOnly = false, onViewRFQ, onQuoteRFQ }: Browse
                     <div className="mb-4">
                       <div className="text-xs text-white/50 mb-1">Pair</div>
                       <div className="flex items-center gap-1 text-lg font-semibold text-white">
-                        <TrendingUp className="h-4 w-4 text-cyan-400" />
+                        <Coins className="h-4 w-4 text-cyan-400" />
                         {rfq.pair}
                       </div>
                     </div>

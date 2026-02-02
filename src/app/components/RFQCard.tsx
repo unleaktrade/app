@@ -1,7 +1,7 @@
 import { RFQ, UserRole } from "@/app/App";
 import { motion } from "motion/react";
 import { Button } from "@/app/components/ui/button";
-import { TrendingUp, Eye } from "lucide-react";
+import { Coins, Eye } from "lucide-react";
 import { getCardGradient, getCardBorder, getCardGlow } from "@/app/data/mockRFQs";
 import { StatusBadge } from "@/app/components/StatusBadge";
 
@@ -51,7 +51,7 @@ export function RFQCard({ rfq, onView, userRole }: RFQCardProps) {
         <div className="mb-4">
           <div className="text-xs text-white/50 mb-1">Pair</div>
           <div className="flex items-center gap-1 text-lg font-semibold text-white">
-            <TrendingUp className="h-4 w-4 text-cyan-400" />
+            <Coins className="h-4 w-4 text-cyan-400" />
             {pair}
           </div>
         </div>

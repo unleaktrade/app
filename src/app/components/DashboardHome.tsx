@@ -1,12 +1,12 @@
 import { motion, AnimatePresence } from "motion/react";
-import { RFQ } from "@/app/App";
-import { mockRFQs, getLiquidityData, getCardGradient, getCardBorder, getCardGlow } from "@/app/data/mockRFQs";
+import { RFQ, UserRole } from "@/app/App";
 import { StatusBadge } from "@/app/components/StatusBadge";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
-import { Activity, TrendingUp, DollarSign, Users, Search, Eye, Plus, ArrowRight, Grid3x3, List, Clock, Shield } from "lucide-react";
+import { Activity, Coins, DollarSign, Users, Search, Eye, Plus, ArrowRight, Grid3x3, List, Clock, Shield, TrendingUp } from "lucide-react";
 import { useState } from "react";
+import { mockRFQs, getCardGradient, getCardBorder, getCardGlow } from "@/app/data/mockRFQs";
 
 interface DashboardHomeProps {
   onCreateRFQ: () => void;
@@ -21,13 +21,20 @@ export function DashboardHome({ onCreateRFQ, onBrowseRFQs, onViewRFQ, onQuoteRFQ
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
   const [showMyRFQs, setShowMyRFQs] = useState(false);
 
-  const liquidityData = getLiquidityData();
+  // Liquidity data for the donut chart
+  const liquidityData = [
+    { token: "USDC", value: 35, color: "#2775ca" },
+    { token: "wSOL", value: 28, color: "#14f195" },
+    { token: "USDT", value: 18, color: "#26a17b" },
+    { token: "JUP", value: 12, color: "#c7f284" },
+    { token: "Others", value: 7, color: "#667085" },
+  ];
   const totalLiquidityValue = liquidityData.reduce((sum, item) => sum + item.value, 0);
 
   // Stats
   const stats = [
     { label: "Active RFQs", value: "12", subtext: "8 filling soon", icon: Activity, gradient: "from-cyan-500 to-blue-500" },
-    { label: "24h Volume", value: "$2.4M", subtext: "+18.2% vs yesterday", icon: TrendingUp, gradient: "from-cyan-500 to-blue-500" },
+    { label: "24h Volume", value: "$2.4M", subtext: "+18.2% vs yesterday", icon: Coins, gradient: "from-cyan-500 to-blue-500" },
     { label: "Your Quotes", value: "3", subtext: "2 pending selection", icon: Users, gradient: "from-green-500 to-emerald-500" },
     { label: "Completed", value: "47", subtext: "Since launch", icon: DollarSign, gradient: "from-orange-500 to-red-500" },
   ];
@@ -163,7 +170,7 @@ export function DashboardHome({ onCreateRFQ, onBrowseRFQs, onViewRFQ, onQuoteRFQ
               </Button>
             </div>
 
-            <div className="grid sm:grid-cols-2 gap-4">
+            <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
               <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-lg p-4">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="p-2 rounded-lg bg-green-500/20">
@@ -196,7 +203,7 @@ export function DashboardHome({ onCreateRFQ, onBrowseRFQs, onViewRFQ, onQuoteRFQ
                     <Shield className="h-4 w-4 text-cyan-400" />
                   </div>
                   <div>
-                    <div className="text-xs text-white/50">Total Locked</div>
+                    <div className="text-xs text-white/50">Total Bonded</div>
                     <div className="text-2xl font-bold text-white">$4.2M</div>
                   </div>
                 </div>
@@ -214,6 +221,84 @@ export function DashboardHome({ onCreateRFQ, onBrowseRFQs, onViewRFQ, onQuoteRFQ
                   </div>
                 </div>
                 <div className="text-xs text-orange-400">+12 this week</div>
+              </div>
+
+              <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-lg p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2 rounded-lg bg-purple-500/20">
+                    <Activity className="h-4 w-4 text-purple-400" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-white/50">Settlement Rate</div>
+                    <div className="text-2xl font-bold text-white">94.2%</div>
+                  </div>
+                </div>
+                <div className="text-xs text-purple-400">Last 7 days</div>
+              </div>
+
+              <div className="bg-gradient-to-br from-yellow-500/10 to-orange-500/10 border border-yellow-500/20 rounded-lg p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2 rounded-lg bg-yellow-500/20">
+                    <Coins className="h-4 w-4 text-yellow-400" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-white/50">Avg. Spread</div>
+                    <div className="text-2xl font-bold text-white">0.18%</div>
+                  </div>
+                </div>
+                <div className="text-xs text-yellow-400">vs 0.32% CEX avg</div>
+              </div>
+            </div>
+
+            {/* Top Pairs & Recent Activity */}
+            <div className="grid sm:grid-cols-2 gap-4">
+              {/* Top Pairs */}
+              <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+                <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-cyan-400" />
+                  Top Pairs (24h)
+                </h4>
+                <div className="space-y-2.5">
+                  {[
+                    { pair: "wSOL/USDC", volume: "$842K", change: "+12.4%", color: "text-green-400" },
+                    { pair: "USDC/USDT", volume: "$624K", change: "+8.1%", color: "text-green-400" },
+                    { pair: "JUP/USDC", volume: "$418K", change: "-2.3%", color: "text-red-400" },
+                  ].map((item) => (
+                    <div key={item.pair} className="flex items-center justify-between text-sm hover:bg-white/5 rounded px-2 py-1.5 -mx-2 transition-colors cursor-pointer">
+                      <div className="flex items-center gap-2">
+                        <Coins className="h-3.5 w-3.5 text-cyan-400" />
+                        <span className="text-white font-medium">{item.pair}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-white/60">{item.volume}</span>
+                        <span className={`${item.color} font-medium text-xs`}>{item.change}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Recent Activity */}
+              <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+                <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-cyan-400" />
+                  Recent Activity
+                </h4>
+                <div className="space-y-2.5">
+                  {[
+                    { action: "RFQ Settled", pair: "wSOL/USDC", time: "2m ago", color: "text-green-400" },
+                    { action: "Quote Submitted", pair: "USDC/USDT", time: "5m ago", color: "text-blue-400" },
+                    { action: "RFQ Created", pair: "JUP/wSOL", time: "8m ago", color: "text-purple-400" },
+                  ].map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-sm hover:bg-white/5 rounded px-2 py-1.5 -mx-2 transition-colors">
+                      <div>
+                        <div className={`${item.color} font-medium text-xs mb-0.5`}>{item.action}</div>
+                        <div className="text-white/60 text-xs">{item.pair}</div>
+                      </div>
+                      <span className="text-white/40 text-xs">{item.time}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </motion.div>
@@ -330,7 +415,7 @@ export function DashboardHome({ onCreateRFQ, onBrowseRFQs, onViewRFQ, onQuoteRFQ
                         <div className="mb-4">
                           <div className="text-xs text-white/50 mb-1">Pair</div>
                           <div className="flex items-center gap-1 text-lg font-semibold text-white">
-                            <TrendingUp className="h-4 w-4 text-cyan-400" />
+                            <Coins className="h-4 w-4 text-cyan-400" />
                             {rfq.pair}
                           </div>
                         </div>

@@ -1,11 +1,7 @@
-import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/app/components/ui/dialog";
-import { Button } from "@/app/components/ui/button";
-import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { RFQ } from "@/app/App";
 import { toast } from "sonner";
-import { Info, TrendingUp, AlertCircle } from "lucide-react";
+import { Info, Coins, AlertCircle } from "lucide-react";
 
 interface SubmitQuoteModalProps {
   rfq: RFQ;
@@ -48,7 +44,7 @@ export function SubmitQuoteModal({ rfq, open, onOpenChange }: SubmitQuoteModalPr
           {/* RFQ Summary */}
           <div className="bg-white/5 border border-white/10 rounded-lg p-4 space-y-3">
             <div className="flex items-center gap-2 text-white/80 font-medium">
-              <TrendingUp className="h-4 w-4" />
+              <Coins className="h-4 w-4" />
               <span>RFQ Summary</span>
             </div>
 
