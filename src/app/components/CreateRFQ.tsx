@@ -4,14 +4,14 @@ import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
-import { ArrowLeft, Plus, Info } from "lucide-react";
+import { ArrowLeft, Info } from "lucide-react";
 import { toast } from "sonner";
 
 interface CreateRFQProps {
   onBack: () => void;
 }
 
-const tokens = ["SOL", "USDC", "BONK", "JUP", "PYTH", "ORCA", "WIF", "RAY"];
+const tokens = ["wSOL", "USDC", "BONK", "JUP", "PYTH", "ORCA", "WIF", "RAY"];
 
 export function CreateRFQ({ onBack }: CreateRFQProps) {
   const [baseMint, setBaseMint] = useState("");
@@ -64,11 +64,11 @@ export function CreateRFQ({ onBack }: CreateRFQProps) {
             Back to Dashboard
           </Button>
 
-          <h1 className="text-3xl sm:text-4xl font-bold mb-2 bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
+          <h1 className="text-4xl sm:text-5xl font-bold text-white mb-4 leading-tight">
             Create New RFQ
           </h1>
           <p className="text-white/60">
-            Set up your OTC request and wait for competitive quotes from takers
+            Set up your OTC request and receive competitive quotes from qualified takers
           </p>
         </motion.div>
 
@@ -248,24 +248,6 @@ export function CreateRFQ({ onBack }: CreateRFQProps) {
                 />
               </div>
             </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-4 pt-4">
-            <Button
-              variant="outline"
-              onClick={onBack}
-              className="flex-1 border-white/20 hover:bg-white/10 text-white"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreate}
-              className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Create RFQ
-            </Button>
           </div>
         </motion.div>
       </div>

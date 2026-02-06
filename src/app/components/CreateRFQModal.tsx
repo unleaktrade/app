@@ -4,7 +4,7 @@ import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { toast } from "sonner";
-import { Info } from "lucide-react";
+import { Info, ChevronDown, ChevronUp } from "lucide-react";
 
 interface CreateRFQModalProps {
   open: boolean;
@@ -21,9 +21,12 @@ export function CreateRFQModal({ open, onOpenChange }: CreateRFQModalProps) {
   const [revealPhase, setRevealPhase] = useState("1800");
   const [selectionPhase, setSelectionPhase] = useState("1800");
   const [fundPhase, setFundPhase] = useState("3600");
+  const [bondAmount, setBondAmount] = useState("5000");
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [facilitatorAddress, setFacilitatorAddress] = useState("");
 
   const handleCreate = () => {
-    if (!baseMintAddress || !quoteMintAddress || !amountToTrade) {
+    if (!baseMintAddress || !quoteMintAddress || !amountToTrade || !bondAmount) {
       toast.error("Please fill in all required fields");
       return;
     }
@@ -38,6 +41,8 @@ export function CreateRFQModal({ open, onOpenChange }: CreateRFQModalProps) {
     setAmountToTrade("");
     setBaseATA("");
     setQuoteATA("");
+    setBondAmount("5000");
+    setFacilitatorAddress("");
     
     onOpenChange(false);
   };
@@ -47,7 +52,9 @@ export function CreateRFQModal({ open, onOpenChange }: CreateRFQModalProps) {
       <DialogContent className="bg-[#0f0f1a] border-white/10 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold">Create Request for Quote</DialogTitle>
-          <DialogDescription className="text-sm text-white/60">Submit your trading intent to receive competitive quotes from institutional counterparties</DialogDescription>
+          <DialogDescription className="text-sm text-white/60">
+            Post your trading intent and receive competitive quotes from qualified counterparties
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 mt-6">
@@ -58,7 +65,8 @@ export function CreateRFQModal({ open, onOpenChange }: CreateRFQModalProps) {
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="baseMint" className="flex items-center gap-2">
-                  Base Mint Account <Info className="h-3 w-3 text-white/40" />
+                  Base Mint Account <span className="text-red-400">*</span>
+                  <Info className="h-3 w-3 text-white/40" />
                 </Label>
                 <Input
                   id="baseMint"
@@ -71,7 +79,8 @@ export function CreateRFQModal({ open, onOpenChange }: CreateRFQModalProps) {
 
               <div className="space-y-2">
                 <Label htmlFor="quoteMint" className="flex items-center gap-2">
-                  Quote Mint Account <Info className="h-3 w-3 text-white/40" />
+                  Quote Mint Account <span className="text-red-400">*</span>
+                  <Info className="h-3 w-3 text-white/40" />
                 </Label>
                 <Input
                   id="quoteMint"
@@ -85,7 +94,8 @@ export function CreateRFQModal({ open, onOpenChange }: CreateRFQModalProps) {
 
             <div className="space-y-2">
               <Label htmlFor="amount" className="flex items-center gap-2">
-                Amount to Trade <Info className="h-3 w-3 text-white/40" />
+                Amount to Trade <span className="text-red-400">*</span>
+                <Info className="h-3 w-3 text-white/40" />
               </Label>
               <Input
                 id="amount"
@@ -123,6 +133,29 @@ export function CreateRFQModal({ open, onOpenChange }: CreateRFQModalProps) {
                   className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Bond Amount */}
+          <div className="space-y-4 pt-4 border-t border-white/10">
+            <h3 className="text-lg font-semibold">Bond Settings</h3>
+            <p className="text-sm text-white/60">
+              Collateral amount locked to ensure commitment from both parties
+            </p>
+
+            <div className="space-y-2">
+              <Label htmlFor="bondAmount" className="flex items-center gap-2">
+                Bond Amount (USDC) <span className="text-red-400">*</span>
+                <Info className="h-3 w-3 text-white/40" />
+              </Label>
+              <Input
+                id="bondAmount"
+                type="number"
+                placeholder="5000"
+                value={bondAmount}
+                onChange={(e) => setBondAmount(e.target.value)}
+                className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+              />
             </div>
           </div>
 
@@ -198,19 +231,44 @@ export function CreateRFQModal({ open, onOpenChange }: CreateRFQModalProps) {
             </div>
           </div>
 
-          {/* Advanced Settings */}
+          {/* Advanced Settings - Collapsible */}
           <div className="space-y-4 pt-4 border-t border-white/10">
-            <h3 className="text-lg font-semibold">Advanced Settings</h3>
+            <button
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="flex items-center justify-between w-full text-lg font-semibold hover:text-white/80 transition-colors"
+            >
+              <span>Advanced Settings</span>
+              {showAdvanced ? (
+                <ChevronUp className="h-5 w-5" />
+              ) : (
+                <ChevronDown className="h-5 w-5" />
+              )}
+            </button>
 
-            <div className="space-y-2">
-              <Label htmlFor="bondAmount" className="flex items-center gap-2">
-                Bound Amount <Info className="h-3 w-3 text-white/40" />
-              </Label>
-              <div className="bg-white/5 border border-white/10 rounded-lg p-4 text-sm text-white/60">
-                Coming soon...
-                <div className="text-xs text-white/40 mt-1">This feature is currently unavailable</div>
+            {showAdvanced && (
+              <div className="space-y-4 pt-2">
+                <p className="text-sm text-white/60">
+                  Optional parameters for advanced configuration
+                </p>
+
+                <div className="space-y-2">
+                  <Label htmlFor="facilitatorAddress" className="flex items-center gap-2">
+                    Facilitator Address (Optional)
+                    <Info className="h-3 w-3 text-white/40" />
+                  </Label>
+                  <Input
+                    id="facilitatorAddress"
+                    placeholder="Enter facilitator wallet address..."
+                    value={facilitatorAddress}
+                    onChange={(e) => setFacilitatorAddress(e.target.value)}
+                    className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+                  />
+                  <p className="text-xs text-white/40">
+                    Optional intermediary who can claim a fee share from the settlement
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Actions */}
@@ -218,7 +276,7 @@ export function CreateRFQModal({ open, onOpenChange }: CreateRFQModalProps) {
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="flex-1 border-white/20 text-white hover:bg-white/10"
+              className="flex-1 bg-white/10 border-white/30 text-white/90 hover:bg-white/[0.15] hover:border-white/40 hover:text-white"
             >
               Cancel
             </Button>

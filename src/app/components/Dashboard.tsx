@@ -1,8 +1,8 @@
-import { UserRole } from "@/app/App";
+import { RFQ } from "@/app/App";
 import { motion } from "motion/react";
 import { RFQCard } from "@/app/components/RFQCard";
 import { mockRFQs } from "@/app/data/mockData";
-import { TrendingUp, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import { Activity, Clock, CheckCircle2, AlertCircle } from "lucide-react";
 
 interface DashboardProps {
   userRole: UserRole;
@@ -65,7 +65,7 @@ export function Dashboard({ userRole, onViewRFQ }: DashboardProps) {
         >
           <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 sm:p-6">
             <div className="flex items-center justify-between mb-2">
-              <TrendingUp className="h-5 w-5 text-cyan-400" />
+              <Activity className="h-5 w-5 text-cyan-400" />
               <span className="text-xs text-white/40 uppercase tracking-wider">
                 {userRole === "maker" ? "Active" : "Available"}
               </span>
