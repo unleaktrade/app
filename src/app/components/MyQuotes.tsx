@@ -177,8 +177,19 @@ interface StateSectionProps {
 function StateSection({ title, subtitle, color, quotes, onViewRFQ, collapsed }: StateSectionProps) {
   const [isCollapsed, setIsCollapsed] = useState(collapsed || false);
 
+  // Get state background gradient based on title
+  const getStateBgGradient = (state: string) => {
+    switch (state) {
+      case "Committed": return "from-purple-500/10 to-purple-600/5";
+      case "Revealed": return "from-indigo-500/10 to-indigo-600/5";
+      case "Selected": return "from-blue-500/10 to-blue-600/5";
+      case "Settled": return "from-teal-500/10 to-teal-600/5";
+      default: return "from-white/5 to-white/2";
+    }
+  };
+
   return (
-    <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm border border-white/10 rounded-lg sm:rounded-xl p-4 sm:p-6">
+    <div className={`bg-gradient-to-br ${getStateBgGradient(title)} backdrop-blur-sm border border-white/10 rounded-lg sm:rounded-xl p-4 sm:p-6`}>
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className={`text-lg sm:text-xl font-bold ${color} mb-1`}>

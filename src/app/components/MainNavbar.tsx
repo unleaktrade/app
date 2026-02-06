@@ -91,6 +91,14 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
               <div className="hidden lg:flex items-center gap-1">
                 {navItems.map((item) => {
                   const Icon = item.icon;
+                  // Color system: Purple for Maker, Blue for Taker, Cyan for Marketplace, Green for Earnings
+                  const getActiveColor = () => {
+                    if (item.id === "my-rfqs") return "from-purple-500/20 to-purple-600/20 border-purple-500/30";
+                    if (item.id === "my-quotes") return "from-blue-500/20 to-blue-600/20 border-blue-500/30";
+                    if (item.id === "my-earnings") return "from-green-500/20 to-emerald-500/20 border-green-500/30";
+                    return "from-cyan-500/20 to-blue-500/20 border-cyan-500/30"; // marketplace
+                  };
+                  
                   return (
                     <button
                       key={item.id}
@@ -100,7 +108,7 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
                       {currentView === item.id && (
                         <motion.div
                           layoutId="activeNav"
-                          className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 rounded-lg"
+                          className={`absolute inset-0 bg-gradient-to-r ${getActiveColor()} border rounded-lg`}
                           transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                         />
                       )}
@@ -122,11 +130,11 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
 
             {/* Desktop: Create Button | Mobile/Tablet: Hamburger Only */}
             <div className="flex items-center gap-3 relative z-10">
-              {/* Create RFQ Button - Desktop Only */}
+              {/* Create RFQ Button - Desktop Only - PURPLE for Maker */}
               <Button
                 onClick={handleCreateRFQ}
                 size="sm"
-                className="hidden lg:flex bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white shadow-lg shadow-cyan-500/20"
+                className="hidden lg:flex bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white shadow-lg shadow-purple-500/20"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Create RFQ
@@ -199,7 +207,7 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
                   <Button
                     onClick={handleCreateRFQ}
                     size="lg"
-                    className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white shadow-lg shadow-cyan-500/20 font-semibold"
+                    className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white shadow-lg shadow-purple-500/20 font-semibold"
                   >
                     <Plus className="h-5 w-5 mr-2" />
                     Create RFQ
@@ -218,6 +226,36 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
                 <div className="space-y-2">
                   {navItems.map((item, index) => {
                     const Icon = item.icon;
+                    // Color system: Purple for Maker, Blue for Taker, Cyan for Marketplace, Green for Earnings
+                    const getActiveMobileColor = () => {
+                      if (item.id === "my-rfqs") return {
+                        bg: "from-purple-500/20 to-purple-600/10 border-purple-500/30 shadow-purple-500/10",
+                        iconBg: "bg-purple-500/20",
+                        iconColor: "text-purple-400",
+                        chevronColor: "text-purple-400"
+                      };
+                      if (item.id === "my-quotes") return {
+                        bg: "from-blue-500/20 to-blue-600/10 border-blue-500/30 shadow-blue-500/10",
+                        iconBg: "bg-blue-500/20",
+                        iconColor: "text-blue-400",
+                        chevronColor: "text-blue-400"
+                      };
+                      if (item.id === "my-earnings") return {
+                        bg: "from-green-500/20 to-emerald-500/10 border-green-500/30 shadow-green-500/10",
+                        iconBg: "bg-green-500/20",
+                        iconColor: "text-green-400",
+                        chevronColor: "text-green-400"
+                      };
+                      return {
+                        bg: "from-cyan-500/20 to-blue-500/10 border-cyan-500/30 shadow-cyan-500/10",
+                        iconBg: "bg-cyan-500/20",
+                        iconColor: "text-cyan-400",
+                        chevronColor: "text-cyan-400"
+                      };
+                    };
+                    
+                    const activeColors = getActiveMobileColor();
+                    
                     return (
                       <motion.button
                         key={item.id}
@@ -227,7 +265,7 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
                         onClick={() => handleNavigate(item.id)}
                         className={`w-full px-5 py-4 rounded-xl text-left transition-all group ${
                           currentView === item.id
-                            ? "bg-gradient-to-r from-cyan-500/20 to-blue-500/10 border border-cyan-500/30 shadow-lg shadow-cyan-500/10"
+                            ? `bg-gradient-to-r ${activeColors.bg} border shadow-lg`
                             : "bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20"
                         }`}
                       >
@@ -235,12 +273,12 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
                           <div className="flex items-center gap-3">
                             <div className={`p-2 rounded-lg ${
                               currentView === item.id
-                                ? "bg-cyan-500/20"
+                                ? activeColors.iconBg
                                 : "bg-white/10 group-hover:bg-white/20"
                             }`}>
                               <Icon className={`h-5 w-5 ${
                                 currentView === item.id
-                                  ? "text-cyan-400"
+                                  ? activeColors.iconColor
                                   : "text-white/60 group-hover:text-white"
                               }`} />
                             </div>
@@ -259,7 +297,7 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
                           </div>
                           <ChevronRight className={`h-5 w-5 transition-transform ${
                             currentView === item.id
-                              ? "text-cyan-400 translate-x-0"
+                              ? `${activeColors.chevronColor} translate-x-0`
                               : "text-white/30 -translate-x-1 group-hover:translate-x-0 group-hover:text-white/60"
                           }`} />
                         </div>
