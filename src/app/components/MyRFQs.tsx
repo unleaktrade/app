@@ -45,7 +45,7 @@ export function MyRFQs({ onCreateRFQ, onViewRFQ }: MyRFQsProps) {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 sm:mb-8"
+          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8"
         >
           <div>
             <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">My RFQs</h1>
@@ -54,7 +54,7 @@ export function MyRFQs({ onCreateRFQ, onViewRFQ }: MyRFQsProps) {
           <Button
             onClick={onCreateRFQ}
             size="lg"
-            className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white shadow-lg shadow-cyan-500/20 w-full sm:w-auto"
+            className="bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 hover:from-purple-600 hover:via-purple-700 hover:to-purple-800 text-white shadow-lg shadow-purple-500/30 w-full sm:w-auto"
           >
             <Plus className="mr-2 h-5 w-5" />
             Create RFQ

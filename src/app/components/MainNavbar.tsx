@@ -130,11 +130,11 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
 
             {/* Desktop: Create Button | Mobile/Tablet: Hamburger Only */}
             <div className="flex items-center gap-3 relative z-10">
-              {/* Create RFQ Button - Desktop Only - PURPLE for Maker */}
+              {/* Create RFQ Button - Desktop Only - PURPLE gradient for Maker */}
               <Button
                 onClick={handleCreateRFQ}
                 size="sm"
-                className="hidden lg:flex bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white shadow-lg shadow-purple-500/20"
+                className="hidden lg:flex bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 hover:from-purple-600 hover:via-purple-700 hover:to-purple-800 text-white shadow-lg shadow-purple-500/30"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Create RFQ
@@ -207,7 +207,7 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
                   <Button
                     onClick={handleCreateRFQ}
                     size="lg"
-                    className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white shadow-lg shadow-purple-500/20 font-semibold"
+                    className="w-full bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 hover:from-purple-600 hover:via-purple-700 hover:to-purple-800 text-white shadow-lg shadow-purple-500/30 font-semibold"
                   >
                     <Plus className="h-5 w-5 mr-2" />
                     Create RFQ
