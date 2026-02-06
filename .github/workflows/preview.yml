@@ -1,0 +1,77 @@
+name: Deploy – Vercel Preview (PR)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  deployments: write
+
+concurrency:
+  group: preview-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy_preview:
+    # Skip forked PRs (secrets are not available there)
+    if: >
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+
+    # This makes it visible under Settings → Environments → Preview
+    environment:
+      name: Preview
+      url: ${{ steps.deploy_prebuilt.outputs.url }}
+
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          # cache: 'npm'   # uncomment if you use npm and want caching
+
+      # Pull env + link the Vercel project for this runner
+      - name: Pull Vercel env (preview)
+        run: npx vercel pull --yes --environment=preview --token=$VERCEL_TOKEN
+
+      # Local build on the runner (deterministic & cached)
+      - name: Build (preview)
+        run: npx vercel build --token=$VERCEL_TOKEN
+
+      # Upload prebuilt artifacts to Vercel (fast deploy)
+      - name: Deploy (preview)
+        id: deploy_prebuilt
+        run: |
+          url=$(npx vercel deploy --prebuilt --token=$VERCEL_TOKEN)
+          echo "url=$url" >> $GITHUB_OUTPUT
+
+      # Comment the preview URL on the PR
+      - name: Comment preview URL on PR
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const url = `${{ steps.deploy_prebuilt.outputs.url }}`;
+            const body = `✅ Vercel Preview ready:\n\n${url}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body
+            });
+
+      # Job summary (shows in GitHub Actions UI)
+      - name: Job summary
+        run: |
+          echo "### ✅ Preview deployed" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.deploy_prebuilt.outputs.url }}" >> $GITHUB_STEP_SUMMARY
