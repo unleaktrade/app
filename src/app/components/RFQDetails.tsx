@@ -287,7 +287,7 @@ export function RFQDetails({ rfqId, userRole, onBack }: RFQDetailsProps) {
 
                   <Button
                     onClick={handleSubmitQuote}
-                    className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white"
+                    className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white"
                   >
                     <Send className="mr-2 h-4 w-4" />
                     Submit Quote
