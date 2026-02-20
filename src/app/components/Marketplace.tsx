@@ -10,7 +10,7 @@ import {
   Search, Filter, TrendingUp, Activity, Clock, Shield,
   Coins, ChevronDown, LayoutGrid, List, Eye,
   Users, Target, Zap, Percent, ArrowRight, PieChart as PieChartIcon, BarChart3,
-  Columns3, Rows3, ChevronUp, MousePointerClick
+  Columns3, Rows3, ChevronUp, MousePointerClick, BadgeCheck
 } from "lucide-react";
 
 interface MarketplaceProps {
@@ -43,11 +43,8 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ }: MarketplaceProps) {
   };
   
   // Filter RFQs: Show ALL states including Draft
-  // Exclude my own RFQs
+  // NOW SHOWING my own RFQs with visual distinction
   const availableRFQs = mockRFQs.filter(rfq => {
-    // Don't show my own RFQs
-    if (rfq.maker === CURRENT_USER_FULL) return false;
-    
     // Apply state filter
     if (stateFilter === "draft" && rfq.state !== "Draft") return false;
     if (stateFilter === "open" && rfq.state !== "Open") return false;
@@ -75,17 +72,32 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ }: MarketplaceProps) {
     return 0;
   });
 
-  // Group RFQs by state for swimlane view
+  // Group RFQs by state for swimlane and horizontal views
+  // Sort each group: MY RFQs first, then others
+  const sortByOwnership = (rfqs: RFQ[]) => {
+    return rfqs.sort((a, b) => {
+      const aIsMine = a.maker === CURRENT_USER_FULL;
+      const bIsMine = b.maker === CURRENT_USER_FULL;
+      
+      // My RFQs come first
+      if (aIsMine && !bIsMine) return -1;
+      if (!aIsMine && bIsMine) return 1;
+      
+      // Within each group, sort by creation date
+      return (b.createdAt || 0) - (a.createdAt || 0);
+    });
+  };
+
   const rfqsByState = {
-    Draft: sortedRFQs.filter(r => r.state === "Draft"),
-    Open: sortedRFQs.filter(r => r.state === "Open"),
-    Committed: sortedRFQs.filter(r => r.state === "Committed"),
-    Revealed: sortedRFQs.filter(r => r.state === "Revealed"),
-    Selected: sortedRFQs.filter(r => r.state === "Selected"),
-    Settled: sortedRFQs.filter(r => r.state === "Settled"),
-    Expired: sortedRFQs.filter(r => r.state === "Expired"),
-    Ignored: sortedRFQs.filter(r => r.state === "Ignored"),
-    Incomplete: sortedRFQs.filter(r => r.state === "Incomplete"),
+    Draft: sortByOwnership(sortedRFQs.filter(r => r.state === "Draft")),
+    Open: sortByOwnership(sortedRFQs.filter(r => r.state === "Open")),
+    Committed: sortByOwnership(sortedRFQs.filter(r => r.state === "Committed")),
+    Revealed: sortByOwnership(sortedRFQs.filter(r => r.state === "Revealed")),
+    Selected: sortByOwnership(sortedRFQs.filter(r => r.state === "Selected")),
+    Settled: sortByOwnership(sortedRFQs.filter(r => r.state === "Settled")),
+    Expired: sortByOwnership(sortedRFQs.filter(r => r.state === "Expired")),
+    Ignored: sortByOwnership(sortedRFQs.filter(r => r.state === "Ignored")),
+    Incomplete: sortByOwnership(sortedRFQs.filter(r => r.state === "Incomplete")),
   };
 
   // State background gradients
@@ -499,16 +511,105 @@ function RFQMarketplaceCard({ rfq, onQuote, onView }: RFQMarketplaceCardProps) {
   const isCommitted = rfq.state === "Committed";
   const canQuote = rfq.state === "Open" || rfq.state === "Committed";
   
+  // Check if this RFQ belongs to current user
+  const isMyRFQ = rfq.maker === CURRENT_USER_FULL;
+  
   // Get state-based styling
   const cardGradient = getCardGradient(rfq.state);
   const cardBorder = getCardBorder(rfq.state);
+  
+  // Get state color classes for MY RFQ badge and border
+  const getMyRFQStyles = () => {
+    switch (rfq.state) {
+      case "Draft": 
+        return {
+          border: "border-slate-500/70 shadow-lg shadow-slate-500/25",
+          badge: "bg-gradient-to-r from-slate-500 via-slate-500 to-slate-600 border-slate-400/30",
+          triangle: "border-t-slate-900"
+        };
+      case "Open": 
+        return {
+          border: "border-cyan-500/70 shadow-lg shadow-cyan-500/25",
+          badge: "bg-gradient-to-r from-cyan-500 via-cyan-500 to-cyan-600 border-cyan-400/30",
+          triangle: "border-t-cyan-900"
+        };
+      case "Committed": 
+        return {
+          border: "border-purple-500/70 shadow-lg shadow-purple-500/25",
+          badge: "bg-gradient-to-r from-purple-500 via-purple-500 to-purple-600 border-purple-400/30",
+          triangle: "border-t-purple-900"
+        };
+      case "Revealed": 
+        return {
+          border: "border-indigo-500/70 shadow-lg shadow-indigo-500/25",
+          badge: "bg-gradient-to-r from-indigo-500 via-indigo-500 to-indigo-600 border-indigo-400/30",
+          triangle: "border-t-indigo-900"
+        };
+      case "Selected": 
+        return {
+          border: "border-blue-500/70 shadow-lg shadow-blue-500/25",
+          badge: "bg-gradient-to-r from-blue-500 via-blue-500 to-blue-600 border-blue-400/30",
+          triangle: "border-t-blue-900"
+        };
+      case "Settled": 
+        return {
+          border: "border-teal-500/70 shadow-lg shadow-teal-500/25",
+          badge: "bg-gradient-to-r from-teal-500 via-teal-500 to-teal-600 border-teal-400/30",
+          triangle: "border-t-teal-900"
+        };
+      case "Expired": 
+        return {
+          border: "border-orange-500/70 shadow-lg shadow-orange-500/25",
+          badge: "bg-gradient-to-r from-orange-500 via-orange-500 to-orange-600 border-orange-400/30",
+          triangle: "border-t-orange-900"
+        };
+      case "Ignored": 
+        return {
+          border: "border-gray-500/70 shadow-lg shadow-gray-500/25",
+          badge: "bg-gradient-to-r from-gray-500 via-gray-500 to-gray-600 border-gray-400/30",
+          triangle: "border-t-gray-900"
+        };
+      case "Incomplete": 
+        return {
+          border: "border-red-500/70 shadow-lg shadow-red-500/25",
+          badge: "bg-gradient-to-r from-red-500 via-red-500 to-red-600 border-red-400/30",
+          triangle: "border-t-red-900"
+        };
+      default: 
+        return {
+          border: "border-cyan-500/70 shadow-lg shadow-cyan-500/25",
+          badge: "bg-gradient-to-r from-cyan-500 via-cyan-500 to-cyan-600 border-cyan-400/30",
+          triangle: "border-t-cyan-900"
+        };
+    }
+  };
+  
+  const myRFQStyles = getMyRFQStyles();
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`group ${cardGradient} backdrop-blur-sm border ${cardBorder} rounded-lg sm:rounded-xl p-4 sm:p-5 transition-all`}
+      className={`group relative ${cardGradient} backdrop-blur-sm border ${
+        isMyRFQ
+          ? `${myRFQStyles.border} animate-pulse-glow`
+          : cardBorder
+      } rounded-lg sm:rounded-xl p-4 sm:p-5 transition-all`}
     >
+      {/* MY RFQ Badge Ribbon with state color */}
+      {isMyRFQ && (
+        <div className="absolute -top-2 -left-2 z-10">
+          <div className="relative">
+            <div className={`${myRFQStyles.badge} text-white text-[10px] font-bold px-3 py-1 rounded-md shadow-lg border flex items-center gap-1.5`}>
+              <BadgeCheck className="h-3 w-3 animate-pulse" />
+              <span>MY RFQ</span>
+            </div>
+            {/* Triangle for ribbon effect */}
+            <div className={`absolute -bottom-1 left-0 w-0 h-0 border-l-[6px] border-l-transparent border-t-[4px] ${myRFQStyles.triangle} border-r-[6px] border-r-transparent`}></div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-start justify-between mb-3 sm:mb-4">
         <div className="flex items-center gap-2">
@@ -577,7 +678,7 @@ function RFQMarketplaceCard({ rfq, onQuote, onView }: RFQMarketplaceCardProps) {
         >
           View
         </Button>
-        {canQuote && (
+        {canQuote && !isMyRFQ && (
           <Button
             onClick={onQuote}
             size="sm"
@@ -603,16 +704,104 @@ function RFQMarketplaceListItem({ rfq, onQuote, onView }: RFQMarketplaceListItem
   const isCommitted = rfq.state === "Committed";
   const canQuote = rfq.state === "Open" || rfq.state === "Committed";
   
+  // Check if this RFQ belongs to current user
+  const isMyRFQ = rfq.maker === CURRENT_USER_FULL;
+  
   // Get state-based styling
   const cardGradient = getCardGradient(rfq.state);
   const cardBorder = getCardBorder(rfq.state);
+  
+  // Get state color classes for MY RFQ badge and border
+  const getMyRFQStyles = () => {
+    switch (rfq.state) {
+      case "Draft": 
+        return {
+          border: "border-slate-500/70 shadow-lg shadow-slate-500/25",
+          badge: "bg-gradient-to-r from-slate-500 via-slate-500 to-slate-600 border-slate-400/30",
+          triangle: "border-t-slate-900"
+        };
+      case "Open": 
+        return {
+          border: "border-cyan-500/70 shadow-lg shadow-cyan-500/25",
+          badge: "bg-gradient-to-r from-cyan-500 via-cyan-500 to-cyan-600 border-cyan-400/30",
+          triangle: "border-t-cyan-900"
+        };
+      case "Committed": 
+        return {
+          border: "border-purple-500/70 shadow-lg shadow-purple-500/25",
+          badge: "bg-gradient-to-r from-purple-500 via-purple-500 to-purple-600 border-purple-400/30",
+          triangle: "border-t-purple-900"
+        };
+      case "Revealed": 
+        return {
+          border: "border-indigo-500/70 shadow-lg shadow-indigo-500/25",
+          badge: "bg-gradient-to-r from-indigo-500 via-indigo-500 to-indigo-600 border-indigo-400/30",
+          triangle: "border-t-indigo-900"
+        };
+      case "Selected": 
+        return {
+          border: "border-blue-500/70 shadow-lg shadow-blue-500/25",
+          badge: "bg-gradient-to-r from-blue-500 via-blue-500 to-blue-600 border-blue-400/30",
+          triangle: "border-t-blue-900"
+        };
+      case "Settled": 
+        return {
+          border: "border-teal-500/70 shadow-lg shadow-teal-500/25",
+          badge: "bg-gradient-to-r from-teal-500 via-teal-500 to-teal-600 border-teal-400/30",
+          triangle: "border-t-teal-900"
+        };
+      case "Expired": 
+        return {
+          border: "border-orange-500/70 shadow-lg shadow-orange-500/25",
+          badge: "bg-gradient-to-r from-orange-500 via-orange-500 to-orange-600 border-orange-400/30",
+          triangle: "border-t-orange-900"
+        };
+      case "Ignored": 
+        return {
+          border: "border-gray-500/70 shadow-lg shadow-gray-500/25",
+          badge: "bg-gradient-to-r from-gray-500 via-gray-500 to-gray-600 border-gray-400/30",
+          triangle: "border-t-gray-900"
+        };
+      case "Incomplete": 
+        return {
+          border: "border-red-500/70 shadow-lg shadow-red-500/25",
+          badge: "bg-gradient-to-r from-red-500 via-red-500 to-red-600 border-red-400/30",
+          triangle: "border-t-red-900"
+        };
+      default: 
+        return {
+          border: "border-cyan-500/70 shadow-lg shadow-cyan-500/25",
+          badge: "bg-gradient-to-r from-cyan-500 via-cyan-500 to-cyan-600 border-cyan-400/30",
+          triangle: "border-t-cyan-900"
+        };
+    }
+  };
+  
+  const myRFQStyles = getMyRFQStyles();
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`${cardGradient} backdrop-blur-sm border ${cardBorder} rounded-lg p-4 transition-all hover:border-opacity-60`}
+      className={`relative ${cardGradient} backdrop-blur-sm border ${
+        isMyRFQ
+          ? `${myRFQStyles.border} animate-pulse-glow`
+          : cardBorder
+      } rounded-lg p-4 transition-all hover:border-opacity-60`}
     >
+      {/* MY RFQ Badge Ribbon with state color */}
+      {isMyRFQ && (
+        <div className="absolute -top-2 -left-2 z-10">
+          <div className="relative">
+            <div className={`${myRFQStyles.badge} text-white text-[10px] font-bold px-3 py-1 rounded-md shadow-lg border flex items-center gap-1.5`}>
+              <BadgeCheck className="h-3 w-3 animate-pulse" />
+              <span>MY RFQ</span>
+            </div>
+            <div className={`absolute -bottom-1 left-0 w-0 h-0 border-l-[6px] border-l-transparent border-t-[4px] ${myRFQStyles.triangle} border-r-[6px] border-r-transparent`}></div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col lg:flex-row lg:items-center gap-4">
         {/* Left: Pair + Status */}
         <div className="flex items-center gap-3 lg:w-48">
@@ -676,7 +865,7 @@ function RFQMarketplaceListItem({ rfq, onQuote, onView }: RFQMarketplaceListItem
             <Eye className="mr-1 h-3 w-3" />
             View
           </Button>
-          {canQuote && (
+          {canQuote && !isMyRFQ && (
             <Button
               onClick={onQuote}
               size="sm"

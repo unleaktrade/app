@@ -127,6 +127,10 @@ export const mockRFQs: RFQ[] = [];
 const states: RFQState[] = ["Draft", "Open", "Committed", "Revealed", "Selected", "Settled", "Expired", "Ignored", "Incomplete"];
 const now = Math.floor(Date.now() / 1000);
 
+// Track RFQs per state to ensure we have at least 1-3 "MY RFQ" in each state
+const myRFQsPerState = new Map<RFQState, number>();
+states.forEach(state => myRFQsPerState.set(state, 0));
+
 // Generate 70 RFQs with more variety
 for (let i = 0; i < 70; i++) {
   const pair = randomElement(TRADING_PAIRS);
@@ -150,8 +154,14 @@ for (let i = 0; i < 70; i++) {
     }
   }
 
-  // Occasionally make current user the maker (10% chance)
-  const isMine = Math.random() < 0.1;
+  // Ensure we have 1-3 "MY RFQ" per state, then 20% chance for others
+  const currentCount = myRFQsPerState.get(state) || 0;
+  const targetMinPerState = 1 + Math.floor(Math.random() * 2); // 1-2 per state minimum
+  const isMine = currentCount < targetMinPerState || Math.random() < 0.2;
+  
+  if (isMine) {
+    myRFQsPerState.set(state, currentCount + 1);
+  }
   
   mockRFQs.push({
     publicKey: `RFQ-${i.toString().padStart(3, '0')}-${generateMockAddress().substring(0, 8)}`,

@@ -317,14 +317,14 @@ export const getStatusConfig = (status: RFQState) => {
       description: "Settlement completed successfully! The taker has funded the escrow and the trade has been executed."
     },
     Ignored: { 
-      color: "text-rose-400", 
-      bgColor: "bg-rose-500/20", 
+      color: "text-gray-400", 
+      bgColor: "bg-gray-500/20", 
       label: "Ignored",
       description: "Maker did not select any valid quote within the selection window. The RFQ has expired without settlement."
     },
     Expired: { 
-      color: "text-white", 
-      bgColor: "bg-white/20", 
+      color: "text-orange-400", 
+      bgColor: "bg-orange-500/20", 
       label: "Expired",
       description: "RFQ expired without receiving any valid commitments or reveals. No takers participated in time."
     },
@@ -347,8 +347,8 @@ export const getCardGradient = (status: RFQState) => {
     Revealed: "bg-gradient-to-br from-indigo-500/15 via-indigo-600/8 to-white/[0.02]",
     Selected: "bg-gradient-to-br from-blue-500/15 via-blue-600/8 to-white/[0.02]",
     Settled: "bg-gradient-to-br from-teal-500/15 via-teal-600/8 to-white/[0.02]",
-    Ignored: "bg-gradient-to-br from-rose-500/15 via-rose-600/8 to-white/[0.02]",
-    Expired: "bg-gradient-to-br from-white/15 via-white/8 to-white/[0.02]",
+    Ignored: "bg-gradient-to-br from-gray-500/15 via-gray-600/8 to-white/[0.02]",
+    Expired: "bg-gradient-to-br from-orange-500/15 via-orange-600/8 to-white/[0.02]",
     Incomplete: "bg-gradient-to-br from-red-500/15 via-red-600/8 to-white/[0.02]",
   };
   return gradients[status] || gradients.Open;
@@ -363,8 +363,8 @@ export const getCardBorder = (status: RFQState) => {
     Revealed: "border-indigo-500/20 hover:border-indigo-400/40",
     Selected: "border-blue-500/20 hover:border-blue-400/40",
     Settled: "border-teal-500/20 hover:border-teal-400/40",
-    Ignored: "border-rose-500/20 hover:border-rose-400/40",
-    Expired: "border-white/20 hover:border-white/40",
+    Ignored: "border-gray-500/20 hover:border-gray-400/40",
+    Expired: "border-orange-500/20 hover:border-orange-400/40",
     Incomplete: "border-red-500/20 hover:border-red-400/40",
   };
   return borders[status] || borders.Open;
@@ -379,8 +379,8 @@ export const getCardGlow = (status: RFQState) => {
     Revealed: "from-indigo-500/0 to-indigo-600/0 group-hover:from-indigo-500/5 group-hover:to-indigo-600/10",
     Selected: "from-blue-500/0 to-blue-600/0 group-hover:from-blue-500/5 group-hover:to-blue-600/10",
     Settled: "from-teal-500/0 to-teal-600/0 group-hover:from-teal-500/5 group-hover:to-teal-600/10",
-    Ignored: "from-rose-500/0 to-rose-600/0 group-hover:from-rose-500/5 group-hover:to-rose-600/10",
-    Expired: "from-white/0 to-white/0 group-hover:from-white/5 group-hover:to-white/10",
+    Ignored: "from-gray-500/0 to-gray-600/0 group-hover:from-gray-500/5 group-hover:to-gray-600/10",
+    Expired: "from-orange-500/0 to-orange-600/0 group-hover:from-orange-500/5 group-hover:to-orange-600/10",
     Incomplete: "from-red-500/0 to-red-600/0 group-hover:from-red-500/5 group-hover:to-red-600/10",
   };
   return glows[status] || glows.Open;
