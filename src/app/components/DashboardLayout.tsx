@@ -2,16 +2,20 @@ import { useState } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router";
 import { MainNavbar } from "@/app/components/MainNavbar";
 import { CreateRFQModal } from "@/app/components/CreateRFQModal";
+import { UpdateRFQModal } from "@/app/components/UpdateRFQModal";
 import { SubmitQuoteModal } from "@/app/components/SubmitQuoteModal";
 import { Toaster } from "@/app/components/ui/sonner";
 import { RFQ } from "@/app/App";
+import { RFQ as EnhancedRFQ } from "@/app/data/enhancedMockData";
 
 export function DashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
   const [quoteRFQ, setQuoteRFQ] = useState<RFQ | null>(null);
+  const [updateRFQ, setUpdateRFQ] = useState<EnhancedRFQ | null>(null);
 
   // Determine current view from path
   const getCurrentView = () => {
@@ -40,12 +44,18 @@ export function DashboardLayout() {
         onCreateRFQ={() => setIsCreateModalOpen(true)}
       />
 
-      <Outlet context={{ setIsQuoteModalOpen, setQuoteRFQ, setIsCreateModalOpen }} />
+      <Outlet context={{ setIsQuoteModalOpen, setQuoteRFQ, setIsCreateModalOpen, setIsUpdateModalOpen, setUpdateRFQ }} />
 
       {/* Modals */}
       <CreateRFQModal
         open={isCreateModalOpen}
         onOpenChange={setIsCreateModalOpen}
+      />
+
+      <UpdateRFQModal
+        rfq={updateRFQ}
+        open={isUpdateModalOpen}
+        onOpenChange={setIsUpdateModalOpen}
       />
 
       {quoteRFQ && (

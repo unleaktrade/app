@@ -13,6 +13,7 @@ import { useState } from "react";
 interface MyRFQsProps {
   onCreateRFQ: () => void;
   onViewRFQ: (rfqId: string) => void;
+  onEditRFQ?: (rfq: LegacyRFQ) => void;
 }
 
 // Use legacy mock data for now (simulates user's RFQs)
@@ -21,7 +22,7 @@ const myMakerRFQs = legacyMockRFQs.filter(rfq =>
   rfq.maker === CURRENT_USER_ADDRESS || rfq.id === "HbwB8p...rXzfiF"
 );
 
-export function MyRFQs({ onCreateRFQ, onViewRFQ }: MyRFQsProps) {
+export function MyRFQs({ onCreateRFQ, onViewRFQ, onEditRFQ }: MyRFQsProps) {
   // Group RFQs by state
   const rfqsByState = {
     draft: myMakerRFQs.filter(r => r.state === "Draft"),
@@ -102,6 +103,7 @@ export function MyRFQs({ onCreateRFQ, onViewRFQ }: MyRFQsProps) {
               color="text-slate-400"
               rfqs={rfqsByState.draft}
               onViewRFQ={onViewRFQ}
+              onEditRFQ={onEditRFQ}
             />
           )}
 
@@ -210,10 +212,11 @@ interface StateSectionProps {
   color: string;
   rfqs: LegacyRFQ[];
   onViewRFQ: (rfqId: string) => void;
+  onEditRFQ?: (rfq: LegacyRFQ) => void;
   collapsed?: boolean;
 }
 
-function StateSection({ title, subtitle, color, rfqs, onViewRFQ, collapsed }: StateSectionProps) {
+function StateSection({ title, subtitle, color, rfqs, onViewRFQ, onEditRFQ, collapsed }: StateSectionProps) {
   const [isCollapsed, setIsCollapsed] = useState(collapsed || false);
 
   // Get state background gradient based on title
@@ -253,7 +256,12 @@ function StateSection({ title, subtitle, color, rfqs, onViewRFQ, collapsed }: St
       {!isCollapsed && (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {rfqs.map((rfq) => (
-            <RFQCard key={rfq.id} rfq={rfq} onView={() => onViewRFQ(rfq.id)} />
+            <RFQCard 
+              key={rfq.id} 
+              rfq={rfq} 
+              onView={() => onViewRFQ(rfq.id)}
+              onEdit={onEditRFQ ? () => onEditRFQ(rfq) : undefined}
+            />
           ))}
         </div>
       )}
@@ -264,9 +272,10 @@ function StateSection({ title, subtitle, color, rfqs, onViewRFQ, collapsed }: St
 interface RFQCardProps {
   rfq: LegacyRFQ;
   onView: () => void;
+  onEdit?: () => void;
 }
 
-function RFQCard({ rfq, onView }: RFQCardProps) {
+function RFQCard({ rfq, onView, onEdit }: RFQCardProps) {
   return (
     <div className="bg-white/5 border border-white/10 rounded-lg p-4 hover:border-white/20 transition-all group">
       <div className="flex items-start justify-between mb-3">
@@ -308,6 +317,17 @@ function RFQCard({ rfq, onView }: RFQCardProps) {
         <Eye className="mr-2 h-4 w-4" />
         View Details
       </Button>
+
+      {rfq.state === "Draft" && onEdit && (
+        <Button
+          onClick={onEdit}
+          size="sm"
+          className="w-full bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white font-semibold shadow-lg shadow-purple-500/20 mt-2"
+        >
+          <Edit className="mr-2 h-4 w-4" />
+          Edit Draft
+        </Button>
+      )}
     </div>
   );
 }

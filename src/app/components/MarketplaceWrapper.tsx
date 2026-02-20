@@ -6,11 +6,13 @@ import { RFQ } from "@/app/App";
 interface OutletContext {
   setIsQuoteModalOpen: (open: boolean) => void;
   setQuoteRFQ: (rfq: RFQ | null) => void;
+  setIsUpdateModalOpen: (open: boolean) => void;
+  setUpdateRFQ: (rfq: EnhancedRFQ | null) => void;
 }
 
 export function MarketplaceWrapper() {
   const navigate = useNavigate();
-  const { setIsQuoteModalOpen, setQuoteRFQ } = useOutletContext<OutletContext>();
+  const { setIsQuoteModalOpen, setQuoteRFQ, setIsUpdateModalOpen, setUpdateRFQ } = useOutletContext<OutletContext>();
 
   const handleQuoteRFQ = (rfq: EnhancedRFQ) => {
     // Convert enhanced RFQ to legacy format for modal
@@ -39,5 +41,10 @@ export function MarketplaceWrapper() {
     navigate(`/dashboard/rfq/${rfqId}`);
   };
 
-  return <Marketplace onQuoteRFQ={handleQuoteRFQ} onViewRFQ={handleViewRFQ} />;
+  const handleEditRFQ = (rfq: EnhancedRFQ) => {
+    setUpdateRFQ(rfq);
+    setIsUpdateModalOpen(true);
+  };
+
+  return <Marketplace onQuoteRFQ={handleQuoteRFQ} onViewRFQ={handleViewRFQ} onEditRFQ={handleEditRFQ} />;
 }

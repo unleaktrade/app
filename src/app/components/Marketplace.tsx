@@ -10,15 +10,16 @@ import {
   Search, Filter, TrendingUp, Activity, Clock, Shield,
   Coins, ChevronDown, LayoutGrid, List, Eye,
   Users, Target, Zap, Percent, ArrowRight, PieChart as PieChartIcon, BarChart3,
-  Columns3, Rows3, ChevronUp, MousePointerClick, BadgeCheck
+  Columns3, Rows3, ChevronUp, MousePointerClick, BadgeCheck, Edit3
 } from "lucide-react";
 
 interface MarketplaceProps {
   onQuoteRFQ: (rfq: RFQ) => void;
   onViewRFQ: (rfqId: string) => void;
+  onEditRFQ?: (rfq: RFQ) => void;
 }
 
-export function Marketplace({ onQuoteRFQ, onViewRFQ }: MarketplaceProps) {
+export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplaceProps) {
   const allStates = ["Draft", "Open", "Committed", "Revealed", "Selected", "Settled", "Expired", "Ignored", "Incomplete"] as const;
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -338,6 +339,7 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ }: MarketplaceProps) {
                     rfq={rfq}
                     onQuote={() => onQuoteRFQ(rfq)}
                     onView={() => onViewRFQ(rfq.publicKey)}
+                    onEdit={onEditRFQ ? () => onEditRFQ(rfq) : undefined}
                   />
                 ))}
               </div>
@@ -349,6 +351,7 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ }: MarketplaceProps) {
                     rfq={rfq}
                     onQuote={() => onQuoteRFQ(rfq)}
                     onView={() => onViewRFQ(rfq.publicKey)}
+                    onEdit={onEditRFQ ? () => onEditRFQ(rfq) : undefined}
                   />
                 ))}
               </div>
@@ -405,6 +408,7 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ }: MarketplaceProps) {
                                     rfq={rfq}
                                     onQuote={() => onQuoteRFQ(rfq)}
                                     onView={() => onViewRFQ(rfq.publicKey)}
+                                    onEdit={onEditRFQ ? () => onEditRFQ(rfq) : undefined}
                                   />
                                 </div>
                               ))}
@@ -450,6 +454,7 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ }: MarketplaceProps) {
                               rfq={rfq}
                               onQuote={() => onQuoteRFQ(rfq)}
                               onView={() => onViewRFQ(rfq.publicKey)}
+                              onEdit={onEditRFQ ? () => onEditRFQ(rfq) : undefined}
                             />
                           ))}
                         </div>
@@ -504,9 +509,10 @@ interface RFQMarketplaceCardProps {
   rfq: RFQ;
   onQuote: () => void;
   onView: () => void;
+  onEdit?: () => void;
 }
 
-function RFQMarketplaceCard({ rfq, onQuote, onView }: RFQMarketplaceCardProps) {
+function RFQMarketplaceCard({ rfq, onQuote, onView, onEdit }: RFQMarketplaceCardProps) {
   const [base, quote] = rfq.pair.split('/');
   const isCommitted = rfq.state === "Committed";
   const canQuote = rfq.state === "Open" || rfq.state === "Committed";
@@ -678,6 +684,16 @@ function RFQMarketplaceCard({ rfq, onQuote, onView }: RFQMarketplaceCardProps) {
         >
           View
         </Button>
+        {isMyRFQ && rfq.state === "Draft" && onEdit && (
+          <Button
+            onClick={onEdit}
+            size="sm"
+            className="flex-1 bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white font-semibold shadow-lg shadow-purple-500/20 text-xs sm:text-sm"
+          >
+            <Edit3 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+            Edit
+          </Button>
+        )}
         {canQuote && !isMyRFQ && (
           <Button
             onClick={onQuote}
@@ -697,9 +713,10 @@ interface RFQMarketplaceListItemProps {
   rfq: RFQ;
   onQuote: () => void;
   onView: () => void;
+  onEdit?: () => void;
 }
 
-function RFQMarketplaceListItem({ rfq, onQuote, onView }: RFQMarketplaceListItemProps) {
+function RFQMarketplaceListItem({ rfq, onQuote, onView, onEdit }: RFQMarketplaceListItemProps) {
   const [base, quote] = rfq.pair.split('/');
   const isCommitted = rfq.state === "Committed";
   const canQuote = rfq.state === "Open" || rfq.state === "Committed";
@@ -865,6 +882,16 @@ function RFQMarketplaceListItem({ rfq, onQuote, onView }: RFQMarketplaceListItem
             <Eye className="mr-1 h-3 w-3" />
             View
           </Button>
+          {isMyRFQ && rfq.state === "Draft" && onEdit && (
+            <Button
+              onClick={onEdit}
+              size="sm"
+              className="flex-1 bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white font-semibold shadow-lg shadow-purple-500/20 text-sm"
+            >
+              <Edit3 className="mr-1 h-3 w-3" />
+              Edit
+            </Button>
+          )}
           {canQuote && !isMyRFQ && (
             <Button
               onClick={onQuote}
