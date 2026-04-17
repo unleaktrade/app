@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { motion } from "motion/react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
@@ -7,13 +7,17 @@ import logo from "figma:asset/6d73120824de2c8c6632c71cddef1ae782b1c254.png";
 
 export function WalletConnect() {
   const { wallet, connected, connecting, select } = useWallet();
+  const didResetRef = useRef(false);
 
   // SWA persists the last-picked wallet in localStorage.walletName, so a freshly-
   // disconnected user would land here with Solflare (or whatever was last chosen)
-  // already pre-selected — the button shows "Connect" instead of "Select Wallet"
-  // and the user never gets a real choice. Reset the selection whenever we render
-  // the connect screen without an active session.
+  // already pre-selected — the button would show "Connect" instead of "Select
+  // Wallet" and never give the user a real choice. Reset the selection ONCE on
+  // mount; don't keep firing on re-renders, or we'd also undo the user's actual
+  // selection the moment they pick a wallet from the modal.
   useEffect(() => {
+    if (didResetRef.current) return;
+    didResetRef.current = true;
     if (!connected && !connecting && wallet) {
       select(null);
     }
