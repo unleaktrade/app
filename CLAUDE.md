@@ -30,7 +30,7 @@ Re-read the linked issues before starting substantive work.
 
 ## UI direction (non-negotiable)
 
-The app has **no role concept in user-facing copy**. The strings `maker`, `taker`, `facilitator` must not appear in UI text, route paths, tab labels, or badges. Role is derived internally from on-chain state (is the connected wallet `rfq.maker`? does it own a `Quote` PDA on this RFQ? is it `rfq.facilitator`?) and used only to decide which CTAs are legal.
+The app has **no role concept in user-facing copy**. The strings `maker`, `taker`, `facilitator` must not appear in UI text, route paths, tab labels, or badges (only in tooltips). Role is derived internally from on-chain state (is the connected wallet `rfq.maker`? does it own a `Quote` PDA on this RFQ? is it `rfq.facilitator`?) and used only to decide which CTAs are legal.
 
 Consequences for the code:
 - A single `My Activity` view (in progress per #10) replaces the old `My RFQs` / `My Quotes` / `My Earnings` tabs. It renders three sections — `RFQs I posted`, `Quotes I submitted`, `Rewards` — each hidden when empty.
