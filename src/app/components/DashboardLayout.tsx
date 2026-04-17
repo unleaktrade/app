@@ -1,39 +1,47 @@
 import { useState } from "react";
-import { Outlet, useNavigate, useLocation } from "react-router";
-import { MainNavbar } from "@/app/components/MainNavbar";
+import { Navigate, Outlet, useNavigate, useLocation } from "react-router";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { MainNavbar, type DashboardView } from "@/app/components/MainNavbar";
 import { CreateRFQModal } from "@/app/components/CreateRFQModal";
 import { UpdateRFQModal } from "@/app/components/UpdateRFQModal";
 import { SubmitQuoteModal } from "@/app/components/SubmitQuoteModal";
 import { Toaster } from "@/app/components/ui/sonner";
-import { RFQ } from "@/app/App";
-import { RFQ as EnhancedRFQ } from "@/app/data/enhancedMockData";
+import type { RFQ } from "@/types/rfq";
+
+export interface DashboardOutletContext {
+  setIsQuoteModalOpen: (open: boolean) => void;
+  setQuoteRFQ: (rfq: RFQ | null) => void;
+  setIsCreateModalOpen: (open: boolean) => void;
+  setIsUpdateModalOpen: (open: boolean) => void;
+  setUpdateRFQ: (rfq: RFQ | null) => void;
+}
 
 export function DashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { connected, connecting } = useWallet();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
   const [quoteRFQ, setQuoteRFQ] = useState<RFQ | null>(null);
-  const [updateRFQ, setUpdateRFQ] = useState<EnhancedRFQ | null>(null);
+  const [updateRFQ, setUpdateRFQ] = useState<RFQ | null>(null);
 
-  // Determine current view from path
-  const getCurrentView = () => {
-    const path = location.pathname;
-    if (path.includes("/my-rfqs")) return "my-rfqs";
-    if (path.includes("/my-quotes")) return "my-quotes";
-    if (path.includes("/my-earnings")) return "my-earnings";
-    return "marketplace";
+  if (connecting) return null;
+  if (!connected) return <Navigate to="/" replace />;
+
+  const getCurrentView = (): DashboardView =>
+    location.pathname.includes("/my-activity") ? "my-activity" : "marketplace";
+
+  const handleNavigate = (view: DashboardView) => {
+    navigate(view === "marketplace" ? "/dashboard" : "/dashboard/my-activity");
   };
 
-  const handleNavigate = (view: "marketplace" | "my-rfqs" | "my-quotes" | "my-earnings") => {
-    const paths = {
-      marketplace: "/dashboard",
-      "my-rfqs": "/dashboard/my-rfqs",
-      "my-quotes": "/dashboard/my-quotes",
-      "my-earnings": "/dashboard/my-earnings",
-    };
-    navigate(paths[view]);
+  const context: DashboardOutletContext = {
+    setIsQuoteModalOpen,
+    setQuoteRFQ,
+    setIsCreateModalOpen,
+    setIsUpdateModalOpen,
+    setUpdateRFQ,
   };
 
   return (
@@ -44,20 +52,14 @@ export function DashboardLayout() {
         onCreateRFQ={() => setIsCreateModalOpen(true)}
       />
 
-      <Outlet context={{ setIsQuoteModalOpen, setQuoteRFQ, setIsCreateModalOpen, setIsUpdateModalOpen, setUpdateRFQ }} />
+      <Outlet context={context} />
 
-      {/* Modals */}
-      <CreateRFQModal
-        open={isCreateModalOpen}
-        onOpenChange={setIsCreateModalOpen}
-      />
-
+      <CreateRFQModal open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen} />
       <UpdateRFQModal
         rfq={updateRFQ}
         open={isUpdateModalOpen}
         onOpenChange={setIsUpdateModalOpen}
       />
-
       {quoteRFQ && (
         <SubmitQuoteModal
           rfq={quoteRFQ}

@@ -1,9 +1,15 @@
 import { useState } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/app/components/ui/dialog";
 import { Label } from "@/app/components/ui/label";
-import { RFQ } from "@/app/App";
+import type { RFQ } from "@/types/rfq";
 import { toast } from "sonner";
 import { Info, Coins, AlertCircle } from "lucide-react";
 
@@ -24,24 +30,27 @@ export function SubmitQuoteModal({ rfq, open, onOpenChange }: SubmitQuoteModalPr
     }
 
     toast.success("Quote submitted successfully!", {
-      description: "Your quote has been committed. Make sure your token account has sufficient funds before the RFQ creator selects your quote.",
+      description:
+        "Your quote has been committed. Make sure your token account has sufficient funds before the RFQ creator selects your quote.",
     });
 
     // Reset form
     setBaseATA("");
     setQuoteATA("");
-    
+
     onOpenChange(false);
   };
 
-  const [base, quote] = rfq.pair.split('/');
+  const [base, quote] = rfq.pair.split("/");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-[#0f0f1a] border-white/10 text-white max-w-xl">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold">Submit Quote</DialogTitle>
-          <DialogDescription className="text-sm text-white/60">Provide your quote for this RFQ</DialogDescription>
+          <DialogDescription className="text-sm text-white/60">
+            Provide your quote for this RFQ
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 mt-6">
@@ -55,7 +64,7 @@ export function SubmitQuoteModal({ rfq, open, onOpenChange }: SubmitQuoteModalPr
             <div className="space-y-2">
               <div>
                 <div className="text-xs text-white/50 mb-1">RFQ ID</div>
-                <div className="text-sm font-mono text-white">{rfq.id}</div>
+                <div className="text-sm font-mono text-white">{rfq.publicKey}</div>
               </div>
 
               <div>
@@ -66,19 +75,23 @@ export function SubmitQuoteModal({ rfq, open, onOpenChange }: SubmitQuoteModalPr
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <div className="text-xs text-white/50 mb-1">Base Amount</div>
-                  <div className="text-sm text-white font-medium">{rfq.baseAmount.toLocaleString()} {base}</div>
+                  <div className="text-sm text-white font-medium">
+                    {rfq.baseAmount.toLocaleString()} {base}
+                  </div>
                 </div>
                 <div>
-                  <div className="text-xs text-white/50 mb-1">Quote Amount</div>
-                  <div className="text-sm text-white font-medium">{rfq.quoteAmount.toLocaleString()} {quote}</div>
+                  <div className="text-xs text-white/50 mb-1">Min Quote Amount</div>
+                  <div className="text-sm text-white font-medium">
+                    {rfq.minQuoteAmount.toLocaleString()} {quote}
+                  </div>
                 </div>
               </div>
 
-              {rfq.expires && (
+              {rfq.expiresIn && (
                 <div className="flex items-center gap-2 pt-2 border-t border-white/10">
                   <AlertCircle className="h-3 w-3 text-cyan-400" />
                   <span className="text-xs text-white/60">Expires in</span>
-                  <span className="text-xs text-cyan-400 font-medium">{rfq.expires}</span>
+                  <span className="text-xs text-cyan-400 font-medium">{rfq.expiresIn}</span>
                 </div>
               )}
             </div>
@@ -91,18 +104,24 @@ export function SubmitQuoteModal({ rfq, open, onOpenChange }: SubmitQuoteModalPr
             <div className="space-y-3">
               <div className="bg-black/20 rounded-lg p-3">
                 <div className="text-xs text-white/50 mb-2">You will provide</div>
-                <div className="text-xl font-bold text-white">{rfq.baseAmount.toLocaleString()} {base}</div>
+                <div className="text-xl font-bold text-white">
+                  {rfq.baseAmount.toLocaleString()} {base}
+                </div>
               </div>
 
               <div className="bg-black/20 rounded-lg p-3">
-                <div className="text-xs text-white/50 mb-2">You will receive</div>
-                <div className="text-xl font-bold text-white">{rfq.quoteAmount.toLocaleString()} {quote}</div>
+                <div className="text-xs text-white/50 mb-2">You will receive (min)</div>
+                <div className="text-xl font-bold text-white">
+                  {rfq.minQuoteAmount.toLocaleString()} {quote}
+                </div>
               </div>
 
               <div className="bg-black/20 rounded-lg p-3">
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-white/60">Exchange Rate</span>
-                  <span className="text-sm text-white">1 {base} = {rfq.price.toFixed(4)} {quote}</span>
+                  <span className="text-sm text-white">
+                    1 {base} = {(rfq.minQuoteAmount / rfq.baseAmount).toFixed(4)} {quote}
+                  </span>
                 </div>
               </div>
             </div>
@@ -142,7 +161,11 @@ export function SubmitQuoteModal({ rfq, open, onOpenChange }: SubmitQuoteModalPr
             <Info className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-white/80">
               <div className="font-semibold mb-1">Important</div>
-              <div>By submitting this quote, you're committing to the specified exchange rate. Make sure your token account has sufficient funds before the RFQ creator selects your quote.</div>
+              <div>
+                By submitting this quote, you're committing to the specified exchange rate. Make
+                sure your token account has sufficient funds before the RFQ creator selects your
+                quote.
+              </div>
             </div>
           </div>
 

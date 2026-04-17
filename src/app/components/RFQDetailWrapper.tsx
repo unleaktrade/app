@@ -1,37 +1,24 @@
 import { useParams, useNavigate, useOutletContext } from "react-router";
 import { AdaptiveRFQDetail } from "@/app/components/AdaptiveRFQDetail";
-import { RFQ } from "@/app/App";
-import { RFQ as EnhancedRFQ } from "@/app/data/enhancedMockData";
-
-interface OutletContext {
-  setIsQuoteModalOpen: (open: boolean) => void;
-  setQuoteRFQ: (rfq: RFQ | null) => void;
-}
+import type { RFQ } from "@/types/rfq";
+import type { DashboardOutletContext } from "@/app/components/DashboardLayout";
 
 export function RFQDetailWrapper() {
   const { rfqId } = useParams<{ rfqId: string }>();
   const navigate = useNavigate();
-  const { setIsQuoteModalOpen, setQuoteRFQ } = useOutletContext<OutletContext>();
-
-  const handleBack = () => {
-    navigate(-1);
-  };
-
-  const handleQuoteRFQ = (rfq: RFQ) => {
-    setQuoteRFQ(rfq);
-    setIsQuoteModalOpen(true);
-  };
+  const { setIsQuoteModalOpen, setQuoteRFQ } = useOutletContext<DashboardOutletContext>();
 
   if (!rfqId) {
     navigate("/dashboard");
     return null;
   }
 
+  const handleQuoteRFQ = (rfq: RFQ) => {
+    setQuoteRFQ(rfq);
+    setIsQuoteModalOpen(true);
+  };
+
   return (
-    <AdaptiveRFQDetail
-      rfqId={rfqId}
-      onBack={handleBack}
-      onQuoteRFQ={handleQuoteRFQ}
-    />
+    <AdaptiveRFQDetail rfqId={rfqId} onBack={() => navigate(-1)} onQuoteRFQ={handleQuoteRFQ} />
   );
 }

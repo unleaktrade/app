@@ -21,7 +21,6 @@ jobs:
       github.event_name == 'pull_request' &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-
     # This makes it visible under Settings → Environments → Preview
     environment:
       name: Preview
@@ -37,7 +36,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: "22"
           # cache: 'npm'   # uncomment if you use npm and want caching
 
       # Pull env + link the Vercel project for this runner

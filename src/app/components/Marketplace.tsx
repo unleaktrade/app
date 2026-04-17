@@ -1,16 +1,35 @@
 import { motion } from "motion/react";
 import { useState } from "react";
-import { RFQ, mockRFQs, CURRENT_USER_FULL } from "@/app/data/enhancedMockData";
+import type { RFQ } from "@/types/rfq";
+import { mockRFQs, CURRENT_USER_FULL, getCardGradient, getCardBorder } from "@/data/mock";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { StatusBadge } from "@/app/components/StatusBadge";
-import { getCardGradient, getCardBorder } from "@/app/data/mockRFQs";
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis } from "recharts";
+import { PieChart, Pie, Cell } from "recharts";
 import {
-  Search, Filter, TrendingUp, Activity, Clock, Shield,
-  Coins, ChevronDown, LayoutGrid, List, Eye,
-  Users, Target, Zap, Percent, ArrowRight, PieChart as PieChartIcon, BarChart3,
-  Columns3, Rows3, ChevronUp, MousePointerClick, BadgeCheck, Edit3
+  Search,
+  Filter,
+  TrendingUp,
+  Activity,
+  Clock,
+  Shield,
+  Coins,
+  ChevronDown,
+  LayoutGrid,
+  List,
+  Eye,
+  Users,
+  Target,
+  Percent,
+  ArrowRight,
+  PieChart as PieChartIcon,
+  BarChart3,
+  Columns3,
+  Rows3,
+  ChevronUp,
+  MousePointerClick,
+  BadgeCheck,
+  Edit3,
 } from "lucide-react";
 
 interface MarketplaceProps {
@@ -20,19 +39,42 @@ interface MarketplaceProps {
 }
 
 export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplaceProps) {
-  const allStates = ["Draft", "Open", "Committed", "Revealed", "Selected", "Settled", "Expired", "Ignored", "Incomplete"] as const;
+  const allStates = [
+    "Draft",
+    "Open",
+    "Committed",
+    "Revealed",
+    "Selected",
+    "Settled",
+    "Expired",
+    "Ignored",
+    "Incomplete",
+  ] as const;
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [stateFilter, setStateFilter] = useState<"all" | "draft" | "open" | "committed" | "revealed" | "selected" | "settled" | "expired" | "ignored" | "incomplete">("all");
-  const [sortBy, setSortBy] = useState<"newest" | "expiring" | "volume">("newest");
-  const [viewMode, setViewMode] = useState<"card" | "list" | "swimlane" | "horizontal">("horizontal");
-  
+  const [stateFilter, setStateFilter] = useState<
+    | "all"
+    | "draft"
+    | "open"
+    | "committed"
+    | "revealed"
+    | "selected"
+    | "settled"
+    | "expired"
+    | "ignored"
+    | "incomplete"
+  >("all");
+  const [sortBy] = useState<"newest" | "expiring" | "volume">("newest");
+  const [viewMode, setViewMode] = useState<"card" | "list" | "swimlane" | "horizontal">(
+    "horizontal",
+  );
+
   // Expansion state for horizontal view - Closed by default
   const [expandedStates, setExpandedStates] = useState<Set<string>>(new Set());
 
   // Toggle a single state
   const toggleStateExpansion = (state: string) => {
-    setExpandedStates(prev => {
+    setExpandedStates((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(state)) {
         newSet.delete(state);
@@ -42,10 +84,10 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
       return newSet;
     });
   };
-  
+
   // Filter RFQs: Show ALL states including Draft
   // NOW SHOWING my own RFQs with visual distinction
-  const availableRFQs = mockRFQs.filter(rfq => {
+  const availableRFQs = mockRFQs.filter((rfq) => {
     // Apply state filter
     if (stateFilter === "draft" && rfq.state !== "Draft") return false;
     if (stateFilter === "open" && rfq.state !== "Open") return false;
@@ -56,12 +98,12 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
     if (stateFilter === "expired" && rfq.state !== "Expired") return false;
     if (stateFilter === "ignored" && rfq.state !== "Ignored") return false;
     if (stateFilter === "incomplete" && rfq.state !== "Incomplete") return false;
-    
+
     // Apply search filter
     if (searchQuery && !rfq.pair.toLowerCase().includes(searchQuery.toLowerCase())) {
       return false;
     }
-    
+
     return true;
   });
 
@@ -79,79 +121,113 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
     return rfqs.sort((a, b) => {
       const aIsMine = a.maker === CURRENT_USER_FULL;
       const bIsMine = b.maker === CURRENT_USER_FULL;
-      
+
       // My RFQs come first
       if (aIsMine && !bIsMine) return -1;
       if (!aIsMine && bIsMine) return 1;
-      
+
       // Within each group, sort by creation date
       return (b.createdAt || 0) - (a.createdAt || 0);
     });
   };
 
   const rfqsByState = {
-    Draft: sortByOwnership(sortedRFQs.filter(r => r.state === "Draft")),
-    Open: sortByOwnership(sortedRFQs.filter(r => r.state === "Open")),
-    Committed: sortByOwnership(sortedRFQs.filter(r => r.state === "Committed")),
-    Revealed: sortByOwnership(sortedRFQs.filter(r => r.state === "Revealed")),
-    Selected: sortByOwnership(sortedRFQs.filter(r => r.state === "Selected")),
-    Settled: sortByOwnership(sortedRFQs.filter(r => r.state === "Settled")),
-    Expired: sortByOwnership(sortedRFQs.filter(r => r.state === "Expired")),
-    Ignored: sortByOwnership(sortedRFQs.filter(r => r.state === "Ignored")),
-    Incomplete: sortByOwnership(sortedRFQs.filter(r => r.state === "Incomplete")),
+    Draft: sortByOwnership(sortedRFQs.filter((r) => r.state === "Draft")),
+    Open: sortByOwnership(sortedRFQs.filter((r) => r.state === "Open")),
+    Committed: sortByOwnership(sortedRFQs.filter((r) => r.state === "Committed")),
+    Revealed: sortByOwnership(sortedRFQs.filter((r) => r.state === "Revealed")),
+    Selected: sortByOwnership(sortedRFQs.filter((r) => r.state === "Selected")),
+    Settled: sortByOwnership(sortedRFQs.filter((r) => r.state === "Settled")),
+    Expired: sortByOwnership(sortedRFQs.filter((r) => r.state === "Expired")),
+    Ignored: sortByOwnership(sortedRFQs.filter((r) => r.state === "Ignored")),
+    Incomplete: sortByOwnership(sortedRFQs.filter((r) => r.state === "Incomplete")),
   };
 
   // State background gradients
   const getStateBgGradient = (state: string) => {
     switch (state) {
-      case "Draft": return "from-slate-500/10 to-slate-600/5";
-      case "Open": return "from-cyan-500/10 to-cyan-600/5";
-      case "Committed": return "from-purple-500/10 to-purple-600/5";
-      case "Revealed": return "from-indigo-500/10 to-indigo-600/5";
-      case "Selected": return "from-blue-500/10 to-blue-600/5";
-      case "Settled": return "from-teal-500/10 to-teal-600/5";
-      case "Expired": return "from-orange-500/10 to-orange-600/5";
-      case "Ignored": return "from-gray-500/10 to-gray-600/5";
-      case "Incomplete": return "from-red-500/10 to-red-600/5";
-      default: return "from-white/5 to-white/2";
+      case "Draft":
+        return "from-slate-500/10 to-slate-600/5";
+      case "Open":
+        return "from-cyan-500/10 to-cyan-600/5";
+      case "Committed":
+        return "from-purple-500/10 to-purple-600/5";
+      case "Revealed":
+        return "from-indigo-500/10 to-indigo-600/5";
+      case "Selected":
+        return "from-blue-500/10 to-blue-600/5";
+      case "Settled":
+        return "from-teal-500/10 to-teal-600/5";
+      case "Expired":
+        return "from-orange-500/10 to-orange-600/5";
+      case "Ignored":
+        return "from-gray-500/10 to-gray-600/5";
+      case "Incomplete":
+        return "from-red-500/10 to-red-600/5";
+      default:
+        return "from-white/5 to-white/2";
     }
   };
 
   const getStateTitleColor = (state: string) => {
     switch (state) {
-      case "Draft": return "text-slate-400";
-      case "Open": return "text-cyan-400";
-      case "Committed": return "text-purple-400";
-      case "Revealed": return "text-indigo-400";
-      case "Selected": return "text-blue-400";
-      case "Settled": return "text-teal-400";
-      case "Expired": return "text-orange-400";
-      case "Ignored": return "text-gray-400";
-      case "Incomplete": return "text-red-400";
-      default: return "text-white";
+      case "Draft":
+        return "text-slate-400";
+      case "Open":
+        return "text-cyan-400";
+      case "Committed":
+        return "text-purple-400";
+      case "Revealed":
+        return "text-indigo-400";
+      case "Selected":
+        return "text-blue-400";
+      case "Settled":
+        return "text-teal-400";
+      case "Expired":
+        return "text-orange-400";
+      case "Ignored":
+        return "text-gray-400";
+      case "Incomplete":
+        return "text-red-400";
+      default:
+        return "text-white";
     }
   };
 
   const getStateSubtitle = (state: string) => {
     switch (state) {
-      case "Draft": return "Complete and open these RFQs";
-      case "Open": return "Ready to quote";
-      case "Committed": return "Awaiting reveals";
-      case "Revealed": return "Review quotes";
-      case "Selected": return "Waiting for settlement";
-      case "Settled": return "Completed trades";
-      case "Expired": return "Time expired";
-      case "Ignored": return "Not pursued";
-      case "Incomplete": return "Missing information";
-      default: return "";
+      case "Draft":
+        return "Complete and open these RFQs";
+      case "Open":
+        return "Ready to quote";
+      case "Committed":
+        return "Awaiting reveals";
+      case "Revealed":
+        return "Review quotes";
+      case "Selected":
+        return "Waiting for settlement";
+      case "Settled":
+        return "Completed trades";
+      case "Expired":
+        return "Time expired";
+      case "Ignored":
+        return "Not pursued";
+      case "Incomplete":
+        return "Missing information";
+      default:
+        return "";
     }
   };
 
   // Stats
-  const openCount = mockRFQs.filter(r => r.state === "Open" && r.maker !== CURRENT_USER_FULL).length;
-  const committedCount = mockRFQs.filter(r => r.state === "Committed" && r.maker !== CURRENT_USER_FULL).length;
+  const openCount = mockRFQs.filter(
+    (r) => r.state === "Open" && r.maker !== CURRENT_USER_FULL,
+  ).length;
+  const committedCount = mockRFQs.filter(
+    (r) => r.state === "Committed" && r.maker !== CURRENT_USER_FULL,
+  ).length;
   const totalVolume = mockRFQs
-    .filter(r => r.state === "Settled")
+    .filter((r) => r.state === "Settled")
     .reduce((sum, rfq) => sum + rfq.baseAmount, 0);
 
   return (
@@ -169,12 +245,8 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
           animate={{ opacity: 1, y: 0 }}
           className="mb-6 sm:mb-8"
         >
-          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">
-            RFQ Marketplace
-          </h1>
-          <p className="text-base sm:text-lg text-white/60">
-            {sortedRFQs.length} RFQs available
-          </p>
+          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">RFQ Marketplace</h1>
+          <p className="text-base sm:text-lg text-white/60">{sortedRFQs.length} RFQs available</p>
         </motion.div>
 
         {/* Stats */}
@@ -252,7 +324,7 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
             <div className="relative flex-shrink-0">
               <select
                 value={stateFilter}
-                onChange={(e) => setStateFilter(e.target.value as any)}
+                onChange={(e) => setStateFilter(e.target.value as typeof stateFilter)}
                 className="w-full lg:w-auto h-12 appearance-none bg-white/5 border border-white/10 text-white rounded-xl px-4 pr-10 text-sm cursor-pointer hover:bg-white/10 transition-colors font-semibold"
               >
                 <option value="all">All States</option>
@@ -360,7 +432,7 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
                 {allStates.map((state) => {
                   const stateRFQs = rfqsByState[state];
                   const stateCount = stateRFQs.length;
-                  
+
                   // Skip empty states in horizontal view
                   if (stateCount === 0) return null;
 
@@ -377,10 +449,14 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
                         className="w-full p-5 flex items-center justify-between transition-all group/header border-b border-white/5"
                       >
                         <div>
-                          <h3 className={`text-lg font-semibold ${getStateTitleColor(state)} mb-1 text-left group-hover/header:text-opacity-80 transition-all`}>
+                          <h3
+                            className={`text-lg font-semibold ${getStateTitleColor(state)} mb-1 text-left group-hover/header:text-opacity-80 transition-all`}
+                          >
                             {state} ({stateCount})
                           </h3>
-                          <p className="text-sm text-white/50 text-left">{getStateSubtitle(state)}</p>
+                          <p className="text-sm text-white/50 text-left">
+                            {getStateSubtitle(state)}
+                          </p>
                         </div>
                         <div className="flex-shrink-0 ml-4">
                           {expandedStates.has(state) ? (
@@ -426,7 +502,7 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
                   {allStates.map((state) => {
                     const stateRFQs = rfqsByState[state];
                     const stateCount = stateRFQs.length;
-                    
+
                     // Skip empty states in swimlane view
                     if (stateCount === 0) return null;
 
@@ -438,7 +514,9 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
                         className="flex-shrink-0 w-80"
                       >
                         {/* Column Header */}
-                        <div className={`${getCardGradient(state)} border ${getCardBorder(state)} rounded-t-xl p-4 backdrop-blur-sm`}>
+                        <div
+                          className={`${getCardGradient(state)} border ${getCardBorder(state)} rounded-t-xl p-4 backdrop-blur-sm`}
+                        >
                           <div className="flex items-center justify-between mb-1">
                             <h3 className="font-semibold text-white">{state}</h3>
                             <span className="text-sm text-white/60">{stateCount}</span>
@@ -468,9 +546,7 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
             <div className="bg-white/5 border border-white/10 rounded-xl p-12 text-center">
               <Filter className="h-12 w-12 text-white/20 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-white mb-2">No RFQs Found</h3>
-              <p className="text-sm text-white/50">
-                Try adjusting your filters or search query
-              </p>
+              <p className="text-sm text-white/50">Try adjusting your filters or search query</p>
             </div>
           )}
         </div>
@@ -485,14 +561,16 @@ interface StatCardProps {
   label: string;
   value: string;
   subtext: string;
-  icon: any;
+  icon: React.ComponentType<{ className?: string }>;
   gradient: string;
 }
 
 function StatCard({ label, value, subtext, icon: Icon, gradient }: StatCardProps) {
   return (
     <div className="relative overflow-hidden bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm border border-white/10 rounded-lg sm:rounded-xl p-4 sm:p-5 group hover:border-white/20 transition-all">
-      <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-10 transition-opacity`} />
+      <div
+        className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-10 transition-opacity`}
+      />
       <div className="relative">
         <div className={`p-2 rounded-lg bg-gradient-to-br ${gradient} w-fit mb-2 sm:mb-3`}>
           <Icon className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
@@ -513,83 +591,86 @@ interface RFQMarketplaceCardProps {
 }
 
 function RFQMarketplaceCard({ rfq, onQuote, onView, onEdit }: RFQMarketplaceCardProps) {
-  const [base, quote] = rfq.pair.split('/');
+  const [base, quote] = rfq.pair.split("/");
   const isCommitted = rfq.state === "Committed";
   const canQuote = rfq.state === "Open" || rfq.state === "Committed";
-  
+
   // Check if this RFQ belongs to current user
   const isMyRFQ = rfq.maker === CURRENT_USER_FULL;
-  
+
   // Get state-based styling
   const cardGradient = getCardGradient(rfq.state);
   const cardBorder = getCardBorder(rfq.state);
-  
+
   // Get state color classes for MY RFQ badge and border
   const getMyRFQStyles = () => {
     switch (rfq.state) {
-      case "Draft": 
+      case "Draft":
         return {
           border: "border-slate-500/70 shadow-lg shadow-slate-500/25",
           badge: "bg-gradient-to-r from-slate-500 via-slate-500 to-slate-600 border-slate-400/30",
-          triangle: "border-t-slate-900"
+          triangle: "border-t-slate-900",
         };
-      case "Open": 
+      case "Open":
         return {
           border: "border-cyan-500/70 shadow-lg shadow-cyan-500/25",
           badge: "bg-gradient-to-r from-cyan-500 via-cyan-500 to-cyan-600 border-cyan-400/30",
-          triangle: "border-t-cyan-900"
+          triangle: "border-t-cyan-900",
         };
-      case "Committed": 
+      case "Committed":
         return {
           border: "border-purple-500/70 shadow-lg shadow-purple-500/25",
-          badge: "bg-gradient-to-r from-purple-500 via-purple-500 to-purple-600 border-purple-400/30",
-          triangle: "border-t-purple-900"
+          badge:
+            "bg-gradient-to-r from-purple-500 via-purple-500 to-purple-600 border-purple-400/30",
+          triangle: "border-t-purple-900",
         };
-      case "Revealed": 
+      case "Revealed":
         return {
           border: "border-indigo-500/70 shadow-lg shadow-indigo-500/25",
-          badge: "bg-gradient-to-r from-indigo-500 via-indigo-500 to-indigo-600 border-indigo-400/30",
-          triangle: "border-t-indigo-900"
+          badge:
+            "bg-gradient-to-r from-indigo-500 via-indigo-500 to-indigo-600 border-indigo-400/30",
+          triangle: "border-t-indigo-900",
         };
-      case "Selected": 
+      case "Selected":
         return {
           border: "border-blue-500/70 shadow-lg shadow-blue-500/25",
           badge: "bg-gradient-to-r from-blue-500 via-blue-500 to-blue-600 border-blue-400/30",
-          triangle: "border-t-blue-900"
+          triangle: "border-t-blue-900",
         };
-      case "Settled": 
+      case "Settled":
         return {
           border: "border-teal-500/70 shadow-lg shadow-teal-500/25",
           badge: "bg-gradient-to-r from-teal-500 via-teal-500 to-teal-600 border-teal-400/30",
-          triangle: "border-t-teal-900"
+          triangle: "border-t-teal-900",
         };
-      case "Expired": 
+      case "Expired":
         return {
           border: "border-orange-500/70 shadow-lg shadow-orange-500/25",
-          badge: "bg-gradient-to-r from-orange-500 via-orange-500 to-orange-600 border-orange-400/30",
-          triangle: "border-t-orange-900"
+          badge:
+            "bg-gradient-to-r from-orange-500 via-orange-500 to-orange-600 border-orange-400/30",
+          triangle: "border-t-orange-900",
         };
-      case "Ignored": 
+      case "Ignored":
         return {
           border: "border-gray-500/70 shadow-lg shadow-gray-500/25",
           badge: "bg-gradient-to-r from-gray-500 via-gray-500 to-gray-600 border-gray-400/30",
-          triangle: "border-t-gray-900"
+          triangle: "border-t-gray-900",
         };
-      case "Incomplete": 
+      case "Incomplete":
         return {
           border: "border-red-500/70 shadow-lg shadow-red-500/25",
           badge: "bg-gradient-to-r from-red-500 via-red-500 to-red-600 border-red-400/30",
-          triangle: "border-t-red-900"
+          triangle: "border-t-red-900",
         };
-      default: 
+      default:
         return {
           border: "border-cyan-500/70 shadow-lg shadow-cyan-500/25",
           badge: "bg-gradient-to-r from-cyan-500 via-cyan-500 to-cyan-600 border-cyan-400/30",
-          triangle: "border-t-cyan-900"
+          triangle: "border-t-cyan-900",
         };
     }
   };
-  
+
   const myRFQStyles = getMyRFQStyles();
 
   return (
@@ -597,21 +678,23 @@ function RFQMarketplaceCard({ rfq, onQuote, onView, onEdit }: RFQMarketplaceCard
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className={`group relative ${cardGradient} backdrop-blur-sm border ${
-        isMyRFQ
-          ? `${myRFQStyles.border} animate-pulse-glow`
-          : cardBorder
+        isMyRFQ ? `${myRFQStyles.border} animate-pulse-glow` : cardBorder
       } rounded-lg sm:rounded-xl p-4 sm:p-5 transition-all`}
     >
       {/* MY RFQ Badge Ribbon with state color */}
       {isMyRFQ && (
         <div className="absolute -top-2 -left-2 z-10">
           <div className="relative">
-            <div className={`${myRFQStyles.badge} text-white text-[10px] font-bold px-3 py-1 rounded-md shadow-lg border flex items-center gap-1.5`}>
+            <div
+              className={`${myRFQStyles.badge} text-white text-[10px] font-bold px-3 py-1 rounded-md shadow-lg border flex items-center gap-1.5`}
+            >
               <BadgeCheck className="h-3 w-3 animate-pulse" />
               <span>MY RFQ</span>
             </div>
             {/* Triangle for ribbon effect */}
-            <div className={`absolute -bottom-1 left-0 w-0 h-0 border-l-[6px] border-l-transparent border-t-[4px] ${myRFQStyles.triangle} border-r-[6px] border-r-transparent`}></div>
+            <div
+              className={`absolute -bottom-1 left-0 w-0 h-0 border-l-[6px] border-l-transparent border-t-[4px] ${myRFQStyles.triangle} border-r-[6px] border-r-transparent`}
+            ></div>
           </div>
         </div>
       )}
@@ -717,83 +800,86 @@ interface RFQMarketplaceListItemProps {
 }
 
 function RFQMarketplaceListItem({ rfq, onQuote, onView, onEdit }: RFQMarketplaceListItemProps) {
-  const [base, quote] = rfq.pair.split('/');
+  const [base, quote] = rfq.pair.split("/");
   const isCommitted = rfq.state === "Committed";
   const canQuote = rfq.state === "Open" || rfq.state === "Committed";
-  
+
   // Check if this RFQ belongs to current user
   const isMyRFQ = rfq.maker === CURRENT_USER_FULL;
-  
+
   // Get state-based styling
   const cardGradient = getCardGradient(rfq.state);
   const cardBorder = getCardBorder(rfq.state);
-  
+
   // Get state color classes for MY RFQ badge and border
   const getMyRFQStyles = () => {
     switch (rfq.state) {
-      case "Draft": 
+      case "Draft":
         return {
           border: "border-slate-500/70 shadow-lg shadow-slate-500/25",
           badge: "bg-gradient-to-r from-slate-500 via-slate-500 to-slate-600 border-slate-400/30",
-          triangle: "border-t-slate-900"
+          triangle: "border-t-slate-900",
         };
-      case "Open": 
+      case "Open":
         return {
           border: "border-cyan-500/70 shadow-lg shadow-cyan-500/25",
           badge: "bg-gradient-to-r from-cyan-500 via-cyan-500 to-cyan-600 border-cyan-400/30",
-          triangle: "border-t-cyan-900"
+          triangle: "border-t-cyan-900",
         };
-      case "Committed": 
+      case "Committed":
         return {
           border: "border-purple-500/70 shadow-lg shadow-purple-500/25",
-          badge: "bg-gradient-to-r from-purple-500 via-purple-500 to-purple-600 border-purple-400/30",
-          triangle: "border-t-purple-900"
+          badge:
+            "bg-gradient-to-r from-purple-500 via-purple-500 to-purple-600 border-purple-400/30",
+          triangle: "border-t-purple-900",
         };
-      case "Revealed": 
+      case "Revealed":
         return {
           border: "border-indigo-500/70 shadow-lg shadow-indigo-500/25",
-          badge: "bg-gradient-to-r from-indigo-500 via-indigo-500 to-indigo-600 border-indigo-400/30",
-          triangle: "border-t-indigo-900"
+          badge:
+            "bg-gradient-to-r from-indigo-500 via-indigo-500 to-indigo-600 border-indigo-400/30",
+          triangle: "border-t-indigo-900",
         };
-      case "Selected": 
+      case "Selected":
         return {
           border: "border-blue-500/70 shadow-lg shadow-blue-500/25",
           badge: "bg-gradient-to-r from-blue-500 via-blue-500 to-blue-600 border-blue-400/30",
-          triangle: "border-t-blue-900"
+          triangle: "border-t-blue-900",
         };
-      case "Settled": 
+      case "Settled":
         return {
           border: "border-teal-500/70 shadow-lg shadow-teal-500/25",
           badge: "bg-gradient-to-r from-teal-500 via-teal-500 to-teal-600 border-teal-400/30",
-          triangle: "border-t-teal-900"
+          triangle: "border-t-teal-900",
         };
-      case "Expired": 
+      case "Expired":
         return {
           border: "border-orange-500/70 shadow-lg shadow-orange-500/25",
-          badge: "bg-gradient-to-r from-orange-500 via-orange-500 to-orange-600 border-orange-400/30",
-          triangle: "border-t-orange-900"
+          badge:
+            "bg-gradient-to-r from-orange-500 via-orange-500 to-orange-600 border-orange-400/30",
+          triangle: "border-t-orange-900",
         };
-      case "Ignored": 
+      case "Ignored":
         return {
           border: "border-gray-500/70 shadow-lg shadow-gray-500/25",
           badge: "bg-gradient-to-r from-gray-500 via-gray-500 to-gray-600 border-gray-400/30",
-          triangle: "border-t-gray-900"
+          triangle: "border-t-gray-900",
         };
-      case "Incomplete": 
+      case "Incomplete":
         return {
           border: "border-red-500/70 shadow-lg shadow-red-500/25",
           badge: "bg-gradient-to-r from-red-500 via-red-500 to-red-600 border-red-400/30",
-          triangle: "border-t-red-900"
+          triangle: "border-t-red-900",
         };
-      default: 
+      default:
         return {
           border: "border-cyan-500/70 shadow-lg shadow-cyan-500/25",
           badge: "bg-gradient-to-r from-cyan-500 via-cyan-500 to-cyan-600 border-cyan-400/30",
-          triangle: "border-t-cyan-900"
+          triangle: "border-t-cyan-900",
         };
     }
   };
-  
+
   const myRFQStyles = getMyRFQStyles();
 
   return (
@@ -801,20 +887,22 @@ function RFQMarketplaceListItem({ rfq, onQuote, onView, onEdit }: RFQMarketplace
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className={`relative ${cardGradient} backdrop-blur-sm border ${
-        isMyRFQ
-          ? `${myRFQStyles.border} animate-pulse-glow`
-          : cardBorder
+        isMyRFQ ? `${myRFQStyles.border} animate-pulse-glow` : cardBorder
       } rounded-lg p-4 transition-all hover:border-opacity-60`}
     >
       {/* MY RFQ Badge Ribbon with state color */}
       {isMyRFQ && (
         <div className="absolute -top-2 -left-2 z-10">
           <div className="relative">
-            <div className={`${myRFQStyles.badge} text-white text-[10px] font-bold px-3 py-1 rounded-md shadow-lg border flex items-center gap-1.5`}>
+            <div
+              className={`${myRFQStyles.badge} text-white text-[10px] font-bold px-3 py-1 rounded-md shadow-lg border flex items-center gap-1.5`}
+            >
               <BadgeCheck className="h-3 w-3 animate-pulse" />
               <span>MY RFQ</span>
             </div>
-            <div className={`absolute -bottom-1 left-0 w-0 h-0 border-l-[6px] border-l-transparent border-t-[4px] ${myRFQStyles.triangle} border-r-[6px] border-r-transparent`}></div>
+            <div
+              className={`absolute -bottom-1 left-0 w-0 h-0 border-l-[6px] border-l-transparent border-t-[4px] ${myRFQStyles.triangle} border-r-[6px] border-r-transparent`}
+            ></div>
           </div>
         </div>
       )}
@@ -856,17 +944,13 @@ function RFQMarketplaceListItem({ rfq, onQuote, onView, onEdit }: RFQMarketplace
           {rfq.expiresIn && (
             <div className="flex-1">
               <div className="text-xs text-orange-400 mb-1">Expires In</div>
-              <div className="text-sm font-semibold text-orange-400">
-                {rfq.expiresIn}
-              </div>
+              <div className="text-sm font-semibold text-orange-400">{rfq.expiresIn}</div>
             </div>
           )}
           {isCommitted && (
             <div className="flex-1">
               <div className="text-xs text-blue-400 mb-1">Commitments</div>
-              <div className="text-sm font-semibold text-blue-400">
-                {rfq.committedCount}
-              </div>
+              <div className="text-sm font-semibold text-blue-400">{rfq.committedCount}</div>
             </div>
           )}
         </div>
@@ -914,8 +998,8 @@ interface RFQMarketplaceSwimlaneCardProps {
   onView: () => void;
 }
 
-function RFQMarketplaceSwimlaneCard({ rfq, onQuote, onView }: RFQMarketplaceSwimlaneCardProps) {
-  const [base, quote] = rfq.pair.split('/');
+function _RFQMarketplaceSwimlaneCard({ rfq, onQuote, onView }: RFQMarketplaceSwimlaneCardProps) {
+  const [base, quote] = rfq.pair.split("/");
   const isCommitted = rfq.state === "Committed";
   const canQuote = rfq.state === "Open" || rfq.state === "Committed";
 
@@ -1017,8 +1101,12 @@ interface RFQMarketplaceHorizontalCardProps {
   onView: () => void;
 }
 
-function RFQMarketplaceHorizontalCard({ rfq, onQuote, onView }: RFQMarketplaceHorizontalCardProps) {
-  const [base, quote] = rfq.pair.split('/');
+function _RFQMarketplaceHorizontalCard({
+  rfq,
+  onQuote,
+  onView,
+}: RFQMarketplaceHorizontalCardProps) {
+  const [base, quote] = rfq.pair.split("/");
   const isCommitted = rfq.state === "Committed";
   const canQuote = rfq.state === "Open" || rfq.state === "Committed";
 
@@ -1118,7 +1206,7 @@ function RFQMarketplaceHorizontalCard({ rfq, onQuote, onView }: RFQMarketplaceHo
 
 function LiquidityChart() {
   const [chartType, setChartType] = useState<"donut" | "bar">("donut");
-  
+
   const data = [
     { name: "USDC", value: 35, amount: 1475000, color: "#06b6d4" },
     { name: "wSOL", value: 28, amount: 1180000, color: "#10b981" },
@@ -1173,7 +1261,14 @@ function LiquidityChart() {
               <PieChart width={160} height={160}>
                 <defs>
                   {data.map((entry, index) => (
-                    <linearGradient key={`gradient-${index}`} id={`gradient-${entry.name}`} x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient
+                      key={`gradient-${index}`}
+                      id={`gradient-${entry.name}`}
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
                       <stop offset="0%" stopColor={entry.color} stopOpacity={1} />
                       <stop offset="100%" stopColor={entry.color} stopOpacity={0.6} />
                     </linearGradient>
@@ -1190,8 +1285,8 @@ function LiquidityChart() {
                   strokeWidth={0}
                 >
                   {data.map((entry, index) => (
-                    <Cell 
-                      key={`cell-${index}`} 
+                    <Cell
+                      key={`cell-${index}`}
                       fill={`url(#gradient-${entry.name})`}
                       className="transition-all duration-300 hover:opacity-80"
                     />
@@ -1231,7 +1326,7 @@ function LiquidityChart() {
                     transition={{ duration: 0.6, delay: index * 0.05, ease: "easeOut" }}
                     className="h-full rounded-full relative overflow-hidden"
                     style={{
-                      background: `linear-gradient(90deg, ${item.color} 0%, ${item.color}99 100%)`
+                      background: `linear-gradient(90deg, ${item.color} 0%, ${item.color}99 100%)`,
                     }}
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent" />
@@ -1247,7 +1342,10 @@ function LiquidityChart() {
       {chartType === "donut" && (
         <div className="space-y-2 pt-2 border-t border-white/10">
           {data.map((item) => (
-            <div key={item.name} className="flex items-center justify-between group hover:bg-white/5 rounded px-2 py-1 -mx-2 transition-all">
+            <div
+              key={item.name}
+              className="flex items-center justify-between group hover:bg-white/5 rounded px-2 py-1 -mx-2 transition-all"
+            >
               <div className="flex items-center gap-2">
                 <div
                   className="w-2.5 h-2.5 rounded-full transition-transform group-hover:scale-110"
