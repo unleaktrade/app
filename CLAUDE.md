@@ -8,13 +8,15 @@ Frontend for **UnleakTrade**, a confidential OTC / RFQ trading d-app on Solana. 
 
 ## Stack direction (locked)
 
-On-chain integration uses **Solana Wallet Adapter** (`@solana/wallet-adapter-react` + `-react-ui` + `-wallets`) and **Anchor** (`@coral-xyz/anchor`). Do not introduce bespoke auth abstractions, handwritten wallet detection, or a homemade `WalletContext` — SWA owns wallet connection, persistence, and multi-wallet UI. Phase 0 (#10) and Phase 1 (#11) both hinge on this.
+On-chain integration uses **Solana Wallet Adapter** (`@solana/wallet-adapter-react` + `-react-ui`) and **Anchor** (`@coral-xyz/anchor`). Do not introduce bespoke auth abstractions, handwritten wallet detection, or a homemade `WalletContext` — SWA owns wallet connection and multi-wallet UI. We do **not** install the `@solana/wallet-adapter-wallets` meta-package (it drags Keystone/Torus/WalletConnect transitive deps with React-19-incompatible peers); Wallet Standard auto-discovery via `WalletProvider wallets={[]}` handles every modern wallet (Phantom / Solflare / Backpack / Glow / MetaMask-Solana / Jupiter / …). Closed in #24.
 
 Goals the stack has to deliver:
 
-- **Multi-wallet** first-class — Phantom, Solflare, Backpack, Glow, … via SWA wallet-adapter packages. No wallet-specific branches in our code. SWA's themed `WalletMultiButton` is the connect UI.
+- **Multi-wallet** first-class via Wallet Standard auto-discovery. No wallet-specific branches in our code. SWA's themed `WalletMultiButton` is the connect UI and the navbar disconnect control.
 - **DX** — one hook per concern (`useWallet`, `useConnection`, `useSettlementProgram`). No bespoke hierarchies or context soup on top of SWA.
 - **Performance** — TanStack Query for reads, websocket account subscriptions for live RFQ / Quote updates (Phase 1 task). No polling loops.
+
+**`autoConnect` is intentionally off** in `src/app/providers/WalletProviders.tsx`. Keeping it on wedges SWA when a previously-authorised but locked wallet is detected on load (`WalletConnectionError: Connection rejected`), and also swallows the user-activation gesture Chrome needs to open the extension popup on first click. Trade-off: every session requires one explicit `Select Wallet → Connect` click. Phase 1 (#26) adds a `signMessage` challenge to prove the wallet is actually unlocked and can then safely re-enable persistence.
 
 ## Source of truth is the issues, not the README
 
@@ -35,31 +37,35 @@ The app has **no role concept in user-facing copy**. The strings `maker`, `taker
 
 Consequences for the code:
 
-- A single `My Activity` view (in progress per #10) replaces the old `My RFQs` / `My Quotes` / `My Earnings` tabs. It renders three sections — `RFQs I posted`, `Quotes I submitted`, `Rewards` — each hidden when empty.
+- `src/app/components/MyActivity.tsx` (shipped with Phase 0 #10 + redesigned in #25) is the single activity view — pinned summary bar with a `Claim` CTA above the fold, a `Needs your attention` ribbon of direct-CTA chips, and three collapsible sections (`RFQs I posted` / `Quotes I submitted` / `Rewards history`) with horizontal-scrolling cards inside. Each section auto-expands when it has pending items. Never re-introduce the old `My RFQs` / `My Quotes` / `My Earnings` split.
 - One action bar on the RFQ detail page, not three. It shows whichever CTAs are legal for the connected wallet × current state, driven by `state-machine.ts` (Phase 2).
 - No `/dashboard/<role>` routes, no role switcher, no role badges.
+- **Rewards are denominated in the quote mint of the RFQ being facilitated**, not USD. No oracle in Phase 0/1 — never aggregate amounts into a single `$X.XX`. Show counts in aggregates; show `{amount} {quoteSymbol}` (symbol derived from `getRFQById(reward.rfq).pair.split("/")[1]`) per-row. Same applies to taker fees / per-RFQ fee amounts. See the `project_reward_denomination` memory entry.
 
 ## Origin: Figma Make (important gotcha)
 
-The codebase was bootstrapped from **Figma Make** (AI prompt-to-code), not hand-written. Artifacts still visible:
+The codebase was bootstrapped from **Figma Make** (AI prompt-to-code), not hand-written. Phase 0 (#10) swept the whitespace/naming artefacts; two load-bearing pieces remain:
 
-- `figma:asset` Vite alias → `src/assets` (used by `WalletConnect.tsx`, `MainNavbar.tsx`, `Navigation.tsx`)
-- `src/app/components/figma/ImageWithFallback.tsx` scaffold wrapper
-- Stray 2-space leading indent and blank first line in `src/main.tsx` and `index.html`
-- Originally `"name": "@figma/my-make-file"` in `package.json`
-- `src/app/components/ui/` is the standard shadcn/ui catalog wrapping Radix primitives; many files in it are unreferenced (`calendar.tsx`, `resizable.tsx`, etc.) — cleanup tracked in #10
+- `figma:asset` Vite alias → `src/assets/` — still in use by `WalletConnect.tsx` and `MainNavbar.tsx` for the logo.
+- `src/app/components/figma/ImageWithFallback.tsx` — thin scaffold wrapper, kept as-is.
+
+`src/app/components/ui/` is the shadcn/ui catalog wrapping Radix primitives. Phase 0 pruned it to the nine files actually imported by the surviving tree (`button`, `dialog`, `input`, `label`, `select`, `separator`, `sonner`, `tabs`, `utils`). Don't reintroduce the full catalog — add only the specific ui file you need.
 
 **Never regenerate via Figma Make against this repo again** — it would clobber committed work. The new visual source of truth is the Figma Design file in #21, to be filled in iteratively.
 
 ## Commands
 
 ```bash
-npm install           # install deps
+npm install           # install deps — must be zero ERESOLVE / deprecated warnings (#24)
 npm run dev           # Vite dev server on :3000, auto-opens browser
 npm run build         # production build → build/ (git-ignored)
+npm run typecheck     # tsc --noEmit (strict, noUncheckedIndexedAccess, verbatimModuleSyntax)
+npm run lint          # eslint src (flat config at eslint.config.js)
+npm run format        # prettier --write .
+npm run format:check  # prettier --check .
 ```
 
-No `lint` / `test` / `typecheck` scripts exist yet — they're planned in #10 (ESLint + Prettier + strict `tsconfig`) and #17 (Vitest + RTL + Playwright). `npm run build` currently **does not type-check** — Vite + `@vitejs/plugin-react` only transpile TypeScript, so type errors do not fail the build. Keep this in mind when editing `.ts` / `.tsx` files.
+`npm run build` intentionally **does not type-check** — Vite + `@vitejs/plugin-react` only transpile TypeScript. Always run `npm run typecheck` alongside for the real type signal. Pre-commit hook (`.husky/pre-commit` → `lint-staged`) auto-formats staged files and runs ESLint on `.ts`/`.tsx`. Test runner (Vitest + RTL + Playwright) lands in #17.
 
 ## Browser-testing policy
 
@@ -77,20 +83,21 @@ If a wallet interaction can't be driven end-to-end by automation (e.g. the exten
 
 ## Architecture
 
-Entry flow: `index.html` → `src/main.tsx` → `src/app/App.tsx` (just renders `<RouterProvider router={router} />`) → `src/app/routes.tsx` which uses `createBrowserRouter` from react-router v7.
+Entry flow: `index.html` → `src/main.tsx` (side-effect imports `./polyfills` first to set `globalThis.Buffer` / `process` / `global` before any Solana SDK module eval) → `src/app/App.tsx` (wraps `<RouterProvider>` in `<WalletProviders>`) → `src/app/routes.tsx` (react-router v7 `createBrowserRouter`). `DashboardLayout` guards `/dashboard/**` with `useWallet()` and bounces disconnected users to `/`; `WalletConnect` (at `/`) auto-clears any stale persisted wallet on mount so users always see a fresh `Select Wallet` button.
 
-Known anti-patterns still present (to be replaced in #10):
+Type / data layout after Phase 0:
 
-- `src/app/routes.tsx` holds wallet state as a module-level `let isWalletConnected` — lost on refresh.
-- `RootRedirect` does a hard `window.location.href = "/dashboard"` after wallet connect — defeats SPA routing.
-- Three mock-data modules under `src/app/data/` (`mockRFQs.ts`, `enhancedMockData.ts`, `mockData.ts`) with overlapping/conflicting `RFQ` shapes; `RFQ` is also re-declared in `src/app/App.tsx`.
+- **Types**: `src/types/rfq.ts` — single source of truth for `RFQState`, `RFQ`, `Quote`, `Settlement`, `FacilitatorReward`, `UserRole`. Mirrors on-chain account shapes.
+- **Mock data**: `src/data/mock.ts` — `mockRFQs`, `mockQuotes`, `mockFacilitatorRewards` plus helpers (`getMyRFQs`, `getMyQuotes`, `getMyFacilitatorRewards`, `getRFQById`, `getStatusConfig`, `getCardGradient` / `Border` / `Glow`). Replaced in Phase 2 (#12) with Zod-decoded on-chain data; keep call sites stable.
+- **Providers**: `src/app/providers/WalletProviders.tsx` wraps `ConnectionProvider` + `WalletProvider wallets={[]}` + `WalletModalProvider`. Passing `[]` + no `autoConnect` is deliberate — see Stack direction.
+- **Polyfills**: `src/polyfills.ts` + `vite.config.ts` alias `buffer: "buffer/"` + `resolve.alias.process` + `define.global = "globalThis"`. Solana SDKs read these at module-eval time, so the polyfill import must stay the first line of `main.tsx`.
 
 Path aliases (`vite.config.ts`):
 
 - `@/` → `src/`
 - `figma:asset` → `src/assets/` (Figma Make artefact — still in use)
 
-Styling: Tailwind v4 via `@tailwindcss/vite`. Global styles are split across `src/styles/{fonts,tailwind,theme}.css`, all imported from `src/styles/index.css`. PostCSS config is intentionally empty (`postcss.config.mjs`) — `@tailwindcss/vite` handles everything.
+Styling: Tailwind v4 via `@tailwindcss/vite`. Global styles are split across `src/styles/{fonts,tailwind,theme}.css`, all imported from `src/styles/index.css` (with `@solana/wallet-adapter-react-ui/styles.css` as the first import so its `@import url(fonts.googleapis.com)` lands before any rule). PostCSS config is intentionally empty (`postcss.config.mjs`) — `@tailwindcss/vite` handles everything.
 
 The RFQ lifecycle has **9 states** (`Draft → Open → Committed → Revealed → Selected → Settled` plus terminal `Expired`, `Ignored`, `Incomplete`). Mirrored from `../settlement-engine/programs/settlement-engine/src/state/rfq.rs` — the Rust is the authoritative spec. When Phase 2 (#12) lands, look for `src/chain/` with Zod decoders, PDA helpers, state-machine guards, and deadline math.
 
