@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Outlet, useNavigate, useLocation } from "react-router";
+import { Navigate, Outlet, useNavigate, useLocation } from "react-router";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { MainNavbar, type DashboardView } from "@/app/components/MainNavbar";
 import { CreateRFQModal } from "@/app/components/CreateRFQModal";
 import { UpdateRFQModal } from "@/app/components/UpdateRFQModal";
@@ -18,11 +19,15 @@ export interface DashboardOutletContext {
 export function DashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { connected, connecting } = useWallet();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
   const [quoteRFQ, setQuoteRFQ] = useState<RFQ | null>(null);
   const [updateRFQ, setUpdateRFQ] = useState<RFQ | null>(null);
+
+  if (connecting) return null;
+  if (!connected) return <Navigate to="/" replace />;
 
   const getCurrentView = (): DashboardView =>
     location.pathname.includes("/my-activity") ? "my-activity" : "marketplace";
