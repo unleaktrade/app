@@ -61,6 +61,20 @@ npm run build         # production build → build/ (git-ignored)
 
 No `lint` / `test` / `typecheck` scripts exist yet — they're planned in #10 (ESLint + Prettier + strict `tsconfig`) and #17 (Vitest + RTL + Playwright). `npm run build` currently **does not type-check** — Vite + `@vitejs/plugin-react` only transpile TypeScript, so type errors do not fail the build. Keep this in mind when editing `.ts` / `.tsx` files.
 
+## Browser-testing policy
+
+Any change that touches the running app (routes, wallet flow, modals, styling, anything rendered) **must be end-to-end tested by Claude itself via the `claude-in-chrome` MCP tools** before the task is reported complete. Do not hand a build back to the user with "go test it in your browser" — that wastes a round-trip when Claude has a browser driver available.
+
+Minimum flow on every UI-affecting change:
+
+1. `npm run dev` in the background.
+2. `mcp__claude-in-chrome__navigate` to the relevant route.
+3. `mcp__claude-in-chrome__javascript_tool` to inspect DOM / `localStorage` / global state.
+4. `mcp__claude-in-chrome__read_console_messages` to catch runtime errors (especially the SWA `WalletConnectionError: Request of type 'wallet_requestPermissions' already pending` class of issues — these only surface at click-time, never in `tsc` or `vite build`).
+5. Kill the dev server when done (`pkill -f vite`).
+
+If a wallet interaction can't be driven end-to-end by automation (e.g. the extension popup itself requires a real user gesture), drive it as far as possible — click through the modal, verify the adapter fires without errors, check SWA state via `window.phantom?.solana?.isConnected` / `localStorage.walletName` — and explicitly flag the remaining manual step. Silence = assumed-broken.
+
 ## Architecture
 
 Entry flow: `index.html` → `src/main.tsx` → `src/app/App.tsx` (just renders `<RouterProvider router={router} />`) → `src/app/routes.tsx` which uses `createBrowserRouter` from react-router v7.
