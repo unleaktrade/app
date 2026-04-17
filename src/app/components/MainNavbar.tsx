@@ -1,4 +1,5 @@
 import { motion, AnimatePresence } from "motion/react";
+import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { Button } from "@/app/components/ui/button";
 import { Plus, Menu, X, TrendingUp, Activity, Store, ListChecks, ChevronRight } from "lucide-react";
 import { useState } from "react";
@@ -101,6 +102,10 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
                 Create RFQ
               </Button>
 
+              <div className="hidden lg:block">
+                <WalletMultiButton />
+              </div>
+
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="lg:hidden p-2.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-all"
@@ -168,6 +173,15 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
                     <Plus className="h-5 w-5 mr-2" />
                     Create RFQ
                   </Button>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.08 }}
+                  className="flex justify-center"
+                >
+                  <WalletMultiButton />
                 </motion.div>
 
                 <motion.div
