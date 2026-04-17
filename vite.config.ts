@@ -16,10 +16,18 @@ export default defineConfig({
       "figma:asset": path.resolve(__dirname, "./src/assets"),
       // Alias @ to the src directory
       "@": path.resolve(__dirname, "./src"),
+      // Force the npm `buffer` package for browser use instead of Node's built-in
+      buffer: "buffer/",
     },
   },
+  define: {
+    // Solana web3.js expects `global` in the browser
+    global: "globalThis",
+  },
+  optimizeDeps: {
+    include: ["buffer"],
+  },
   build: {
-    target: "esnext",
     outDir: "build",
   },
   server: {

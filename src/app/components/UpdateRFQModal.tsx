@@ -10,10 +10,7 @@ import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Separator } from "@/app/components/ui/separator";
-import {
-  TokenSelector,
-  Token,
-} from "@/app/components/TokenSelector";
+import { TokenSelector, type Token } from "@/app/components/TokenSelector";
 import { toast } from "sonner";
 import {
   ArrowRight,
@@ -24,12 +21,11 @@ import {
   Shield,
   Coins,
   AlertCircle,
-  Sparkles,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { RFQ } from "@/app/data/enhancedMockData";
+import type { RFQ } from "@/types/rfq";
 
 interface UpdateRFQModalProps {
   open: boolean;
@@ -48,21 +44,12 @@ const TIME_PRESETS = [
   { label: "Custom", seconds: 0 },
 ];
 
-export function UpdateRFQModal({
-  open,
-  onOpenChange,
-  rfq,
-}: UpdateRFQModalProps) {
-  const [currentStep, setCurrentStep] =
-    useState<FormStep>("tokens");
+export function UpdateRFQModal({ open, onOpenChange, rfq }: UpdateRFQModalProps) {
+  const [currentStep, setCurrentStep] = useState<FormStep>("tokens");
 
   // Form state matching Solana instruction parameters
-  const [baseToken, setBaseToken] = useState<Token | null>(
-    null,
-  );
-  const [quoteToken, setQuoteToken] = useState<Token | null>(
-    null,
-  );
+  const [baseToken, setBaseToken] = useState<Token | null>(null);
+  const [quoteToken, setQuoteToken] = useState<Token | null>(null);
   const [baseAmount, setBaseAmount] = useState("");
   const [minQuoteAmount, setMinQuoteAmount] = useState("");
 
@@ -71,20 +58,18 @@ export function UpdateRFQModal({
 
   const [commitTtlSecs, setCommitTtlSecs] = useState("");
   const [revealTtlSecs, setRevealTtlSecs] = useState("");
-  const [selectionTtlSecs, setSelectionTtlSecs] =
-    useState("");
+  const [selectionTtlSecs, setSelectionTtlSecs] = useState("");
   const [fundTtlSecs, setFundTtlSecs] = useState("");
 
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [facilitatorAddress, setFacilitatorAddress] =
-    useState("");
+  const [facilitatorAddress, setFacilitatorAddress] = useState("");
 
   // Pre-fill form when RFQ changes
   useEffect(() => {
     if (rfq && open) {
       // Parse the pair to get base and quote symbols
-      const [baseSymbol, quoteSymbol] = rfq.pair.split("/");
-      
+      const [baseSymbol = rfq.baseMint, quoteSymbol = rfq.quoteMint] = rfq.pair.split("/");
+
       setBaseToken({
         symbol: baseSymbol,
         name: baseSymbol,
@@ -92,7 +77,7 @@ export function UpdateRFQModal({
         decimals: 9,
         logoURI: "",
       });
-      
+
       setQuoteToken({
         symbol: quoteSymbol,
         name: quoteSymbol,
@@ -173,36 +158,21 @@ export function UpdateRFQModal({
   };
 
   const handleNext = () => {
-    if (currentStep === "tokens" && !validateTokensStep())
-      return;
-    if (currentStep === "economics" && !validateEconomicsStep())
-      return;
-    if (currentStep === "timing" && !validateTimingStep())
-      return;
+    if (currentStep === "tokens" && !validateTokensStep()) return;
+    if (currentStep === "economics" && !validateEconomicsStep()) return;
+    if (currentStep === "timing" && !validateTimingStep()) return;
 
-    const steps: FormStep[] = [
-      "tokens",
-      "economics",
-      "timing",
-      "review",
-    ];
+    const steps: FormStep[] = ["tokens", "economics", "timing", "review"];
     const currentIndex = steps.indexOf(currentStep);
-    if (currentIndex < steps.length - 1) {
-      setCurrentStep(steps[currentIndex + 1]);
-    }
+    const next = steps[currentIndex + 1];
+    if (next) setCurrentStep(next);
   };
 
   const handleBack = () => {
-    const steps: FormStep[] = [
-      "tokens",
-      "economics",
-      "timing",
-      "review",
-    ];
+    const steps: FormStep[] = ["tokens", "economics", "timing", "review"];
     const currentIndex = steps.indexOf(currentStep);
-    if (currentIndex > 0) {
-      setCurrentStep(steps[currentIndex - 1]);
-    }
+    const prev = steps[currentIndex - 1];
+    if (prev) setCurrentStep(prev);
   };
 
   const handleUpdate = () => {
@@ -216,15 +186,8 @@ export function UpdateRFQModal({
   };
 
   const calculateImpliedPrice = () => {
-    if (
-      !baseAmount ||
-      !minQuoteAmount ||
-      parseFloat(baseAmount) === 0
-    )
-      return null;
-    return (
-      parseFloat(minQuoteAmount) / parseFloat(baseAmount)
-    ).toFixed(6);
+    if (!baseAmount || !minQuoteAmount || parseFloat(baseAmount) === 0) return null;
+    return (parseFloat(minQuoteAmount) / parseFloat(baseAmount)).toFixed(6);
   };
 
   const formatTime = (seconds: number) => {
@@ -254,53 +217,39 @@ export function UpdateRFQModal({
 
           {/* Progress Steps */}
           <div className="flex items-center gap-2 mt-4">
-            {["tokens", "economics", "timing", "review"].map(
-              (step, index) => {
-                const steps: FormStep[] = [
-                  "tokens",
-                  "economics",
-                  "timing",
-                  "review",
-                ];
-                const currentIndex = steps.indexOf(currentStep);
-                const isActive = step === currentStep;
-                const isCompleted = currentIndex > index;
+            {["tokens", "economics", "timing", "review"].map((step, index) => {
+              const steps: FormStep[] = ["tokens", "economics", "timing", "review"];
+              const currentIndex = steps.indexOf(currentStep);
+              const isActive = step === currentStep;
+              const isCompleted = currentIndex > index;
 
-                return (
+              return (
+                <div key={step} className="flex items-center flex-1">
                   <div
-                    key={step}
-                    className="flex items-center flex-1"
+                    className={`flex items-center justify-center w-8 h-8 rounded-full border-2 transition-all ${
+                      isCompleted
+                        ? "bg-purple-500 border-purple-500"
+                        : isActive
+                          ? "bg-purple-500/20 border-purple-500"
+                          : "bg-white/5 border-white/20"
+                    }`}
                   >
-                    <div
-                      className={`flex items-center justify-center w-8 h-8 rounded-full border-2 transition-all ${
-                        isCompleted
-                          ? "bg-purple-500 border-purple-500"
-                          : isActive
-                            ? "bg-purple-500/20 border-purple-500"
-                            : "bg-white/5 border-white/20"
-                      }`}
-                    >
-                      {isCompleted ? (
-                        <Check className="h-4 w-4" />
-                      ) : (
-                        <span className="text-sm">
-                          {index + 1}
-                        </span>
-                      )}
-                    </div>
-                    {index < 3 && (
-                      <div
-                        className={`flex-1 h-0.5 mx-2 transition-all ${
-                          isCompleted
-                            ? "bg-purple-500"
-                            : "bg-white/10"
-                        }`}
-                      />
+                    {isCompleted ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <span className="text-sm">{index + 1}</span>
                     )}
                   </div>
-                );
-              },
-            )}
+                  {index < 3 && (
+                    <div
+                      className={`flex-1 h-0.5 mx-2 transition-all ${
+                        isCompleted ? "bg-purple-500" : "bg-white/10"
+                      }`}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         </DialogHeader>
 
@@ -318,17 +267,14 @@ export function UpdateRFQModal({
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm text-white/60">
                     <Coins className="h-4 w-4" />
-                    <span>
-                      Configure your trading pair and amounts
-                    </span>
+                    <span>Configure your trading pair and amounts</span>
                   </div>
                 </div>
 
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label className="text-white/90">
-                      Base Token{" "}
-                      <span className="text-red-400">*</span>
+                      Base Token <span className="text-red-400">*</span>
                     </Label>
                     <TokenSelector
                       value={baseToken}
@@ -339,12 +285,8 @@ export function UpdateRFQModal({
                   </div>
 
                   <div className="space-y-2">
-                    <Label
-                      htmlFor="baseAmount"
-                      className="text-white/90"
-                    >
-                      Base Amount{" "}
-                      <span className="text-red-400">*</span>
+                    <Label htmlFor="baseAmount" className="text-white/90">
+                      Base Amount <span className="text-red-400">*</span>
                     </Label>
                     <div className="relative">
                       <Input
@@ -353,9 +295,7 @@ export function UpdateRFQModal({
                         step="any"
                         placeholder="0.00"
                         value={baseAmount}
-                        onChange={(e) =>
-                          setBaseAmount(e.target.value)
-                        }
+                        onChange={(e) => setBaseAmount(e.target.value)}
                         className="bg-white/5 border-white/10 text-white placeholder:text-white/30 pr-16"
                       />
                       {baseToken && (
@@ -377,8 +317,7 @@ export function UpdateRFQModal({
 
                   <div className="space-y-2">
                     <Label className="text-white/90">
-                      Quote Token{" "}
-                      <span className="text-red-400">*</span>
+                      Quote Token <span className="text-red-400">*</span>
                     </Label>
                     <TokenSelector
                       value={quoteToken}
@@ -389,12 +328,8 @@ export function UpdateRFQModal({
                   </div>
 
                   <div className="space-y-2">
-                    <Label
-                      htmlFor="minQuoteAmount"
-                      className="text-white/90"
-                    >
-                      Minimum Quote Amount{" "}
-                      <span className="text-red-400">*</span>
+                    <Label htmlFor="minQuoteAmount" className="text-white/90">
+                      Minimum Quote Amount <span className="text-red-400">*</span>
                     </Label>
                     <div className="relative">
                       <Input
@@ -403,9 +338,7 @@ export function UpdateRFQModal({
                         step="any"
                         placeholder="0.00"
                         value={minQuoteAmount}
-                        onChange={(e) =>
-                          setMinQuoteAmount(e.target.value)
-                        }
+                        onChange={(e) => setMinQuoteAmount(e.target.value)}
                         className="bg-white/5 border-white/10 text-white placeholder:text-white/30 pr-16"
                       />
                       {quoteToken && (
@@ -416,25 +349,20 @@ export function UpdateRFQModal({
                     </div>
                   </div>
 
-                  {calculateImpliedPrice() &&
-                    baseToken &&
-                    quoteToken && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-white/60">
-                            Implied Min. Price:
-                          </span>
-                          <span className="text-purple-400 font-mono font-semibold">
-                            {calculateImpliedPrice()}{" "}
-                            {quoteToken.symbol}/{baseToken.symbol}
-                          </span>
-                        </div>
-                      </motion.div>
-                    )}
+                  {calculateImpliedPrice() && baseToken && quoteToken && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-white/60">Implied Min. Price:</span>
+                        <span className="text-purple-400 font-mono font-semibold">
+                          {calculateImpliedPrice()} {quoteToken.symbol}/{baseToken.symbol}
+                        </span>
+                      </div>
+                    </motion.div>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -463,9 +391,8 @@ export function UpdateRFQModal({
                         Bonds Apply to Both Parties
                       </p>
                       <p className="text-xs text-white/50">
-                        Both Maker and Taker must post bonds to ensure
-                        commitment. Bonds are returned upon successful
-                        completion or slashed if a party fails to fulfill
+                        Both Maker and Taker must post bonds to ensure commitment. Bonds are
+                        returned upon successful completion or slashed if a party fails to fulfill
                         their obligations.
                       </p>
                     </div>
@@ -474,12 +401,8 @@ export function UpdateRFQModal({
 
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label
-                      htmlFor="bondAmount"
-                      className="text-white/90"
-                    >
-                      Bond Amount{" "}
-                      <span className="text-red-400">*</span>
+                    <Label htmlFor="bondAmount" className="text-white/90">
+                      Bond Amount <span className="text-red-400">*</span>
                     </Label>
                     <div className="relative">
                       <Input
@@ -488,27 +411,19 @@ export function UpdateRFQModal({
                         step="any"
                         placeholder="5000"
                         value={bondAmount}
-                        onChange={(e) =>
-                          setBondAmount(e.target.value)
-                        }
+                        onChange={(e) => setBondAmount(e.target.value)}
                         className="bg-white/5 border-white/10 text-white placeholder:text-white/30 pr-16"
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-white/50 font-semibold">
                         USDC
                       </span>
                     </div>
-                    <p className="text-xs text-white/40">
-                      Required from both Maker and Taker
-                    </p>
+                    <p className="text-xs text-white/40">Required from both Maker and Taker</p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label
-                      htmlFor="takerFee"
-                      className="text-white/90"
-                    >
-                      Taker Fee{" "}
-                      <span className="text-red-400">*</span>
+                    <Label htmlFor="takerFee" className="text-white/90">
+                      Taker Fee <span className="text-red-400">*</span>
                     </Label>
                     <div className="relative">
                       <Input
@@ -517,9 +432,7 @@ export function UpdateRFQModal({
                         step="any"
                         placeholder="100"
                         value={takerFeeUsdc}
-                        onChange={(e) =>
-                          setTakerFeeUsdc(e.target.value)
-                        }
+                        onChange={(e) => setTakerFeeUsdc(e.target.value)}
                         className="bg-white/5 border-white/10 text-white placeholder:text-white/30 pr-16"
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-white/50 font-semibold">
@@ -546,18 +459,14 @@ export function UpdateRFQModal({
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm text-white/60">
                     <Clock className="h-4 w-4" />
-                    <span>
-                      Configure phase durations (in seconds)
-                    </span>
+                    <span>Configure phase durations (in seconds)</span>
                   </div>
                 </div>
 
                 <div className="space-y-4">
                   {/* Commit Phase */}
                   <div className="space-y-3">
-                    <Label className="text-white/90">
-                      Commit Phase Duration
-                    </Label>
+                    <Label className="text-white/90">Commit Phase Duration</Label>
                     <div className="flex gap-2">
                       {TIME_PRESETS.map((preset) => (
                         <Button
@@ -566,15 +475,10 @@ export function UpdateRFQModal({
                           size="sm"
                           variant="outline"
                           onClick={() =>
-                            preset.seconds > 0 &&
-                            setCommitTtlSecs(
-                              preset.seconds.toString(),
-                            )
+                            preset.seconds > 0 && setCommitTtlSecs(preset.seconds.toString())
                           }
                           className={`flex-1 ${
-                            parseInt(commitTtlSecs) ===
-                              preset.seconds &&
-                            preset.seconds > 0
+                            parseInt(commitTtlSecs) === preset.seconds && preset.seconds > 0
                               ? "bg-purple-500/20 border-purple-500 text-purple-300"
                               : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
                           }`}
@@ -586,9 +490,7 @@ export function UpdateRFQModal({
                     <Input
                       type="number"
                       value={commitTtlSecs}
-                      onChange={(e) =>
-                        setCommitTtlSecs(e.target.value)
-                      }
+                      onChange={(e) => setCommitTtlSecs(e.target.value)}
                       className="bg-white/5 border-white/10 text-white"
                       placeholder="3600"
                     />
@@ -596,9 +498,7 @@ export function UpdateRFQModal({
 
                   {/* Reveal Phase */}
                   <div className="space-y-3">
-                    <Label className="text-white/90">
-                      Reveal Phase Duration
-                    </Label>
+                    <Label className="text-white/90">Reveal Phase Duration</Label>
                     <div className="flex gap-2">
                       {TIME_PRESETS.map((preset) => (
                         <Button
@@ -607,15 +507,10 @@ export function UpdateRFQModal({
                           size="sm"
                           variant="outline"
                           onClick={() =>
-                            preset.seconds > 0 &&
-                            setRevealTtlSecs(
-                              preset.seconds.toString(),
-                            )
+                            preset.seconds > 0 && setRevealTtlSecs(preset.seconds.toString())
                           }
                           className={`flex-1 ${
-                            parseInt(revealTtlSecs) ===
-                              preset.seconds &&
-                            preset.seconds > 0
+                            parseInt(revealTtlSecs) === preset.seconds && preset.seconds > 0
                               ? "bg-purple-500/20 border-purple-500 text-purple-300"
                               : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
                           }`}
@@ -627,9 +522,7 @@ export function UpdateRFQModal({
                     <Input
                       type="number"
                       value={revealTtlSecs}
-                      onChange={(e) =>
-                        setRevealTtlSecs(e.target.value)
-                      }
+                      onChange={(e) => setRevealTtlSecs(e.target.value)}
                       className="bg-white/5 border-white/10 text-white"
                       placeholder="1800"
                     />
@@ -637,9 +530,7 @@ export function UpdateRFQModal({
 
                   {/* Selection Phase */}
                   <div className="space-y-3">
-                    <Label className="text-white/90">
-                      Selection Phase Duration
-                    </Label>
+                    <Label className="text-white/90">Selection Phase Duration</Label>
                     <div className="flex gap-2">
                       {TIME_PRESETS.map((preset) => (
                         <Button
@@ -648,15 +539,10 @@ export function UpdateRFQModal({
                           size="sm"
                           variant="outline"
                           onClick={() =>
-                            preset.seconds > 0 &&
-                            setSelectionTtlSecs(
-                              preset.seconds.toString(),
-                            )
+                            preset.seconds > 0 && setSelectionTtlSecs(preset.seconds.toString())
                           }
                           className={`flex-1 ${
-                            parseInt(selectionTtlSecs) ===
-                              preset.seconds &&
-                            preset.seconds > 0
+                            parseInt(selectionTtlSecs) === preset.seconds && preset.seconds > 0
                               ? "bg-purple-500/20 border-purple-500 text-purple-300"
                               : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
                           }`}
@@ -668,9 +554,7 @@ export function UpdateRFQModal({
                     <Input
                       type="number"
                       value={selectionTtlSecs}
-                      onChange={(e) =>
-                        setSelectionTtlSecs(e.target.value)
-                      }
+                      onChange={(e) => setSelectionTtlSecs(e.target.value)}
                       className="bg-white/5 border-white/10 text-white"
                       placeholder="1800"
                     />
@@ -678,9 +562,7 @@ export function UpdateRFQModal({
 
                   {/* Fund Phase */}
                   <div className="space-y-3">
-                    <Label className="text-white/90">
-                      Funding Phase Duration
-                    </Label>
+                    <Label className="text-white/90">Funding Phase Duration</Label>
                     <div className="flex gap-2">
                       {TIME_PRESETS.map((preset) => (
                         <Button
@@ -689,15 +571,10 @@ export function UpdateRFQModal({
                           size="sm"
                           variant="outline"
                           onClick={() =>
-                            preset.seconds > 0 &&
-                            setFundTtlSecs(
-                              preset.seconds.toString(),
-                            )
+                            preset.seconds > 0 && setFundTtlSecs(preset.seconds.toString())
                           }
                           className={`flex-1 ${
-                            parseInt(fundTtlSecs) ===
-                              preset.seconds &&
-                            preset.seconds > 0
+                            parseInt(fundTtlSecs) === preset.seconds && preset.seconds > 0
                               ? "bg-purple-500/20 border-purple-500 text-purple-300"
                               : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
                           }`}
@@ -709,9 +586,7 @@ export function UpdateRFQModal({
                     <Input
                       type="number"
                       value={fundTtlSecs}
-                      onChange={(e) =>
-                        setFundTtlSecs(e.target.value)
-                      }
+                      onChange={(e) => setFundTtlSecs(e.target.value)}
                       className="bg-white/5 border-white/10 text-white"
                       placeholder="3600"
                     />
@@ -730,10 +605,7 @@ export function UpdateRFQModal({
                               parseInt(fundTtlSecs),
                           )}
                         </p>
-                        <p>
-                          This is the maximum time from opening
-                          your RFQ to final settlement.
-                        </p>
+                        <p>This is the maximum time from opening your RFQ to final settlement.</p>
                       </div>
                     </div>
                   </div>
@@ -742,9 +614,7 @@ export function UpdateRFQModal({
                   <div className="border-t border-white/10 pt-4">
                     <button
                       type="button"
-                      onClick={() =>
-                        setShowAdvanced(!showAdvanced)
-                      }
+                      onClick={() => setShowAdvanced(!showAdvanced)}
                       className="flex items-center justify-between w-full text-sm text-white/70 hover:text-white transition-colors"
                     >
                       <span>Advanced Options</span>
@@ -761,26 +631,18 @@ export function UpdateRFQModal({
                         animate={{ height: "auto", opacity: 1 }}
                         className="mt-4 space-y-3"
                       >
-                        <Label
-                          htmlFor="facilitator"
-                          className="text-white/90"
-                        >
+                        <Label htmlFor="facilitator" className="text-white/90">
                           Facilitator Address (Optional)
                         </Label>
                         <Input
                           id="facilitator"
                           placeholder="Enter facilitator wallet address..."
                           value={facilitatorAddress}
-                          onChange={(e) =>
-                            setFacilitatorAddress(
-                              e.target.value,
-                            )
-                          }
+                          onChange={(e) => setFacilitatorAddress(e.target.value)}
                           className="bg-white/5 border-white/10 text-white placeholder:text-white/30 font-mono text-sm"
                         />
                         <p className="text-xs text-white/50">
-                          Optional intermediary who receives a
-                          fee share from settlement
+                          Optional intermediary who receives a fee share from settlement
                         </p>
                       </motion.div>
                     )}
@@ -808,9 +670,7 @@ export function UpdateRFQModal({
                 {/* Token Pair Summary */}
                 <div className="p-6 rounded-lg bg-gradient-to-br from-purple-500/10 to-cyan-500/10 border border-purple-500/20">
                   <div className="flex items-center justify-between mb-4">
-                    <div className="text-sm text-white/50 uppercase tracking-wider">
-                      Token Pair
-                    </div>
+                    <div className="text-sm text-white/50 uppercase tracking-wider">Token Pair</div>
                     <div className="flex items-center gap-2 text-lg font-bold">
                       <span>{baseToken?.symbol}</span>
                       <ArrowRight className="h-5 w-5 text-purple-400" />
@@ -822,27 +682,20 @@ export function UpdateRFQModal({
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-white/50">Base Amount:</span>
                       <span className="font-semibold">
-                        {parseFloat(baseAmount).toLocaleString()}{" "}
-                        {baseToken?.symbol}
+                        {parseFloat(baseAmount).toLocaleString()} {baseToken?.symbol}
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-white/50">
-                        Min Quote Amount:
-                      </span>
+                      <span className="text-white/50">Min Quote Amount:</span>
                       <span className="font-semibold">
-                        {parseFloat(minQuoteAmount).toLocaleString()}{" "}
-                        {quoteToken?.symbol}
+                        {parseFloat(minQuoteAmount).toLocaleString()} {quoteToken?.symbol}
                       </span>
                     </div>
                     {calculateImpliedPrice() && (
                       <div className="flex items-center justify-between text-sm pt-2 border-t border-white/10">
-                        <span className="text-white/50">
-                          Implied Min. Price:
-                        </span>
+                        <span className="text-white/50">Implied Min. Price:</span>
                         <span className="text-purple-400 font-mono font-bold">
-                          {calculateImpliedPrice()}{" "}
-                          {quoteToken?.symbol}/{baseToken?.symbol}
+                          {calculateImpliedPrice()} {quoteToken?.symbol}/{baseToken?.symbol}
                         </span>
                       </div>
                     )}
@@ -856,9 +709,7 @@ export function UpdateRFQModal({
                   </div>
                   <div className="grid gap-3">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-white/50">
-                        Bond (Both Parties):
-                      </span>
+                      <span className="text-white/50">Bond (Both Parties):</span>
                       <span className="font-semibold">
                         {parseFloat(bondAmount).toLocaleString()} USDC
                       </span>
@@ -879,36 +730,20 @@ export function UpdateRFQModal({
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <div className="text-xs text-white/40 mb-1">
-                        Commit
-                      </div>
-                      <div className="font-semibold">
-                        {formatTime(parseInt(commitTtlSecs))}
-                      </div>
+                      <div className="text-xs text-white/40 mb-1">Commit</div>
+                      <div className="font-semibold">{formatTime(parseInt(commitTtlSecs))}</div>
                     </div>
                     <div>
-                      <div className="text-xs text-white/40 mb-1">
-                        Reveal
-                      </div>
-                      <div className="font-semibold">
-                        {formatTime(parseInt(revealTtlSecs))}
-                      </div>
+                      <div className="text-xs text-white/40 mb-1">Reveal</div>
+                      <div className="font-semibold">{formatTime(parseInt(revealTtlSecs))}</div>
                     </div>
                     <div>
-                      <div className="text-xs text-white/40 mb-1">
-                        Selection
-                      </div>
-                      <div className="font-semibold">
-                        {formatTime(parseInt(selectionTtlSecs))}
-                      </div>
+                      <div className="text-xs text-white/40 mb-1">Selection</div>
+                      <div className="font-semibold">{formatTime(parseInt(selectionTtlSecs))}</div>
                     </div>
                     <div>
-                      <div className="text-xs text-white/40 mb-1">
-                        Funding
-                      </div>
-                      <div className="font-semibold">
-                        {formatTime(parseInt(fundTtlSecs))}
-                      </div>
+                      <div className="text-xs text-white/40 mb-1">Funding</div>
+                      <div className="font-semibold">{formatTime(parseInt(fundTtlSecs))}</div>
                     </div>
                   </div>
                 </div>

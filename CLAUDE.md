@@ -11,6 +11,7 @@ Frontend for **UnleakTrade**, a confidential OTC / RFQ trading d-app on Solana. 
 On-chain integration uses **Solana Wallet Adapter** (`@solana/wallet-adapter-react` + `-react-ui` + `-wallets`) and **Anchor** (`@coral-xyz/anchor`). Do not introduce bespoke auth abstractions, handwritten wallet detection, or a homemade `WalletContext` — SWA owns wallet connection, persistence, and multi-wallet UI. Phase 0 (#10) and Phase 1 (#11) both hinge on this.
 
 Goals the stack has to deliver:
+
 - **Multi-wallet** first-class — Phantom, Solflare, Backpack, Glow, … via SWA wallet-adapter packages. No wallet-specific branches in our code. SWA's themed `WalletMultiButton` is the connect UI.
 - **DX** — one hook per concern (`useWallet`, `useConnection`, `useSettlementProgram`). No bespoke hierarchies or context soup on top of SWA.
 - **Performance** — TanStack Query for reads, websocket account subscriptions for live RFQ / Quote updates (Phase 1 task). No polling loops.
@@ -33,6 +34,7 @@ Re-read the linked issues before starting substantive work.
 The app has **no role concept in user-facing copy**. The strings `maker`, `taker`, `facilitator` must not appear in UI text, route paths, tab labels, or badges (only in tooltips). Role is derived internally from on-chain state (is the connected wallet `rfq.maker`? does it own a `Quote` PDA on this RFQ? is it `rfq.facilitator`?) and used only to decide which CTAs are legal.
 
 Consequences for the code:
+
 - A single `My Activity` view (in progress per #10) replaces the old `My RFQs` / `My Quotes` / `My Earnings` tabs. It renders three sections — `RFQs I posted`, `Quotes I submitted`, `Rewards` — each hidden when empty.
 - One action bar on the RFQ detail page, not three. It shows whichever CTAs are legal for the connected wallet × current state, driven by `state-machine.ts` (Phase 2).
 - No `/dashboard/<role>` routes, no role switcher, no role badges.
@@ -40,6 +42,7 @@ Consequences for the code:
 ## Origin: Figma Make (important gotcha)
 
 The codebase was bootstrapped from **Figma Make** (AI prompt-to-code), not hand-written. Artifacts still visible:
+
 - `figma:asset` Vite alias → `src/assets` (used by `WalletConnect.tsx`, `MainNavbar.tsx`, `Navigation.tsx`)
 - `src/app/components/figma/ImageWithFallback.tsx` scaffold wrapper
 - Stray 2-space leading indent and blank first line in `src/main.tsx` and `index.html`
@@ -63,11 +66,13 @@ No `lint` / `test` / `typecheck` scripts exist yet — they're planned in #10 (E
 Entry flow: `index.html` → `src/main.tsx` → `src/app/App.tsx` (just renders `<RouterProvider router={router} />`) → `src/app/routes.tsx` which uses `createBrowserRouter` from react-router v7.
 
 Known anti-patterns still present (to be replaced in #10):
+
 - `src/app/routes.tsx` holds wallet state as a module-level `let isWalletConnected` — lost on refresh.
 - `RootRedirect` does a hard `window.location.href = "/dashboard"` after wallet connect — defeats SPA routing.
 - Three mock-data modules under `src/app/data/` (`mockRFQs.ts`, `enhancedMockData.ts`, `mockData.ts`) with overlapping/conflicting `RFQ` shapes; `RFQ` is also re-declared in `src/app/App.tsx`.
 
 Path aliases (`vite.config.ts`):
+
 - `@/` → `src/`
 - `figma:asset` → `src/assets/` (Figma Make artefact — still in use)
 

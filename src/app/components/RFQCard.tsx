@@ -1,8 +1,8 @@
-import { RFQ, UserRole } from "@/app/App";
+import type { RFQ, UserRole } from "@/types/rfq";
 import { motion } from "motion/react";
 import { Button } from "@/app/components/ui/button";
 import { Coins, Eye } from "lucide-react";
-import { getCardGradient, getCardBorder, getCardGlow } from "@/app/data/mockRFQs";
+import { getCardGradient, getCardBorder, getCardGlow } from "@/data/mock";
 import { StatusBadge } from "@/app/components/StatusBadge";
 
 interface RFQCardProps {
@@ -12,16 +12,11 @@ interface RFQCardProps {
 }
 
 export function RFQCard({ rfq, onView, userRole }: RFQCardProps) {
-  // Calculate pair and base/quote from the RFQ data
-  const pair = `${rfq.baseMint}/${rfq.quoteMint}`;
-  const base = rfq.baseMint;
-  const quote = rfq.quoteMint;
-  
-  // Calculate exchange rate (price per base unit)
+  const [base, quote] = rfq.pair.split("/");
   const exchangeRate = rfq.minQuoteAmount / rfq.baseAmount;
 
-  // Calculate time left
-  const timeLeft = rfq.openedAt ? Math.max(0, rfq.commitTtl - (Date.now() - rfq.openedAt) / 1000) : 0;
+  const nowSecs = Math.floor(Date.now() / 1000);
+  const timeLeft = rfq.openedAt ? Math.max(0, rfq.commitTtlSecs - (nowSecs - rfq.openedAt)) : 0;
   const hoursLeft = Math.floor(timeLeft / 3600);
   const minutesLeft = Math.floor((timeLeft % 3600) / 60);
   const expiresText = timeLeft > 0 ? `${hoursLeft}h ${minutesLeft}m` : null;
@@ -35,14 +30,16 @@ export function RFQCard({ rfq, onView, userRole }: RFQCardProps) {
       onClick={onView}
     >
       {/* Glossy gradient overlay on hover */}
-      <div className={`absolute inset-0 bg-gradient-to-br ${getCardGlow(rfq.state)} transition-all duration-300`} />
-      
+      <div
+        className={`absolute inset-0 bg-gradient-to-br ${getCardGlow(rfq.state)} transition-all duration-300`}
+      />
+
       <div className="relative z-10">
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div>
             <div className="text-xs font-mono text-white/40 mb-1">RFQ ID</div>
-            <div className="text-sm font-mono text-white">{rfq.id}</div>
+            <div className="text-sm font-mono text-white">{rfq.publicKey}</div>
           </div>
           <StatusBadge status={rfq.state} />
         </div>
@@ -52,7 +49,7 @@ export function RFQCard({ rfq, onView, userRole }: RFQCardProps) {
           <div className="text-xs text-white/50 mb-1">Pair</div>
           <div className="flex items-center gap-1 text-lg font-semibold text-white">
             <Coins className="h-4 w-4 text-cyan-400" />
-            {pair}
+            {rfq.pair}
           </div>
         </div>
 
@@ -60,12 +57,16 @@ export function RFQCard({ rfq, onView, userRole }: RFQCardProps) {
         <div className="grid grid-cols-2 gap-3 mb-4">
           <div>
             <div className="text-xs text-white/50 mb-1">Base Amount</div>
-            <div className="text-sm font-semibold text-white">{rfq.baseAmount.toLocaleString()}</div>
+            <div className="text-sm font-semibold text-white">
+              {rfq.baseAmount.toLocaleString()}
+            </div>
             <div className="text-xs text-white/40">{base}</div>
           </div>
           <div>
             <div className="text-xs text-white/50 mb-1">Min Quote Amount</div>
-            <div className="text-sm font-semibold text-white">{rfq.minQuoteAmount.toLocaleString()}</div>
+            <div className="text-sm font-semibold text-white">
+              {rfq.minQuoteAmount.toLocaleString()}
+            </div>
             <div className="text-xs text-white/40">{quote}</div>
           </div>
         </div>
@@ -73,7 +74,9 @@ export function RFQCard({ rfq, onView, userRole }: RFQCardProps) {
         {/* Exchange Rate */}
         <div className="mb-4 pb-4 border-b border-white/10">
           <div className="text-xs text-white/50 mb-1">Exchange Rate</div>
-          <div className="text-sm text-white">1 {base} = {exchangeRate.toFixed(4)} {quote}</div>
+          <div className="text-sm text-white">
+            1 {base} = {exchangeRate.toFixed(4)} {quote}
+          </div>
         </div>
 
         {/* Expires */}

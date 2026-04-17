@@ -11,6 +11,7 @@ UnleakTrade is a decentralized OTC (Over-The-Counter) trading platform built on 
 ## ✨ Features
 
 ### 🏠 Unified Dashboard
+
 - **Single view for all users** - No confusing role switchers
 - **Real-time statistics** - 24h/7d/30d volume, active traders
 - **Liquidity visualization** - Interactive donut chart showing token distribution
@@ -20,6 +21,7 @@ UnleakTrade is a decentralized OTC (Over-The-Counter) trading platform built on 
   - 🔵 **Browse & Quote** (FOR TAKERS) - Cyan gradient
 
 ### 💎 Beautiful Design
+
 - Dark theme (#0a0a0f background) matching UnleakTrade brand
 - Glassmorphism effects with backdrop blur
 - Purple/magenta gradient for Maker actions
@@ -36,6 +38,7 @@ Based on the Solana settlement-engine program:
 3. **Facilitators** - Optional intermediaries who can claim fee shares
 
 ### 🔐 Security Features
+
 - **Commit-Reveal Protocol** - Prevents quote manipulation
 - **Liquidity Guard** - Ed25519 signature verification
 - **Bond Collateral** - USDC bonds ensure commitment from both parties
@@ -44,18 +47,21 @@ Based on the Solana settlement-engine program:
 ### 📊 RFQ Management
 
 **Create RFQ (Makers):**
+
 - Set base and quote token mint addresses
 - Define trade amounts and token accounts (ATAs)
 - Configure phase durations (commit, reveal, selection, fund)
 - Optional bond amount settings
 
 **Submit Quote (Takers):**
+
 - View detailed RFQ summary
 - See exchange rates and trade details
 - Provide token account addresses
 - Commit to exchange rate
 
 **RFQ States:**
+
 - 🟢 **Open** - Accepting quotes
 - 🟡 **Pending** - Quote selected, awaiting funding
 - 🔵 **Filled** - Trade matched, in progress
@@ -104,7 +110,7 @@ interface RFQ {
   expires: string | null;
   maker: string;
   taker?: string;
-  facilitator?: string;  // Optional fee recipient
+  facilitator?: string; // Optional fee recipient
   bondAmount: number;
   takerFee: number;
   commitTtl: number;
@@ -136,6 +142,7 @@ interface RFQ {
 ## 📱 Mobile Responsive
 
 Fully responsive with breakpoints:
+
 - **Mobile**: `< 640px` - Stacked layouts, compact stats
 - **Tablet**: `640px - 1024px` - 2-column grids
 - **Desktop**: `> 1024px` - Full 3-column layouts, side-by-side CTAs
@@ -163,12 +170,14 @@ This is a mockup interface - no web3 provider required yet. All data is mocked f
 ## 🔮 Future Enhancements
 
 ### Phase 1 - Web3 Integration
+
 - [ ] Phantom & Solflare wallet connection
 - [ ] Real Solana program interaction
 - [ ] Transaction signing and confirmation
 - [ ] Live blockchain data fetching
 
 ### Phase 2 - Advanced Features
+
 - [ ] Real-time quote updates via WebSocket
 - [ ] Historical trade analytics
 - [ ] Portfolio tracking
@@ -176,6 +185,7 @@ This is a mockup interface - no web3 provider required yet. All data is mocked f
 - [ ] Multi-language support
 
 ### Phase 3 - Facilitator Dashboard
+
 - [ ] Facilitator-specific views
 - [ ] Fee tracking and claims
 - [ ] Liquidity proof management
@@ -184,6 +194,7 @@ This is a mockup interface - no web3 provider required yet. All data is mocked f
 ## 🤝 Contributing
 
 Based on:
+
 - [UnleakTrade Landing Page](https://github.com/unleaktrade/landing-page)
 - [Settlement Engine](https://github.com/unleaktrade/settlement-engine)
 

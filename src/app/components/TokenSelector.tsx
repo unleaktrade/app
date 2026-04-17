@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/app/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/app/components/ui/dialog";
 import { Search, ChevronDown, Plus } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Label } from "@/app/components/ui/label";
@@ -258,7 +264,7 @@ export function TokenSelector({ value, onChange, label, excludeToken }: TokenSel
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [mode, setMode] = useState<"listed" | "unlisted">("listed");
-  
+
   // Unlisted token form state
   const [customMint, setCustomMint] = useState("");
   const [customSymbol, setCustomSymbol] = useState("");
@@ -270,8 +276,8 @@ export function TokenSelector({ value, onChange, label, excludeToken }: TokenSel
       token.mint !== excludeToken?.mint &&
       (token.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
         token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        token.mint.toLowerCase().includes(searchQuery.toLowerCase()))
-  ).sort((a, b) => a.symbol.localeCompare(b.symbol));;
+        token.mint.toLowerCase().includes(searchQuery.toLowerCase())),
+  ).sort((a, b) => a.symbol.localeCompare(b.symbol));
 
   const handleSelectListed = (token: Token) => {
     onChange(token);
@@ -294,7 +300,7 @@ export function TokenSelector({ value, onChange, label, excludeToken }: TokenSel
 
     onChange(customToken);
     setIsOpen(false);
-    
+
     // Reset form
     setCustomMint("");
     setCustomSymbol("");
@@ -312,11 +318,13 @@ export function TokenSelector({ value, onChange, label, excludeToken }: TokenSel
       >
         {value ? (
           <div className="flex items-center gap-3">
-            <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${
-              value.isCustom 
-                ? 'from-cyan-500/20 to-cyan-600/20 border-cyan-500/30' 
-                : 'from-purple-500/20 to-blue-500/20 border-white/10'
-            } flex items-center justify-center border`}>
+            <div
+              className={`w-8 h-8 rounded-full bg-gradient-to-br ${
+                value.isCustom
+                  ? "from-cyan-500/20 to-cyan-600/20 border-cyan-500/30"
+                  : "from-purple-500/20 to-blue-500/20 border-white/10"
+              } flex items-center justify-center border`}
+            >
               <span className="text-sm font-bold">{value.symbol[0]}</span>
             </div>
             <div className="flex flex-col items-start">
@@ -346,15 +354,19 @@ export function TokenSelector({ value, onChange, label, excludeToken }: TokenSel
             </DialogDescription>
           </DialogHeader>
 
-          <Tabs value={mode} onValueChange={(v) => setMode(v as "listed" | "unlisted")} className="w-full">
+          <Tabs
+            value={mode}
+            onValueChange={(v) => setMode(v as "listed" | "unlisted")}
+            className="w-full"
+          >
             <TabsList className="grid w-full grid-cols-2 bg-white/5">
-              <TabsTrigger 
+              <TabsTrigger
                 value="listed"
                 className="data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-300"
               >
                 Listed Tokens
               </TabsTrigger>
-              <TabsTrigger 
+              <TabsTrigger
                 value="unlisted"
                 className="data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-300"
               >
@@ -412,8 +424,9 @@ export function TokenSelector({ value, onChange, label, excludeToken }: TokenSel
             <TabsContent value="unlisted" className="space-y-4 mt-4">
               <div className="p-4 rounded-lg bg-cyan-500/5 border border-cyan-500/20">
                 <p className="text-sm text-white/70">
-                  <span className="font-semibold text-cyan-300">Trade any SPL token:</span> Enter the mint address 
-                  of any unlisted token to create an OTC deal with ZK-verified liquidity.
+                  <span className="font-semibold text-cyan-300">Trade any SPL token:</span> Enter
+                  the mint address of any unlisted token to create an OTC deal with ZK-verified
+                  liquidity.
                 </p>
               </div>
 

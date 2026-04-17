@@ -1,13 +1,22 @@
 import { motion } from "motion/react";
-import { RFQ } from "@/app/App";
+import type { RFQ } from "@/types/rfq";
 import { Button } from "@/app/components/ui/button";
 import { StatusBadge } from "@/app/components/StatusBadge";
-import { mockRFQs } from "@/app/data/mockRFQs";
+import { mockRFQs } from "@/data/mock";
 import { toast } from "sonner";
-import { 
-  ArrowLeft, Clock, Shield, Coins, Eye, 
-  CheckCircle2, Edit, AlertTriangle, Zap,
-  Users, Lock, Unlock, TrendingUp, FileText, X
+import {
+  ArrowLeft,
+  Clock,
+  Shield,
+  Coins,
+  Eye,
+  CheckCircle2,
+  Edit,
+  AlertTriangle,
+  Zap,
+  Lock,
+  Unlock,
+  X,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -18,9 +27,10 @@ interface AdaptiveRFQDetailProps {
 }
 
 export function AdaptiveRFQDetail({ rfqId, onBack, onQuoteRFQ }: AdaptiveRFQDetailProps) {
-  // Get the actual RFQ from mockRFQs
-  const rfq = mockRFQs.find(r => r.id === rfqId);
-  
+  const [userRole] = useState<"maker" | "taker" | "observer">("maker");
+  const rfq = mockRFQs.find((r) => r.publicKey === rfqId);
+  const [isSelectedTaker] = useState(rfq?.state === "Selected");
+
   if (!rfq) {
     return (
       <div className="min-h-screen bg-[#0a0a0f] pb-32 pt-16 flex items-center justify-center">
@@ -29,24 +39,37 @@ export function AdaptiveRFQDetail({ rfqId, onBack, onQuoteRFQ }: AdaptiveRFQDeta
     );
   }
 
-  // Determine user role in this RFQ
-  const [userRole, setUserRole] = useState<"maker" | "taker" | "observer">("maker");
-  const [isSelectedTaker, setIsSelectedTaker] = useState(rfq.state === "Selected");
+  const [base = rfq.baseMint, quote = rfq.quoteMint] = rfq.pair.split("/");
+  const price = rfq.minQuoteAmount / rfq.baseAmount;
 
-  const [base, quote] = rfq.pair.split('/');
-
-  // Mock committed takers
   const committedTakers = [
     { id: "taker1", bondAmount: 5000, timestamp: "2024-02-04T10:15:00Z" },
     { id: "taker2", bondAmount: 5000, timestamp: "2024-02-04T10:18:00Z" },
     { id: "taker3", bondAmount: 5000, timestamp: "2024-02-04T10:22:00Z" },
   ];
 
-  // Mock revealed quotes (only visible in Revealed state)
   const revealedQuotes = [
-    { takerId: "taker1", quoteAmount: rfq.quoteAmount * 0.99, price: rfq.price * 0.99, bondAmount: 5000, revealedAt: "2024-02-04T11:00:00Z" },
-    { takerId: "taker2", quoteAmount: rfq.quoteAmount * 0.995, price: rfq.price * 0.995, bondAmount: 5000, revealedAt: "2024-02-04T11:02:00Z" },
-    { takerId: "taker3", quoteAmount: rfq.quoteAmount * 1.01, price: rfq.price * 1.01, bondAmount: 5000, revealedAt: "2024-02-04T11:05:00Z" },
+    {
+      takerId: "taker1",
+      quoteAmount: rfq.minQuoteAmount * 0.99,
+      price: price * 0.99,
+      bondAmount: 5000,
+      revealedAt: "2024-02-04T11:00:00Z",
+    },
+    {
+      takerId: "taker2",
+      quoteAmount: rfq.minQuoteAmount * 0.995,
+      price: price * 0.995,
+      bondAmount: 5000,
+      revealedAt: "2024-02-04T11:02:00Z",
+    },
+    {
+      takerId: "taker3",
+      quoteAmount: rfq.minQuoteAmount * 1.01,
+      price: price * 1.01,
+      bondAmount: 5000,
+      revealedAt: "2024-02-04T11:05:00Z",
+    },
   ];
 
   const handleEditRFQ = () => {
@@ -87,7 +110,7 @@ export function AdaptiveRFQDetail({ rfqId, onBack, onQuoteRFQ }: AdaptiveRFQDeta
           <div className="flex items-start justify-between mb-4">
             <div>
               <div className="text-xs text-white/40 font-mono mb-1">RFQ ID</div>
-              <div className="text-lg font-mono text-white mb-3">{rfq.id}</div>
+              <div className="text-lg font-mono text-white mb-3">{rfq.publicKey}</div>
               <div className="flex items-center gap-3">
                 <Coins className="h-5 w-5 text-cyan-400" />
                 <span className="text-2xl font-bold text-white">{rfq.pair}</span>
@@ -100,60 +123,53 @@ export function AdaptiveRFQDetail({ rfqId, onBack, onQuoteRFQ }: AdaptiveRFQDeta
           <div className="grid grid-cols-2 gap-6 pt-4 border-t border-white/10">
             <div>
               <div className="text-xs text-white/50 mb-1">Base Amount</div>
-              <div className="text-xl font-semibold text-white">{rfq.baseAmount.toLocaleString()}</div>
+              <div className="text-xl font-semibold text-white">
+                {rfq.baseAmount.toLocaleString()}
+              </div>
               <div className="text-sm text-white/40">{base}</div>
             </div>
             <div>
               <div className="text-xs text-white/50 mb-1">Quote Amount (Target)</div>
-              <div className="text-xl font-semibold text-white">{rfq.quoteAmount.toLocaleString()}</div>
+              <div className="text-xl font-semibold text-white">
+                {rfq.minQuoteAmount.toLocaleString()}
+              </div>
               <div className="text-sm text-white/40">{quote}</div>
             </div>
           </div>
         </div>
 
         {/* STATE-SPECIFIC CONTENT */}
-        
-        {/* DRAFT STATE - Maker Only */}
+
+        {/* DRAFT STATE - creator only */}
         {rfq.state === "Draft" && userRole === "maker" && (
-          <DraftView rfq={rfq} handleEditRFQ={handleEditRFQ} handleCancelRFQ={handleCancelRFQ} handleOpenRFQ={handleOpenRFQ} />
+          <DraftView
+            rfq={rfq}
+            handleEditRFQ={handleEditRFQ}
+            handleCancelRFQ={handleCancelRFQ}
+            handleOpenRFQ={handleOpenRFQ}
+          />
         )}
 
         {/* OPEN STATE */}
-        {rfq.state === "Open" && (
-          <OpenView rfq={rfq} userRole={userRole} onQuoteRFQ={onQuoteRFQ} />
-        )}
+        {rfq.state === "Open" && <OpenView rfq={rfq} userRole={userRole} onQuoteRFQ={onQuoteRFQ} />}
 
         {/* COMMITTED STATE */}
         {rfq.state === "Committed" && (
-          <CommittedView 
-            rfq={rfq} 
-            userRole={userRole} 
-            committedTakers={committedTakers}
-          />
+          <CommittedView rfq={rfq} userRole={userRole} committedTakers={committedTakers} />
         )}
 
         {/* REVEALED STATE */}
         {rfq.state === "Revealed" && (
-          <RevealedView 
-            rfq={rfq} 
-            userRole={userRole} 
-            revealedQuotes={revealedQuotes}
-          />
+          <RevealedView rfq={rfq} userRole={userRole} revealedQuotes={revealedQuotes} />
         )}
 
         {/* SELECTED STATE */}
         {rfq.state === "Selected" && (
-          <SelectedView 
-            rfq={rfq} 
-            userRole={userRole}
-            isSelectedTaker={isSelectedTaker}
-          />
+          <SelectedView rfq={rfq} userRole={userRole} isSelectedTaker={isSelectedTaker} />
         )}
 
         {/* SETTLED STATE */}
-        {rfq.state === "Settled" && (
-          <SettledView rfq={rfq} userRole={userRole} />
-        )}
+        {rfq.state === "Settled" && <SettledView rfq={rfq} userRole={userRole} />}
       </div>
     </div>
   );
@@ -161,7 +177,16 @@ export function AdaptiveRFQDetail({ rfqId, onBack, onQuoteRFQ }: AdaptiveRFQDeta
 
 // STATE-SPECIFIC VIEW COMPONENTS
 
-function DraftView({ rfq, handleEditRFQ, handleCancelRFQ, handleOpenRFQ }: { rfq: RFQ; handleEditRFQ: () => void; handleCancelRFQ: () => void; handleOpenRFQ: () => void }) {
+function DraftView({
+  handleEditRFQ,
+  handleCancelRFQ,
+  handleOpenRFQ,
+}: {
+  rfq: RFQ;
+  handleEditRFQ: () => void;
+  handleCancelRFQ: () => void;
+  handleOpenRFQ: () => void;
+}) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -192,9 +217,9 @@ function DraftView({ rfq, handleEditRFQ, handleCancelRFQ, handleOpenRFQ }: { rfq
               <div className="text-xs text-green-400">Available in wallet</div>
             </div>
             <div>
-              <div className="text-xs text-white/50">Taker Bond (Required)</div>
+              <div className="text-xs text-white/50">Counterparty Bond (Required)</div>
               <div className="text-lg font-semibold text-white">5,000 USDC</div>
-              <div className="text-xs text-white/40">Per taker quote</div>
+              <div className="text-xs text-white/40">Per counterparty quote</div>
             </div>
           </div>
         </div>
@@ -230,7 +255,15 @@ function DraftView({ rfq, handleEditRFQ, handleCancelRFQ, handleOpenRFQ }: { rfq
   );
 }
 
-function OpenView({ rfq, userRole, onQuoteRFQ }: { rfq: RFQ; userRole: string; onQuoteRFQ?: (rfq: RFQ) => void }) {
+function OpenView({
+  rfq,
+  userRole,
+  onQuoteRFQ,
+}: {
+  rfq: RFQ;
+  userRole: string;
+  onQuoteRFQ?: (rfq: RFQ) => void;
+}) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -245,11 +278,13 @@ function OpenView({ rfq, userRole, onQuoteRFQ }: { rfq: RFQ; userRole: string; o
             </div>
             <div className="flex-1">
               <h2 className="text-xl font-semibold text-white mb-2">Waiting for Quotes</h2>
-              <p className="text-white/60">RFQ is open. Takers can commit quotes until the deadline.</p>
+              <p className="text-white/60">
+                RFQ is open. Takers can commit quotes until the deadline.
+              </p>
             </div>
             <div className="text-right">
               <div className="text-xs text-white/50">Expires in</div>
-              <div className="text-2xl font-bold text-orange-400">{rfq.expires}</div>
+              <div className="text-2xl font-bold text-orange-400">{rfq.expiresIn}</div>
             </div>
           </div>
 
@@ -262,7 +297,9 @@ function OpenView({ rfq, userRole, onQuoteRFQ }: { rfq: RFQ; userRole: string; o
               </div>
               <div className="text-sm text-white/60">Waiting for first commitment...</div>
             </div>
-            <p className="text-xs text-white/50 mt-2">You'll be notified when takers start committing</p>
+            <p className="text-xs text-white/50 mt-2">
+              You'll be notified when takers start committing
+            </p>
           </div>
         </div>
       ) : (
@@ -277,7 +314,7 @@ function OpenView({ rfq, userRole, onQuoteRFQ }: { rfq: RFQ; userRole: string; o
             </div>
             <div className="text-right">
               <div className="text-xs text-white/50">Time left</div>
-              <div className="text-2xl font-bold text-orange-400">{rfq.expires}</div>
+              <div className="text-2xl font-bold text-orange-400">{rfq.expiresIn}</div>
             </div>
           </div>
 
@@ -305,8 +342,21 @@ function OpenView({ rfq, userRole, onQuoteRFQ }: { rfq: RFQ; userRole: string; o
   );
 }
 
-function CommittedView({ rfq, userRole, committedTakers }: { rfq: RFQ; userRole: string; committedTakers: any[] }) {
-  const [hasCommitted, setHasCommitted] = useState(true); // Mock: user has committed
+interface CommittedTaker {
+  id: string;
+  bondAmount: number;
+  timestamp: string;
+}
+
+function CommittedView({
+  userRole,
+  committedTakers,
+}: {
+  rfq: RFQ;
+  userRole: string;
+  committedTakers: CommittedTaker[];
+}) {
+  const [hasCommitted] = useState(true);
 
   return (
     <motion.div
@@ -321,7 +371,7 @@ function CommittedView({ rfq, userRole, committedTakers }: { rfq: RFQ; userRole:
               <Shield className="h-6 w-6 text-blue-400" />
             </div>
             <div className="flex-1">
-              <h2 className="text-xl font-semibold text-white mb-2">Takers Committed</h2>
+              <h2 className="text-xl font-semibold text-white mb-2">Commitments Received</h2>
               <p className="text-white/60">Waiting for reveal deadline to see quotes</p>
             </div>
             <div className="text-right">
@@ -332,17 +382,24 @@ function CommittedView({ rfq, userRole, committedTakers }: { rfq: RFQ; userRole:
 
           {/* Anonymous Taker List */}
           <div className="bg-white/5 border border-white/10 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-white mb-3">Committed Takers ({committedTakers.length})</h3>
+            <h3 className="text-sm font-medium text-white mb-3">
+              Commitments ({committedTakers.length})
+            </h3>
             <div className="space-y-2">
               {committedTakers.map((taker, idx) => (
-                <div key={taker.id} className="flex items-center justify-between bg-white/5 rounded-lg p-3">
+                <div
+                  key={taker.id}
+                  className="flex items-center justify-between bg-white/5 rounded-lg p-3"
+                >
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-white text-sm font-bold">
                       {idx + 1}
                     </div>
                     <span className="text-white/60 font-mono text-sm">{taker.id}</span>
                   </div>
-                  <div className="text-sm text-white/80">Bond: {taker.bondAmount.toLocaleString()} USDC</div>
+                  <div className="text-sm text-white/80">
+                    Bond: {taker.bondAmount.toLocaleString()} USDC
+                  </div>
                 </div>
               ))}
             </div>
@@ -356,7 +413,9 @@ function CommittedView({ rfq, userRole, committedTakers }: { rfq: RFQ; userRole:
             </div>
             <div className="flex-1">
               <h2 className="text-xl font-semibold text-white mb-2">Reveal Your Quote</h2>
-              <p className="text-white/60">Your quote is committed. Reveal it before the deadline.</p>
+              <p className="text-white/60">
+                Your quote is committed. Reveal it before the deadline.
+              </p>
             </div>
             <div className="text-right">
               <div className="text-xs text-white/50">Reveal by</div>
@@ -397,7 +456,22 @@ function CommittedView({ rfq, userRole, committedTakers }: { rfq: RFQ; userRole:
   );
 }
 
-function RevealedView({ rfq, userRole, revealedQuotes }: { rfq: RFQ; userRole: string; revealedQuotes: any[] }) {
+interface RevealedQuote {
+  takerId: string;
+  quoteAmount: number;
+  price: number;
+  bondAmount: number;
+  revealedAt: string;
+}
+
+function RevealedView({
+  userRole,
+  revealedQuotes,
+}: {
+  rfq: RFQ;
+  userRole: string;
+  revealedQuotes: RevealedQuote[];
+}) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -412,7 +486,7 @@ function RevealedView({ rfq, userRole, revealedQuotes }: { rfq: RFQ; userRole: s
             </div>
             <div className="flex-1">
               <h2 className="text-xl font-semibold text-white mb-2">Select Best Quote</h2>
-              <p className="text-white/60">Compare quotes and choose the winning taker</p>
+              <p className="text-white/60">Compare quotes and choose the winner</p>
             </div>
           </div>
 
@@ -421,18 +495,22 @@ function RevealedView({ rfq, userRole, revealedQuotes }: { rfq: RFQ; userRole: s
             {revealedQuotes
               .sort((a, b) => a.price - b.price) // Sort by best price
               .map((quote, idx) => (
-                <div 
-                  key={quote.takerId} 
-                  className={`bg-white/5 border ${idx === 0 ? 'border-green-500/30 bg-green-500/5' : 'border-white/10'} rounded-lg p-4 hover:border-white/20 transition-all`}
+                <div
+                  key={quote.takerId}
+                  className={`bg-white/5 border ${idx === 0 ? "border-green-500/30 bg-green-500/5" : "border-white/10"} rounded-lg p-4 hover:border-white/20 transition-all`}
                 >
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-full ${idx === 0 ? 'bg-gradient-to-br from-green-500 to-emerald-500' : 'bg-gradient-to-br from-cyan-500 to-blue-500'} flex items-center justify-center text-white font-bold`}>
+                      <div
+                        className={`w-10 h-10 rounded-full ${idx === 0 ? "bg-gradient-to-br from-green-500 to-emerald-500" : "bg-gradient-to-br from-cyan-500 to-blue-500"} flex items-center justify-center text-white font-bold`}
+                      >
                         {idx + 1}
                       </div>
                       <div>
                         <div className="text-sm font-mono text-white/60">{quote.takerId}</div>
-                        {idx === 0 && <div className="text-xs text-green-400 font-medium">Best Price</div>}
+                        {idx === 0 && (
+                          <div className="text-xs text-green-400 font-medium">Best Price</div>
+                        )}
                       </div>
                     </div>
                     <Button
@@ -445,7 +523,9 @@ function RevealedView({ rfq, userRole, revealedQuotes }: { rfq: RFQ; userRole: s
                   <div className="grid grid-cols-3 gap-4">
                     <div>
                       <div className="text-xs text-white/50">Quote Amount</div>
-                      <div className="text-lg font-semibold text-white">{quote.quoteAmount.toLocaleString()}</div>
+                      <div className="text-lg font-semibold text-white">
+                        {quote.quoteAmount.toLocaleString()}
+                      </div>
                     </div>
                     <div>
                       <div className="text-xs text-white/50">Price</div>
@@ -453,7 +533,9 @@ function RevealedView({ rfq, userRole, revealedQuotes }: { rfq: RFQ; userRole: s
                     </div>
                     <div>
                       <div className="text-xs text-white/50">Bond</div>
-                      <div className="text-lg font-semibold text-white">{quote.bondAmount.toLocaleString()}</div>
+                      <div className="text-lg font-semibold text-white">
+                        {quote.bondAmount.toLocaleString()}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -468,7 +550,7 @@ function RevealedView({ rfq, userRole, revealedQuotes }: { rfq: RFQ; userRole: s
             </div>
             <div>
               <h2 className="text-xl font-semibold text-white mb-2">Quote Revealed</h2>
-              <p className="text-white/60">Waiting for maker to select a quote</p>
+              <p className="text-white/60">Waiting for a quote to be selected</p>
             </div>
           </div>
 
@@ -484,7 +566,14 @@ function RevealedView({ rfq, userRole, revealedQuotes }: { rfq: RFQ; userRole: s
   );
 }
 
-function SelectedView({ rfq, userRole, isSelectedTaker }: { rfq: RFQ; userRole: string; isSelectedTaker: boolean }) {
+function SelectedView({
+  userRole,
+  isSelectedTaker,
+}: {
+  rfq: RFQ;
+  userRole: string;
+  isSelectedTaker: boolean;
+}) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -499,13 +588,13 @@ function SelectedView({ rfq, userRole, isSelectedTaker }: { rfq: RFQ; userRole: 
             </div>
             <div>
               <h2 className="text-xl font-semibold text-white mb-2">Quote Selected</h2>
-              <p className="text-white/60">Waiting for taker to complete settlement</p>
+              <p className="text-white/60">Waiting for settlement to complete</p>
             </div>
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-lg p-4">
-            <div className="text-sm text-white/50 mb-1">Selected Taker</div>
-            <div className="text-lg font-mono text-white mb-3">taker1</div>
+            <div className="text-sm text-white/50 mb-1">Selected Quote</div>
+            <div className="text-lg font-mono text-white mb-3">quote-1</div>
             <div className="text-xs text-green-400">Settlement in progress...</div>
           </div>
         </div>
@@ -550,7 +639,7 @@ function SelectedView({ rfq, userRole, isSelectedTaker }: { rfq: RFQ; userRole: 
   );
 }
 
-function SettledView({ rfq, userRole }: { rfq: RFQ; userRole: string }) {
+function SettledView({ rfq }: { rfq: RFQ; userRole: string }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -573,11 +662,15 @@ function SettledView({ rfq, userRole }: { rfq: RFQ; userRole: string }) {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <div className="text-xs text-white/50">Final Price</div>
-            <div className="text-lg font-semibold text-white">{rfq.price}</div>
+            <div className="text-lg font-semibold text-white">
+              {(rfq.minQuoteAmount / rfq.baseAmount).toFixed(4)}
+            </div>
           </div>
           <div>
             <div className="text-xs text-white/50">Total Volume</div>
-            <div className="text-lg font-semibold text-white">{rfq.quoteAmount.toLocaleString()} USDC</div>
+            <div className="text-lg font-semibold text-white">
+              {rfq.minQuoteAmount.toLocaleString()} USDC
+            </div>
           </div>
           <div>
             <div className="text-xs text-white/50">Settled At</div>
