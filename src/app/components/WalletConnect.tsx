@@ -1,9 +1,24 @@
+import { useEffect } from "react";
 import { motion } from "motion/react";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { ArrowLeft, Sparkles, Shield, Zap } from "lucide-react";
 import logo from "figma:asset/6d73120824de2c8c6632c71cddef1ae782b1c254.png";
 
 export function WalletConnect() {
+  const { wallet, connected, connecting, select } = useWallet();
+
+  // SWA persists the last-picked wallet in localStorage.walletName, so a freshly-
+  // disconnected user would land here with Solflare (or whatever was last chosen)
+  // already pre-selected — the button shows "Connect" instead of "Select Wallet"
+  // and the user never gets a real choice. Reset the selection whenever we render
+  // the connect screen without an active session.
+  useEffect(() => {
+    if (!connected && !connecting && wallet) {
+      select(null);
+    }
+  }, [connected, connecting, wallet, select]);
+
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white dark relative overflow-hidden">
       <div className="absolute inset-0 overflow-hidden">
