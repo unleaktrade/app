@@ -1,4 +1,5 @@
-import { motion } from "motion/react";
+import { useMemo, useState, type ReactNode } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { useNavigate, useOutletContext } from "react-router";
 import {
   CURRENT_USER_FULL,
@@ -7,14 +8,16 @@ import {
   getMyRFQs,
   getRFQById,
 } from "@/data/mock";
-import type { FacilitatorReward, Quote, RFQ } from "@/types/rfq";
+import type { FacilitatorReward, Quote, RFQ, RFQState } from "@/types/rfq";
 import { Button } from "@/app/components/ui/button";
 import { StatusBadge } from "@/app/components/StatusBadge";
+import type { DashboardOutletContext } from "@/app/components/DashboardLayout";
 import {
+  AlertCircle,
   CheckCircle2,
+  ChevronDown,
   Clock,
   Coins,
-  DollarSign,
   Edit,
   Eye,
   FileText,
@@ -22,18 +25,57 @@ import {
   Lock,
   MousePointerClick,
   Plus,
+  Sparkles,
   Unlock,
+  Zap,
 } from "lucide-react";
-import type { DashboardOutletContext } from "@/app/components/DashboardLayout";
+
+const TERMINAL_STATES = new Set<RFQState>(["Settled", "Expired", "Ignored", "Incomplete"]);
+
+function quoteSymbol(rfq: RFQ | undefined): string {
+  if (!rfq) return "";
+  const parts = rfq.pair.split("/");
+  return parts[1] ?? "";
+}
+
+interface Attention {
+  id: string;
+  kind: "reveal" | "select" | "settle" | "open-draft" | "claim";
+  label: string;
+  sublabel?: string;
+  cta: string;
+  tone: "urgent" | "primary" | "reward";
+  expiresIn?: string | null;
+  onClick: () => void;
+}
 
 export function MyActivity() {
   const navigate = useNavigate();
   const { setIsCreateModalOpen, setIsUpdateModalOpen, setUpdateRFQ } =
     useOutletContext<DashboardOutletContext>();
 
-  const myRFQs = getMyRFQs(CURRENT_USER_FULL);
-  const myQuotes = getMyQuotes(CURRENT_USER_FULL);
-  const myRewards = getMyFacilitatorRewards(CURRENT_USER_FULL);
+  const myRFQs = useMemo(() => getMyRFQs(CURRENT_USER_FULL), []);
+  const myQuotes = useMemo(() => getMyQuotes(CURRENT_USER_FULL), []);
+  const myRewards = useMemo(() => getMyFacilitatorRewards(CURRENT_USER_FULL), []);
+
+  const unclaimedRewards = myRewards.filter((r) => !r.claimedAt);
+  const activeRFQs = myRFQs.filter((r) => !TERMINAL_STATES.has(r.state));
+  const activeQuotes = myQuotes.filter((q) => {
+    const rfq = getRFQById(q.rfq);
+    return rfq && !TERMINAL_STATES.has(rfq.state);
+  });
+  const settledRFQs = myRFQs.filter((r) => r.state === "Settled");
+
+  const rfqsNeedAction = myRFQs.filter(
+    (r) => r.state === "Draft" || r.state === "Revealed" || r.state === "Selected",
+  ).length;
+  const quotesNeedAction = myQuotes.filter((q) => {
+    const rfq = getRFQById(q.rfq);
+    if (!rfq) return false;
+    if (rfq.state === "Committed" && !q.revealedAt) return true;
+    if (q.selected && rfq.state === "Selected") return true;
+    return false;
+  }).length;
 
   const viewRFQ = (publicKey: string) => navigate(`/dashboard/rfq/${publicKey}`);
   const editRFQ = (rfq: RFQ) => {
@@ -41,7 +83,121 @@ export function MyActivity() {
     setIsUpdateModalOpen(true);
   };
 
+  const attention: Attention[] = useMemo(() => {
+    const items: Attention[] = [];
+    // Drafts to open
+    myRFQs
+      .filter((r) => r.state === "Draft")
+      .forEach((rfq) => {
+        items.push({
+          id: `open:${rfq.publicKey}`,
+          kind: "open-draft",
+          label: `Open draft ${rfq.pair}`,
+          cta: "Open",
+          tone: "primary",
+          onClick: () => viewRFQ(rfq.publicKey),
+        });
+      });
+    // Quotes to reveal
+    myQuotes.forEach((q) => {
+      const rfq = getRFQById(q.rfq);
+      if (rfq && rfq.state === "Committed" && !q.revealedAt) {
+        items.push({
+          id: `reveal:${q.publicKey}`,
+          kind: "reveal",
+          label: `Reveal quote on ${rfq.pair}`,
+          cta: "Reveal",
+          tone: "urgent",
+          expiresIn: rfq.expiresIn,
+          onClick: () => viewRFQ(rfq.publicKey),
+        });
+      }
+    });
+    // My Revealed RFQs → pick winner
+    myRFQs
+      .filter((r) => r.state === "Revealed")
+      .forEach((rfq) => {
+        items.push({
+          id: `select:${rfq.publicKey}`,
+          kind: "select",
+          label: `Select winner on ${rfq.pair}`,
+          cta: "Select",
+          tone: "urgent",
+          expiresIn: rfq.expiresIn,
+          onClick: () => viewRFQ(rfq.publicKey),
+        });
+      });
+    // My selected quotes → settle
+    myQuotes
+      .filter((q) => q.selected)
+      .forEach((q) => {
+        const rfq = getRFQById(q.rfq);
+        if (rfq && rfq.state === "Selected") {
+          items.push({
+            id: `settle:${q.publicKey}`,
+            kind: "settle",
+            label: `Settle ${rfq.pair}`,
+            cta: "Settle",
+            tone: "urgent",
+            expiresIn: rfq.expiresIn,
+            onClick: () => viewRFQ(rfq.publicKey),
+          });
+        }
+      });
+    // Unclaimed rewards
+    unclaimedRewards.forEach((reward) => {
+      const rfq = getRFQById(reward.rfq);
+      const symbol = quoteSymbol(rfq);
+      items.push({
+        id: `claim:${reward.publicKey}`,
+        kind: "claim",
+        label: `Claim ${reward.amount.toLocaleString()} ${symbol}`,
+        sublabel: rfq ? `from ${rfq.pair}` : undefined,
+        cta: "Claim",
+        tone: "reward",
+        onClick: () => viewRFQ(reward.rfq),
+      });
+    });
+    // Urgent first, then everything else; within each, time-based first
+    const order = { urgent: 0, primary: 1, reward: 2 };
+    return items.sort((a, b) => {
+      const ta = order[a.tone];
+      const tb = order[b.tone];
+      if (ta !== tb) return ta - tb;
+      if (a.expiresIn && !b.expiresIn) return -1;
+      if (!a.expiresIn && b.expiresIn) return 1;
+      return 0;
+    });
+  }, [myRFQs, myQuotes, unclaimedRewards]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const hasAnyActivity = myRFQs.length > 0 || myQuotes.length > 0 || myRewards.length > 0;
+
+  const scrollToRewards = () => {
+    document
+      .getElementById("rewards-section")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  if (!hasAnyActivity) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0f] pt-20 lg:pt-24 pb-16 sm:pb-32">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-20 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl" />
+          <div className="absolute top-60 right-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl" />
+        </div>
+        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 sm:mb-8"
+          >
+            <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">My Activity</h1>
+          </motion.div>
+          <EmptyState onCreateRFQ={() => setIsCreateModalOpen(true)} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] pt-20 lg:pt-24 pb-16 sm:pb-32">
@@ -54,49 +210,65 @@ export function MyActivity() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-6 sm:mb-8"
+          className="mb-4 sm:mb-6"
         >
-          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">My Activity</h1>
-          <p className="text-base sm:text-lg text-white/60">
-            Everything you've posted, quoted, and earned.
+          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-1">My Activity</h1>
+          <p className="text-sm sm:text-base text-white/60">
+            Your cockpit — what needs your attention, and everything you've done.
           </p>
         </motion.div>
 
-        {!hasAnyActivity && <EmptyState onCreateRFQ={() => setIsCreateModalOpen(true)} />}
+        <PinnedSummary
+          unclaimedCount={unclaimedRewards.length}
+          activeRFQs={activeRFQs.length}
+          activeQuotes={activeQuotes.length}
+          settled={settledRFQs.length}
+          onClaim={scrollToRewards}
+        />
 
-        <div className="space-y-6">
-          {myRFQs.length > 0 && (
-            <Section
-              title="RFQs I posted"
-              count={myRFQs.length}
-              icon={FileText}
-              action={
-                <Button
-                  onClick={() => setIsCreateModalOpen(true)}
-                  size="sm"
-                  className="bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 hover:from-purple-600 hover:via-purple-700 hover:to-purple-800 text-white shadow-lg shadow-purple-500/30"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  New RFQ
-                </Button>
-              }
-            >
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                {myRFQs.map((rfq) => (
-                  <PostedRFQCard
-                    key={rfq.publicKey}
-                    rfq={rfq}
-                    onView={() => viewRFQ(rfq.publicKey)}
-                    onEdit={rfq.state === "Draft" ? () => editRFQ(rfq) : undefined}
-                  />
-                ))}
-              </div>
-            </Section>
-          )}
+        {attention.length > 0 && <AttentionRibbon items={attention} />}
+
+        <div className="space-y-4 sm:space-y-6 mt-6 sm:mt-8">
+          <CollapsibleSection
+            id="rfqs-section"
+            title="RFQs I posted"
+            count={myRFQs.length}
+            needsAttentionCount={rfqsNeedAction}
+            icon={FileText}
+            defaultOpen={rfqsNeedAction > 0}
+            action={
+              <Button
+                onClick={() => setIsCreateModalOpen(true)}
+                size="sm"
+                className="bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 hover:from-purple-600 hover:via-purple-700 hover:to-purple-800 text-white shadow-lg shadow-purple-500/30"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                New RFQ
+              </Button>
+            }
+          >
+            <HorizontalStrip>
+              {myRFQs.map((rfq) => (
+                <PostedRFQCard
+                  key={rfq.publicKey}
+                  rfq={rfq}
+                  onView={() => viewRFQ(rfq.publicKey)}
+                  onEdit={rfq.state === "Draft" ? () => editRFQ(rfq) : undefined}
+                />
+              ))}
+            </HorizontalStrip>
+          </CollapsibleSection>
 
           {myQuotes.length > 0 && (
-            <Section title="Quotes I submitted" count={myQuotes.length} icon={MousePointerClick}>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            <CollapsibleSection
+              id="quotes-section"
+              title="Quotes I submitted"
+              count={myQuotes.length}
+              needsAttentionCount={quotesNeedAction}
+              icon={MousePointerClick}
+              defaultOpen={quotesNeedAction > 0}
+            >
+              <HorizontalStrip>
                 {myQuotes.map((quote) => (
                   <SubmittedQuoteCard
                     key={quote.publicKey}
@@ -104,12 +276,19 @@ export function MyActivity() {
                     onView={() => viewRFQ(quote.rfq)}
                   />
                 ))}
-              </div>
-            </Section>
+              </HorizontalStrip>
+            </CollapsibleSection>
           )}
 
           {myRewards.length > 0 && (
-            <Section title="Rewards" count={myRewards.length} icon={HandCoins}>
+            <CollapsibleSection
+              id="rewards-section"
+              title="Rewards history"
+              count={myRewards.length}
+              needsAttentionCount={unclaimedRewards.length}
+              icon={HandCoins}
+              defaultOpen={unclaimedRewards.length > 0}
+            >
               <div className="space-y-3">
                 {myRewards.map((reward) => (
                   <RewardRow
@@ -119,11 +298,258 @@ export function MyActivity() {
                   />
                 ))}
               </div>
-            </Section>
+            </CollapsibleSection>
           )}
         </div>
       </div>
     </div>
+  );
+}
+
+interface PinnedSummaryProps {
+  unclaimedCount: number;
+  activeRFQs: number;
+  activeQuotes: number;
+  settled: number;
+  onClaim: () => void;
+}
+
+function PinnedSummary({
+  unclaimedCount,
+  activeRFQs,
+  activeQuotes,
+  settled,
+  onClaim,
+}: PinnedSummaryProps) {
+  return (
+    <div className="sticky top-16 z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 bg-[#0a0a0f]/80 backdrop-blur-xl border-y border-white/10 py-3 sm:py-4 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 items-stretch">
+        <RewardsTile count={unclaimedCount} onClaim={onClaim} />
+        <StatTile label="Active RFQs" value={activeRFQs} tone="cyan" />
+        <StatTile label="Active quotes" value={activeQuotes} tone="blue" />
+        <StatTile label="Settled" value={settled} tone="teal" />
+      </div>
+    </div>
+  );
+}
+
+function RewardsTile({ count, onClaim }: { count: number; onClaim: () => void }) {
+  const hasUnclaimed = count > 0;
+  return (
+    <div
+      className={`col-span-2 sm:col-span-1 flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 sm:px-4 sm:py-3 ${
+        hasUnclaimed
+          ? "bg-gradient-to-br from-green-500/15 to-emerald-500/10 border-green-500/30"
+          : "bg-white/5 border-white/10"
+      }`}
+    >
+      <div className="min-w-0">
+        <div className="text-[0.65rem] sm:text-xs uppercase tracking-wider text-white/50">
+          Rewards
+        </div>
+        <div className="flex items-baseline gap-1.5">
+          <span
+            className={`text-xl sm:text-2xl font-bold ${hasUnclaimed ? "text-green-400" : "text-white/70"}`}
+          >
+            {count}
+          </span>
+          <span className="text-xs sm:text-sm text-white/60">to claim</span>
+        </div>
+      </div>
+      {hasUnclaimed ? (
+        <Button
+          onClick={onClaim}
+          size="sm"
+          className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-lg shadow-green-500/20"
+        >
+          <HandCoins className="mr-1.5 h-3.5 w-3.5" />
+          Claim
+        </Button>
+      ) : (
+        <CheckCircle2 className="h-5 w-5 text-white/30" />
+      )}
+    </div>
+  );
+}
+
+function StatTile({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: "cyan" | "blue" | "teal";
+}) {
+  const toneMap = {
+    cyan: "text-cyan-400",
+    blue: "text-blue-400",
+    teal: "text-teal-400",
+  };
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 sm:px-4 sm:py-3">
+      <div className="min-w-0">
+        <div className="text-[0.65rem] sm:text-xs uppercase tracking-wider text-white/50">
+          {label}
+        </div>
+        <div className={`text-xl sm:text-2xl font-bold ${toneMap[tone]}`}>{value}</div>
+      </div>
+    </div>
+  );
+}
+
+function AttentionRibbon({ items }: { items: Attention[] }) {
+  return (
+    <div className="mt-4 sm:mt-6">
+      <div className="flex items-center gap-2 mb-3">
+        <Sparkles className="h-4 w-4 text-amber-400" />
+        <h2 className="text-sm sm:text-base font-semibold text-white">
+          Needs your attention <span className="text-white/40 font-normal">({items.length})</span>
+        </h2>
+      </div>
+      <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 scrollbar-thin">
+        {items.map((item) => (
+          <AttentionChip key={item.id} item={item} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AttentionChip({ item }: { item: Attention }) {
+  const toneClasses = {
+    urgent: "from-orange-500/15 to-red-500/10 border-orange-500/30",
+    primary: "from-purple-500/15 to-violet-500/10 border-purple-500/30",
+    reward: "from-green-500/15 to-emerald-500/10 border-green-500/30",
+  }[item.tone];
+
+  const ctaClasses = {
+    urgent: "bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600",
+    primary:
+      "bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600",
+    reward:
+      "bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600",
+  }[item.tone];
+
+  const Icon = {
+    urgent: Zap,
+    primary: Edit,
+    reward: HandCoins,
+  }[item.tone];
+
+  return (
+    <div
+      className={`flex-shrink-0 w-64 sm:w-72 rounded-xl border bg-gradient-to-br ${toneClasses} backdrop-blur-sm p-3 flex flex-col justify-between gap-3`}
+    >
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <Icon className="h-4 w-4 text-white/80 flex-shrink-0" />
+          <div className="text-sm font-semibold text-white truncate">{item.label}</div>
+        </div>
+        {item.sublabel && (
+          <div className="text-xs text-white/50 truncate pl-6">{item.sublabel}</div>
+        )}
+        {item.expiresIn && (
+          <div className="flex items-center gap-1 text-xs text-orange-300 pl-6 mt-1">
+            <Clock className="h-3 w-3" />
+            <span>{item.expiresIn}</span>
+          </div>
+        )}
+      </div>
+      <Button
+        onClick={item.onClick}
+        size="sm"
+        className={`${ctaClasses} text-white shadow-lg w-full`}
+      >
+        {item.cta}
+      </Button>
+    </div>
+  );
+}
+
+interface CollapsibleSectionProps {
+  id: string;
+  title: string;
+  count: number;
+  needsAttentionCount?: number;
+  icon: typeof FileText;
+  defaultOpen: boolean;
+  action?: ReactNode;
+  children: ReactNode;
+}
+
+function CollapsibleSection({
+  id,
+  title,
+  count,
+  needsAttentionCount = 0,
+  icon: Icon,
+  defaultOpen,
+  action,
+  children,
+}: CollapsibleSectionProps) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <div
+      id={id}
+      className="rounded-lg sm:rounded-xl border border-white/10 bg-gradient-to-br from-white/[0.04] to-white/[0.02] backdrop-blur-sm"
+    >
+      <div className="flex items-center justify-between gap-3 p-4 sm:p-5">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="flex items-center gap-3 min-w-0 flex-1 text-left group"
+          aria-expanded={open}
+          aria-controls={`${id}-body`}
+        >
+          <div className="p-2 rounded-lg bg-white/10 flex-shrink-0">
+            <Icon className="h-4 w-4 text-white/80" />
+          </div>
+          <div className="flex items-baseline gap-2 min-w-0">
+            <h3 className="text-base sm:text-lg font-bold text-white truncate group-hover:text-white/90">
+              {title} <span className="text-white/40 font-normal">({count})</span>
+            </h3>
+            {needsAttentionCount > 0 && (
+              <span className="hidden sm:inline-flex items-center gap-1 text-xs text-amber-400 font-medium">
+                <AlertCircle className="h-3 w-3" />
+                {needsAttentionCount} need action
+              </span>
+            )}
+          </div>
+          <motion.div
+            animate={{ rotate: open ? 180 : 0 }}
+            transition={{ duration: 0.2 }}
+            className="ml-2 flex-shrink-0"
+          >
+            <ChevronDown className="h-5 w-5 text-white/60" />
+          </motion.div>
+        </button>
+        {action && <div className="flex-shrink-0">{action}</div>}
+      </div>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="content"
+            id={`${id}-body`}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 sm:px-5 pb-4 sm:pb-5 pt-1">{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function HorizontalStrip({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin">{children}</div>
   );
 }
 
@@ -146,35 +572,6 @@ function EmptyState({ onCreateRFQ }: { onCreateRFQ: () => void }) {
   );
 }
 
-interface SectionProps {
-  title: string;
-  count: number;
-  icon: typeof FileText;
-  action?: React.ReactNode;
-  children: React.ReactNode;
-}
-
-function Section({ title, count, icon: Icon, action, children }: SectionProps) {
-  return (
-    <div className="bg-gradient-to-br from-white/[0.04] to-white/[0.02] backdrop-blur-sm border border-white/10 rounded-lg sm:rounded-xl p-4 sm:p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-white/10">
-            <Icon className="h-4 w-4 text-white/80" />
-          </div>
-          <div>
-            <h3 className="text-lg sm:text-xl font-bold text-white">
-              {title} <span className="text-white/40">({count})</span>
-            </h3>
-          </div>
-        </div>
-        {action}
-      </div>
-      {children}
-    </div>
-  );
-}
-
 function PostedRFQCard({
   rfq,
   onView,
@@ -185,11 +582,11 @@ function PostedRFQCard({
   onEdit?: () => void;
 }) {
   return (
-    <div className="bg-white/5 border border-white/10 rounded-lg p-4 hover:border-white/20 transition-all group">
+    <div className="flex-shrink-0 w-72 bg-white/5 border border-white/10 rounded-lg p-4 hover:border-white/20 transition-all">
       <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <Coins className="h-4 w-4 text-cyan-400" />
-          <span className="font-semibold text-sm sm:text-base text-white">{rfq.pair}</span>
+        <div className="flex items-center gap-2 min-w-0">
+          <Coins className="h-4 w-4 text-cyan-400 flex-shrink-0" />
+          <span className="font-semibold text-sm text-white truncate">{rfq.pair}</span>
         </div>
         <StatusBadge status={rfq.state} />
       </div>
@@ -223,7 +620,7 @@ function PostedRFQCard({
         className="w-full bg-white/5 border-white/20 text-white hover:bg-white/10 hover:border-white/30"
       >
         <Eye className="mr-2 h-4 w-4" />
-        View Details
+        View
       </Button>
 
       {onEdit && (
@@ -246,7 +643,7 @@ function SubmittedQuoteCard({ quote, onView }: { quote: Quote; onView: () => voi
 
   return (
     <div
-      className={`bg-white/5 border rounded-lg p-4 hover:border-white/20 transition-all group ${
+      className={`flex-shrink-0 w-72 bg-white/5 border rounded-lg p-4 hover:border-white/20 transition-all ${
         quote.selected ? "border-cyan-500/40 bg-cyan-500/5" : "border-white/10"
       }`}
     >
@@ -258,11 +655,9 @@ function SubmittedQuoteCard({ quote, onView }: { quote: Quote; onView: () => voi
       )}
 
       <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <Coins className="h-4 w-4 text-cyan-400" />
-          <span className="font-semibold text-sm sm:text-base text-white">
-            {rfq ? rfq.pair : "—"}
-          </span>
+        <div className="flex items-center gap-2 min-w-0">
+          <Coins className="h-4 w-4 text-cyan-400 flex-shrink-0" />
+          <span className="font-semibold text-sm text-white truncate">{rfq ? rfq.pair : "—"}</span>
         </div>
         {rfq && <StatusBadge status={rfq.state} />}
       </div>
@@ -311,26 +706,25 @@ function SubmittedQuoteCard({ quote, onView }: { quote: Quote; onView: () => voi
 
 function RewardRow({ reward, onView }: { reward: FacilitatorReward; onView: () => void }) {
   const isClaimed = reward.claimedAt !== null;
+  const rfq = getRFQById(reward.rfq);
+  const symbol = quoteSymbol(rfq);
 
   return (
-    <div className="bg-white/5 border border-white/10 rounded-lg p-4 hover:border-white/20 transition-all group flex items-center justify-between">
+    <div className="bg-white/5 border border-white/10 rounded-lg p-4 hover:border-white/20 transition-all flex items-center justify-between gap-3">
       <div className="flex items-center gap-4 flex-1 min-w-0">
         <div className={`p-3 rounded-lg ${isClaimed ? "bg-teal-500/20" : "bg-green-500/20"}`}>
           {isClaimed ? (
             <CheckCircle2 className="h-5 w-5 text-teal-400" />
           ) : (
-            <DollarSign className="h-5 w-5 text-green-400" />
+            <HandCoins className="h-5 w-5 text-green-400" />
           )}
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-sm text-white/50">RFQ</span>
-            <button
-              onClick={onView}
-              className="text-sm text-cyan-400 hover:text-cyan-300 font-mono truncate"
-            >
-              {reward.rfq.substring(0, 8)}...{reward.rfq.substring(reward.rfq.length - 6)}
+          <div className="flex items-center gap-2 mb-1 text-sm">
+            <span className="text-white/50">From</span>
+            <button onClick={onView} className="text-cyan-400 hover:text-cyan-300 truncate">
+              {rfq ? rfq.pair : reward.rfq.substring(0, 12)}
             </button>
           </div>
           {isClaimed && reward.claimedAt !== null && (
@@ -339,14 +733,17 @@ function RewardRow({ reward, onView }: { reward: FacilitatorReward; onView: () =
               <span>Claimed {new Date(reward.claimedAt * 1000).toLocaleDateString()}</span>
             </div>
           )}
+          {!isClaimed && <div className="text-xs text-green-400">Unclaimed — tap to view</div>}
         </div>
       </div>
 
-      <div className="text-right">
-        <div className={`text-xl font-bold ${isClaimed ? "text-white/60" : "text-green-400"}`}>
-          ${(reward.amount / 100).toFixed(2)}
+      <div className="text-right flex-shrink-0">
+        <div
+          className={`text-lg sm:text-xl font-bold ${isClaimed ? "text-white/60" : "text-green-400"}`}
+        >
+          {reward.amount.toLocaleString()}
         </div>
-        <div className="text-xs text-white/40">USDC</div>
+        <div className="text-xs text-white/40">{symbol}</div>
       </div>
     </div>
   );
