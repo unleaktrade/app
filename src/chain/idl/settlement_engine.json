@@ -1,0 +1,4631 @@
+{
+  "address": "7wrjbU1NbVtUCUGP1obi3aiT6QrjXZnH5XJDXMsKtkPG",
+  "metadata": {
+    "name": "settlement_engine",
+    "version": "1.0.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "cancel_rfq",
+      "discriminator": [
+        65,
+        47,
+        228,
+        229,
+        50,
+        93,
+        212,
+        236
+      ],
+      "accounts": [
+        {
+          "name": "maker",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "rfq"
+          ]
+        },
+        {
+          "name": "rfq",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  102,
+                  113
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "maker"
+              },
+              {
+                "kind": "account",
+                "path": "rfq.uuid",
+                "account": "Rfq"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "close_config",
+      "discriminator": [
+        145,
+        9,
+        72,
+        157,
+        95,
+        125,
+        61,
+        85
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "close_expired",
+      "discriminator": [
+        138,
+        186,
+        164,
+        245,
+        32,
+        116,
+        162,
+        62
+      ],
+      "accounts": [
+        {
+          "name": "maker",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "rfq"
+          ]
+        },
+        {
+          "name": "rfq",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  102,
+                  113
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "maker"
+              },
+              {
+                "kind": "account",
+                "path": "rfq.uuid",
+                "account": "Rfq"
+              }
+            ]
+          }
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          },
+          "relations": [
+            "rfq"
+          ]
+        },
+        {
+          "name": "usdc_mint",
+          "relations": [
+            "slashed_bonds_tracker"
+          ]
+        },
+        {
+          "name": "bonds_escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "rfq"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "treasury_wallet",
+          "writable": true,
+          "relations": [
+            "slashed_bonds_tracker"
+          ]
+        },
+        {
+          "name": "treasury_ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "treasury_wallet"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "maker_payment_account",
+          "writable": true
+        },
+        {
+          "name": "slashed_bonds_tracker",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  108,
+                  97,
+                  115,
+                  104,
+                  101,
+                  100,
+                  95,
+                  98,
+                  111,
+                  110,
+                  100,
+                  115,
+                  95,
+                  116,
+                  114,
+                  97,
+                  99,
+                  107,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rfq"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "close_incomplete",
+      "discriminator": [
+        204,
+        128,
+        137,
+        193,
+        251,
+        158,
+        139,
+        20
+      ],
+      "accounts": [
+        {
+          "name": "maker",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "rfq"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          },
+          "relations": [
+            "rfq"
+          ]
+        },
+        {
+          "name": "rfq",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  102,
+                  113
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "maker"
+              },
+              {
+                "kind": "account",
+                "path": "rfq.uuid",
+                "account": "Rfq"
+              }
+            ]
+          },
+          "relations": [
+            "settlement"
+          ]
+        },
+        {
+          "name": "settlement",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  116,
+                  116,
+                  108,
+                  101,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rfq"
+              }
+            ]
+          }
+        },
+        {
+          "name": "base_mint"
+        },
+        {
+          "name": "vault_base_ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "rfq"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "base_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "maker_base_account",
+          "writable": true
+        },
+        {
+          "name": "usdc_mint",
+          "relations": [
+            "slashed_bonds_tracker"
+          ]
+        },
+        {
+          "name": "bonds_escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "rfq"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "maker_payment_account",
+          "writable": true
+        },
+        {
+          "name": "treasury_wallet",
+          "writable": true,
+          "relations": [
+            "slashed_bonds_tracker"
+          ]
+        },
+        {
+          "name": "treasury_ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "treasury_wallet"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "slashed_bonds_tracker",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  108,
+                  97,
+                  115,
+                  104,
+                  101,
+                  100,
+                  95,
+                  98,
+                  111,
+                  110,
+                  100,
+                  115,
+                  95,
+                  116,
+                  114,
+                  97,
+                  99,
+                  107,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rfq"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "commit_quote",
+      "discriminator": [
+        2,
+        56,
+        74,
+        255,
+        219,
+        109,
+        237,
+        247
+      ],
+      "accounts": [
+        {
+          "name": "taker",
+          "docs": [
+            "Taker committing to a quote"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "docs": [
+            "Global config account"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          },
+          "relations": [
+            "rfq"
+          ]
+        },
+        {
+          "name": "rfq",
+          "writable": true
+        },
+        {
+          "name": "usdc_mint",
+          "docs": [
+            "USDC mint from config"
+          ]
+        },
+        {
+          "name": "quote",
+          "docs": [
+            "One Quote account per (rfq, taker)"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  113,
+                  117,
+                  111,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rfq"
+              },
+              {
+                "kind": "account",
+                "path": "taker"
+              }
+            ]
+          }
+        },
+        {
+          "name": "commit_guard",
+          "docs": [
+            "Global guard against commit_hash reuse"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  109,
+                  109,
+                  105,
+                  116,
+                  45,
+                  103,
+                  117,
+                  97,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "commit_hash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "bonds_escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "rfq"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "taker_payment_account",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "docs": [
+            "Needed because we `init` PDAs (quote, commit_guard)"
+          ],
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "instruction_sysvar",
+          "address": "Sysvar1nstructions1111111111111111111111111"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "commit_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "liquidity_proof",
+          "type": {
+            "array": [
+              "u8",
+              64
+            ]
+          }
+        },
+        {
+          "name": "facilitator",
+          "type": {
+            "option": "pubkey"
+          }
+        }
+      ]
+    },
+    {
+      "name": "complete_settlement",
+      "discriminator": [
+        204,
+        142,
+        168,
+        39,
+        247,
+        27,
+        183,
+        240
+      ],
+      "accounts": [
+        {
+          "name": "taker",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "treasury_wallet",
+          "writable": true
+        },
+        {
+          "name": "rfq",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  102,
+                  113
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rfq.maker",
+                "account": "Rfq"
+              },
+              {
+                "kind": "account",
+                "path": "rfq.uuid",
+                "account": "Rfq"
+              }
+            ]
+          }
+        },
+        {
+          "name": "settlement",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  116,
+                  116,
+                  108,
+                  101,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rfq"
+              }
+            ]
+          }
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "base_mint"
+        },
+        {
+          "name": "quote_mint"
+        },
+        {
+          "name": "treasury_ata",
+          "docs": [
+            "USDC treasury ATA – receives slashed bonds only"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "treasury_wallet"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "treasury_quote_ata",
+          "docs": [
+            "Quote-mint treasury ATA – receives the treasury's share of the taker fee"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "treasury_wallet"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "quote_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "bonds_escrow",
+          "docs": [
+            "USDC bonds escrow (bonds only, no fees)"
+          ],
+          "writable": true
+        },
+        {
+          "name": "fee_escrow",
+          "docs": [
+            "Quote-mint fee escrow – holds facilitator share until withdraw_reward"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "rfq"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "quote_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "taker_payment_account",
+          "writable": true
+        },
+        {
+          "name": "maker_payment_account",
+          "writable": true
+        },
+        {
+          "name": "vault_base_ata",
+          "writable": true
+        },
+        {
+          "name": "taker_base_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "taker"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "base_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "maker_quote_account",
+          "writable": true
+        },
+        {
+          "name": "taker_quote_account",
+          "writable": true
+        },
+        {
+          "name": "fees_tracker",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  101,
+                  101,
+                  115,
+                  95,
+                  116,
+                  114,
+                  97,
+                  99,
+                  107,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rfq"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "init_config",
+      "discriminator": [
+        23,
+        235,
+        115,
+        232,
+        168,
+        96,
+        1,
+        231
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "docs": [
+            "Admin is also the payer. This simplifies auth & testing."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "docs": [
+            "Global Config PDA"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "usdc_mint",
+          "type": "pubkey"
+        },
+        {
+          "name": "treasury_wallet",
+          "type": "pubkey"
+        },
+        {
+          "name": "liquidity_guard",
+          "type": "pubkey"
+        },
+        {
+          "name": "facilitator_fee_bps",
+          "type": {
+            "option": "u16"
+          }
+        }
+      ]
+    },
+    {
+      "name": "init_rfq",
+      "discriminator": [
+        131,
+        189,
+        247,
+        89,
+        198,
+        74,
+        146,
+        107
+      ],
+      "accounts": [
+        {
+          "name": "maker",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "rfq",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  102,
+                  113
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "maker"
+              },
+              {
+                "kind": "arg",
+                "path": "uuid"
+              }
+            ]
+          }
+        },
+        {
+          "name": "bonds_escrow",
+          "docs": [
+            "Create RFQ-owned USDC ATA for bonds"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "rfq"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "maker_payment_account",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        }
+      ],
+      "args": [
+        {
+          "name": "uuid",
+          "type": {
+            "array": [
+              "u8",
+              16
+            ]
+          }
+        },
+        {
+          "name": "base_mint",
+          "type": "pubkey"
+        },
+        {
+          "name": "quote_mint",
+          "type": "pubkey"
+        },
+        {
+          "name": "bond_amount",
+          "type": "u64"
+        },
+        {
+          "name": "base_amount",
+          "type": "u64"
+        },
+        {
+          "name": "min_quote_amount",
+          "type": "u64"
+        },
+        {
+          "name": "taker_fee_bps",
+          "type": "u16"
+        },
+        {
+          "name": "commit_ttl_secs",
+          "type": "u32"
+        },
+        {
+          "name": "reveal_ttl_secs",
+          "type": "u32"
+        },
+        {
+          "name": "selection_ttl_secs",
+          "type": "u32"
+        },
+        {
+          "name": "fund_ttl_secs",
+          "type": "u32"
+        },
+        {
+          "name": "facilitator",
+          "type": {
+            "option": "pubkey"
+          }
+        }
+      ]
+    },
+    {
+      "name": "open_rfq",
+      "discriminator": [
+        15,
+        64,
+        102,
+        65,
+        193,
+        240,
+        126,
+        45
+      ],
+      "accounts": [
+        {
+          "name": "maker",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "rfq"
+          ]
+        },
+        {
+          "name": "rfq",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  102,
+                  113
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "maker"
+              },
+              {
+                "kind": "account",
+                "path": "rfq.uuid",
+                "account": "Rfq"
+              }
+            ]
+          }
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          },
+          "relations": [
+            "rfq"
+          ]
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "bonds_escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "rfq"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "maker_payment_account",
+          "writable": true
+        },
+        {
+          "name": "slashed_bonds_tracker",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  108,
+                  97,
+                  115,
+                  104,
+                  101,
+                  100,
+                  95,
+                  98,
+                  111,
+                  110,
+                  100,
+                  115,
+                  95,
+                  116,
+                  114,
+                  97,
+                  99,
+                  107,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rfq"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "refund_quote_bonds",
+      "discriminator": [
+        86,
+        0,
+        190,
+        122,
+        176,
+        13,
+        253,
+        199
+      ],
+      "accounts": [
+        {
+          "name": "taker",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          },
+          "relations": [
+            "rfq"
+          ]
+        },
+        {
+          "name": "treasury_wallet",
+          "writable": true,
+          "relations": [
+            "slashed_bonds_tracker"
+          ]
+        },
+        {
+          "name": "rfq",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  102,
+                  113
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rfq.maker",
+                "account": "Rfq"
+              },
+              {
+                "kind": "account",
+                "path": "rfq.uuid",
+                "account": "Rfq"
+              }
+            ]
+          }
+        },
+        {
+          "name": "quote",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  113,
+                  117,
+                  111,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rfq"
+              },
+              {
+                "kind": "account",
+                "path": "taker"
+              }
+            ]
+          }
+        },
+        {
+          "name": "usdc_mint",
+          "relations": [
+            "slashed_bonds_tracker"
+          ]
+        },
+        {
+          "name": "treasury_ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "treasury_wallet"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "bonds_escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "rfq"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "taker_payment_account",
+          "writable": true
+        },
+        {
+          "name": "slashed_bonds_tracker",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  108,
+                  97,
+                  115,
+                  104,
+                  101,
+                  100,
+                  95,
+                  98,
+                  111,
+                  110,
+                  100,
+                  115,
+                  95,
+                  116,
+                  114,
+                  97,
+                  99,
+                  107,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rfq"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "reveal_quote",
+      "discriminator": [
+        78,
+        23,
+        168,
+        150,
+        128,
+        0,
+        61,
+        134
+      ],
+      "accounts": [
+        {
+          "name": "taker",
+          "docs": [
+            "Taker revealing their previously committed quote"
+          ],
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "quote"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          },
+          "relations": [
+            "rfq"
+          ]
+        },
+        {
+          "name": "rfq",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  102,
+                  113
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rfq.maker",
+                "account": "Rfq"
+              },
+              {
+                "kind": "account",
+                "path": "rfq.uuid",
+                "account": "Rfq"
+              }
+            ]
+          },
+          "relations": [
+            "quote"
+          ]
+        },
+        {
+          "name": "quote",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  113,
+                  117,
+                  111,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rfq"
+              },
+              {
+                "kind": "account",
+                "path": "taker"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "salt",
+          "type": {
+            "array": [
+              "u8",
+              64
+            ]
+          }
+        },
+        {
+          "name": "quote_amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "select_quote",
+      "discriminator": [
+        110,
+        240,
+        248,
+        235,
+        8,
+        120,
+        178,
+        95
+      ],
+      "accounts": [
+        {
+          "name": "maker",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "rfq"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          },
+          "relations": [
+            "rfq"
+          ]
+        },
+        {
+          "name": "rfq",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  102,
+                  113
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "maker"
+              },
+              {
+                "kind": "account",
+                "path": "rfq.uuid",
+                "account": "Rfq"
+              }
+            ]
+          }
+        },
+        {
+          "name": "quote",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  113,
+                  117,
+                  111,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rfq"
+              },
+              {
+                "kind": "account",
+                "path": "quote.taker",
+                "account": "Quote"
+              }
+            ]
+          }
+        },
+        {
+          "name": "settlement",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  116,
+                  116,
+                  108,
+                  101,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rfq"
+              }
+            ]
+          }
+        },
+        {
+          "name": "quote_mint"
+        },
+        {
+          "name": "maker_quote_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "maker"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "quote_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "base_mint"
+        },
+        {
+          "name": "vault_base_ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "rfq"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "base_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "maker_base_account",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "set_quote_facilitator",
+      "discriminator": [
+        59,
+        228,
+        114,
+        65,
+        204,
+        136,
+        171,
+        10
+      ],
+      "accounts": [
+        {
+          "name": "taker",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "quote"
+          ]
+        },
+        {
+          "name": "rfq",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  102,
+                  113
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rfq.maker",
+                "account": "Rfq"
+              },
+              {
+                "kind": "account",
+                "path": "rfq.uuid",
+                "account": "Rfq"
+              }
+            ]
+          },
+          "relations": [
+            "quote"
+          ]
+        },
+        {
+          "name": "quote",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  113,
+                  117,
+                  111,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rfq"
+              },
+              {
+                "kind": "account",
+                "path": "taker"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "update",
+          "type": {
+            "defined": {
+              "name": "FacilitatorUpdate"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_rfq_facilitator",
+      "discriminator": [
+        44,
+        46,
+        214,
+        226,
+        238,
+        44,
+        232,
+        78
+      ],
+      "accounts": [
+        {
+          "name": "maker",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "rfq"
+          ]
+        },
+        {
+          "name": "rfq",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  102,
+                  113
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "maker"
+              },
+              {
+                "kind": "account",
+                "path": "rfq.uuid",
+                "account": "Rfq"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "update",
+          "type": {
+            "defined": {
+              "name": "FacilitatorUpdate"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "update_config",
+      "discriminator": [
+        29,
+        158,
+        252,
+        191,
+        10,
+        83,
+        219,
+        99
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "new_admin",
+          "type": {
+            "option": "pubkey"
+          }
+        },
+        {
+          "name": "new_usdc_mint",
+          "type": {
+            "option": "pubkey"
+          }
+        },
+        {
+          "name": "new_treasury_wallet",
+          "type": {
+            "option": "pubkey"
+          }
+        },
+        {
+          "name": "new_liquidity_guard",
+          "type": {
+            "option": "pubkey"
+          }
+        },
+        {
+          "name": "new_facilitator_fee_bps",
+          "type": {
+            "option": "u16"
+          }
+        }
+      ]
+    },
+    {
+      "name": "update_rfq",
+      "discriminator": [
+        231,
+        185,
+        228,
+        74,
+        146,
+        50,
+        125,
+        255
+      ],
+      "accounts": [
+        {
+          "name": "maker",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "rfq"
+          ]
+        },
+        {
+          "name": "rfq",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  102,
+                  113
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "maker"
+              },
+              {
+                "kind": "account",
+                "path": "rfq.uuid",
+                "account": "Rfq"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "new_base_mint",
+          "type": {
+            "option": "pubkey"
+          }
+        },
+        {
+          "name": "new_quote_mint",
+          "type": {
+            "option": "pubkey"
+          }
+        },
+        {
+          "name": "new_bond_amount",
+          "type": {
+            "option": "u64"
+          }
+        },
+        {
+          "name": "new_base_amount",
+          "type": {
+            "option": "u64"
+          }
+        },
+        {
+          "name": "new_min_quote_amount",
+          "type": {
+            "option": "u64"
+          }
+        },
+        {
+          "name": "new_taker_fee_bps",
+          "type": {
+            "option": "u16"
+          }
+        },
+        {
+          "name": "new_commit_ttl_secs",
+          "type": {
+            "option": "u32"
+          }
+        },
+        {
+          "name": "new_reveal_ttl_secs",
+          "type": {
+            "option": "u32"
+          }
+        },
+        {
+          "name": "new_selection_ttl_secs",
+          "type": {
+            "option": "u32"
+          }
+        },
+        {
+          "name": "new_fund_ttl_secs",
+          "type": {
+            "option": "u32"
+          }
+        },
+        {
+          "name": "new_facilitator_update",
+          "type": {
+            "option": {
+              "defined": {
+                "name": "FacilitatorUpdate"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "withdraw_reward",
+      "discriminator": [
+        191,
+        187,
+        176,
+        137,
+        9,
+        25,
+        187,
+        244
+      ],
+      "accounts": [
+        {
+          "name": "facilitator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          },
+          "relations": [
+            "rfq"
+          ]
+        },
+        {
+          "name": "rfq",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  102,
+                  113
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rfq.maker",
+                "account": "Rfq"
+              },
+              {
+                "kind": "account",
+                "path": "rfq.uuid",
+                "account": "Rfq"
+              }
+            ]
+          },
+          "relations": [
+            "settlement",
+            "quote"
+          ]
+        },
+        {
+          "name": "settlement",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  116,
+                  116,
+                  108,
+                  101,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rfq"
+              }
+            ]
+          }
+        },
+        {
+          "name": "quote",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  113,
+                  117,
+                  111,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rfq"
+              },
+              {
+                "kind": "account",
+                "path": "settlement.taker",
+                "account": "Settlement"
+              }
+            ]
+          },
+          "relations": [
+            "settlement"
+          ]
+        },
+        {
+          "name": "quote_mint"
+        },
+        {
+          "name": "fee_escrow",
+          "docs": [
+            "Fee escrow holds the facilitator's share in quote_mint tokens"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "rfq"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "quote_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "facilitator_ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "facilitator"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "quote_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "facilitator_reward_tracker",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  97,
+                  99,
+                  105,
+                  108,
+                  105,
+                  116,
+                  97,
+                  116,
+                  111,
+                  114,
+                  95,
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rfq"
+              },
+              {
+                "kind": "account",
+                "path": "facilitator"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "CommitGuard",
+      "discriminator": [
+        174,
+        20,
+        183,
+        173,
+        110,
+        104,
+        189,
+        172
+      ]
+    },
+    {
+      "name": "Config",
+      "discriminator": [
+        155,
+        12,
+        170,
+        224,
+        30,
+        250,
+        204,
+        130
+      ]
+    },
+    {
+      "name": "FacilitatorRewardTracker",
+      "discriminator": [
+        60,
+        238,
+        131,
+        167,
+        97,
+        185,
+        174,
+        250
+      ]
+    },
+    {
+      "name": "FeesTracker",
+      "discriminator": [
+        146,
+        84,
+        81,
+        115,
+        69,
+        240,
+        130,
+        222
+      ]
+    },
+    {
+      "name": "Quote",
+      "discriminator": [
+        167,
+        202,
+        20,
+        198,
+        228,
+        66,
+        105,
+        208
+      ]
+    },
+    {
+      "name": "Rfq",
+      "discriminator": [
+        106,
+        19,
+        109,
+        78,
+        169,
+        13,
+        234,
+        58
+      ]
+    },
+    {
+      "name": "Settlement",
+      "discriminator": [
+        55,
+        11,
+        219,
+        33,
+        36,
+        136,
+        40,
+        182
+      ]
+    },
+    {
+      "name": "SlashedBondsTracker",
+      "discriminator": [
+        107,
+        226,
+        129,
+        138,
+        92,
+        159,
+        47,
+        55
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidRfqState",
+      "msg": "Invalid RFQ state for this instruction"
+    },
+    {
+      "code": 6001,
+      "name": "TooEarly",
+      "msg": "Deadline has not been reached yet"
+    },
+    {
+      "code": 6002,
+      "name": "QuoteRefundBeforeFundingDeadline",
+      "msg": "Cannot refund quote bonds before the funding deadline has passed"
+    },
+    {
+      "code": 6003,
+      "name": "ExpireTooEarly",
+      "msg": "RFQ cannot be expired yet"
+    },
+    {
+      "code": 6004,
+      "name": "TooLate",
+      "msg": "Deadline passed"
+    },
+    {
+      "code": 6005,
+      "name": "CommitTooLate",
+      "msg": "Commit Deadline passed"
+    },
+    {
+      "code": 6006,
+      "name": "Unauthorized",
+      "msg": "Unauthorized caller for this action"
+    },
+    {
+      "code": 6007,
+      "name": "AlreadySelected",
+      "msg": "RFQ already has a selected quote"
+    },
+    {
+      "code": 6008,
+      "name": "NoSelection",
+      "msg": "No quote selected"
+    },
+    {
+      "code": 6009,
+      "name": "NothingToClose",
+      "msg": "Nothing to close or claim"
+    },
+    {
+      "code": 6010,
+      "name": "InvalidParams",
+      "msg": "Invalid parameters"
+    },
+    {
+      "code": 6011,
+      "name": "InvalidBondVault",
+      "msg": "Invalid Bond Vault account"
+    },
+    {
+      "code": 6012,
+      "name": "InvalidBondAmount",
+      "msg": "Invalid Bond Amount"
+    },
+    {
+      "code": 6013,
+      "name": "InvalidFeeAmount",
+      "msg": "Invalid Fee Amount"
+    },
+    {
+      "code": 6014,
+      "name": "InvalidBaseAmount",
+      "msg": "Invalid Base Amount"
+    },
+    {
+      "code": 6015,
+      "name": "InvalidMinQuoteAmount",
+      "msg": "Invalid Min Quote Amount"
+    },
+    {
+      "code": 6016,
+      "name": "InvalidCommitTTL",
+      "msg": "Invalid TTL for Commit phase"
+    },
+    {
+      "code": 6017,
+      "name": "InvalidRevealTTL",
+      "msg": "Invalid TTL for Reveal phase"
+    },
+    {
+      "code": 6018,
+      "name": "InvalidSelectionTTL",
+      "msg": "Invalid TTL for Selection phase"
+    },
+    {
+      "code": 6019,
+      "name": "InvalidFundingTTL",
+      "msg": "Invalid TTL for Funding phase"
+    },
+    {
+      "code": 6020,
+      "name": "SelectionTooEarly",
+      "msg": "Selection attempted too early"
+    },
+    {
+      "code": 6021,
+      "name": "SelectionTooLate",
+      "msg": "Selection deadline passed"
+    },
+    {
+      "code": 6022,
+      "name": "MakerPaymentAccountClosed",
+      "msg": "Maker payment account is frozen or closed"
+    },
+    {
+      "code": 6023,
+      "name": "MakerBaseAccountClosed",
+      "msg": "Maker base account is frozen or closed"
+    },
+    {
+      "code": 6024,
+      "name": "UnauthorizedMakerPaymentAccount",
+      "msg": "Maker payment account is not authorized for this RFQ"
+    },
+    {
+      "code": 6025,
+      "name": "InvalidBaseMint",
+      "msg": "Base mint does not match RFQ requirement"
+    },
+    {
+      "code": 6026,
+      "name": "InvalidQuoteMint",
+      "msg": "Quote mint does not match RFQ requirement"
+    },
+    {
+      "code": 6027,
+      "name": "InvalidRfqPda",
+      "msg": "RFQ PDA does not match expected seeds"
+    },
+    {
+      "code": 6028,
+      "name": "FundingTooLate",
+      "msg": "Funding deadline passed"
+    },
+    {
+      "code": 6029,
+      "name": "RevealTooLate",
+      "msg": "Reveal Deadline passed"
+    },
+    {
+      "code": 6030,
+      "name": "RevealTooEarly",
+      "msg": "Reveal attempted too early"
+    },
+    {
+      "code": 6031,
+      "name": "NoEd25519Instruction",
+      "msg": "No Ed25519 instruction found"
+    },
+    {
+      "code": 6032,
+      "name": "InvalidEd25519Program",
+      "msg": "Invalid Ed25519 program ID"
+    },
+    {
+      "code": 6033,
+      "name": "InvalidEd25519Data",
+      "msg": "Invalid Ed25519 instruction data"
+    },
+    {
+      "code": 6034,
+      "name": "InvalidSignatureCount",
+      "msg": "Invalid signature count"
+    },
+    {
+      "code": 6035,
+      "name": "InvalidOffset",
+      "msg": "Invalid offset - security check failed"
+    },
+    {
+      "code": 6036,
+      "name": "InvalidMessageSize",
+      "msg": "Invalid message size"
+    },
+    {
+      "code": 6037,
+      "name": "InvalidConfig",
+      "msg": "Invalid config account"
+    },
+    {
+      "code": 6038,
+      "name": "UnrevealedQuoteNotRefundable",
+      "msg": "Quote must be revealed before bonds can be refunded"
+    },
+    {
+      "code": 6039,
+      "name": "QuoteBondsAlreadyRefunded",
+      "msg": "Bonds have already been refunded for this quote"
+    },
+    {
+      "code": 6040,
+      "name": "SelectedQuoteNotRefundable",
+      "msg": "Selected quote cannot be refunded; taker should complete settlement"
+    },
+    {
+      "code": 6041,
+      "name": "InvalidRfq",
+      "msg": "Settlement does not belong to RFQ"
+    },
+    {
+      "code": 6042,
+      "name": "InvalidTaker",
+      "msg": "Settlement does not belong to taker"
+    },
+    {
+      "code": 6043,
+      "name": "InvalidQuote",
+      "msg": "Settlement does not belong to quote"
+    },
+    {
+      "code": 6044,
+      "name": "InvalidTakerPaymentAccount",
+      "msg": "Taker payment account mismatch with expected settlement account"
+    },
+    {
+      "code": 6045,
+      "name": "InvalidOwner",
+      "msg": "Invalid owner for provided account"
+    },
+    {
+      "code": 6046,
+      "name": "PdaMismatch",
+      "msg": "PDA derived does not match expected address"
+    },
+    {
+      "code": 6047,
+      "name": "BumpMismatch",
+      "msg": "Bump provided does not match derived value"
+    },
+    {
+      "code": 6048,
+      "name": "UnauthorizedSigner",
+      "msg": "Unauthorized liquidity guard signer - not the expected public key"
+    },
+    {
+      "code": 6049,
+      "name": "CommitHashMismatch",
+      "msg": "Commit hash mismatch"
+    },
+    {
+      "code": 6050,
+      "name": "LiquidityProofSignatureMismatch",
+      "msg": "Liquidity proof signature mismatch"
+    },
+    {
+      "code": 6051,
+      "name": "InvalidQuoteAmount",
+      "msg": "Quote amount is invalid (too low)"
+    },
+    {
+      "code": 6052,
+      "name": "QuoteAlreadyRevealed",
+      "msg": "Quote has already been revealed"
+    },
+    {
+      "code": 6053,
+      "name": "InvalidQuoteState",
+      "msg": "Invalid QUOTE state for this instruction"
+    },
+    {
+      "code": 6054,
+      "name": "TakerPaymentAccountClosed",
+      "msg": "Taker payment account is frozen or closed"
+    },
+    {
+      "code": 6055,
+      "name": "ArithmeticOverflow",
+      "msg": "Arithmetic overflow encountered during calculation"
+    },
+    {
+      "code": 6056,
+      "name": "InvalidRfqAssociation",
+      "msg": "Quote does not belong to the expected RFQ"
+    },
+    {
+      "code": 6057,
+      "name": "MissingSlashedBondsTrackerAccount",
+      "msg": "SlashedBondsTracker account missing"
+    },
+    {
+      "code": 6058,
+      "name": "MissingQuoteAccount",
+      "msg": "Quote account missing"
+    }
+  ],
+  "types": [
+    {
+      "name": "CommitGuard",
+      "docs": [
+        "Tiny PDA keyed by commit_hash to forbid reuse of the same hash."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "quote",
+            "type": "pubkey"
+          },
+          {
+            "name": "committed_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Config",
+      "docs": [
+        "Global, singleton configuration for the deployment.",
+        "PDA: seeds = [\"config\"], bump stored for signer seeds."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "usdc_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury_wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "liquidity_guard",
+            "type": "pubkey"
+          },
+          {
+            "name": "facilitator_fee_bps",
+            "type": "u16"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FacilitatorRewardTracker",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "rfq",
+            "type": "pubkey"
+          },
+          {
+            "name": "facilitator",
+            "type": "pubkey"
+          },
+          {
+            "name": "quote_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "claimed_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FacilitatorUpdate",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Clear"
+          },
+          {
+            "name": "Set",
+            "fields": [
+              "pubkey"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "FeesTracker",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "rfq",
+            "type": "pubkey"
+          },
+          {
+            "name": "taker",
+            "type": "pubkey"
+          },
+          {
+            "name": "quote_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury_wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "payed_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Quote",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "rfq",
+            "docs": [
+              "RFQ this quote belongs to"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "taker",
+            "docs": [
+              "Taker who owns this quote"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "commit_hash",
+            "docs": [
+              "32-byte commit hash and 64-byte liquidity_proof from liquidity-guard"
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "liquidity_proof",
+            "type": {
+              "array": [
+                "u8",
+                64
+              ]
+            }
+          },
+          {
+            "name": "committed_at",
+            "type": "i64"
+          },
+          {
+            "name": "revealed_at",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "max_funding_deadline",
+            "type": "i64"
+          },
+          {
+            "name": "bonds_refunded_at",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "quote_amount",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "taker_payment_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "selected",
+            "type": "bool"
+          },
+          {
+            "name": "facilitator",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Rfq",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "config",
+            "type": "pubkey"
+          },
+          {
+            "name": "maker",
+            "type": "pubkey"
+          },
+          {
+            "name": "uuid",
+            "type": {
+              "array": [
+                "u8",
+                16
+              ]
+            }
+          },
+          {
+            "name": "state",
+            "type": {
+              "defined": {
+                "name": "RfqState"
+              }
+            }
+          },
+          {
+            "name": "base_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "quote_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "usdc_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury_wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "liquidity_guard",
+            "type": "pubkey"
+          },
+          {
+            "name": "bond_amount",
+            "type": "u64"
+          },
+          {
+            "name": "base_amount",
+            "type": "u64"
+          },
+          {
+            "name": "min_quote_amount",
+            "type": "u64"
+          },
+          {
+            "name": "taker_fee_bps",
+            "type": "u16"
+          },
+          {
+            "name": "facilitator_fee_bps",
+            "type": "u16"
+          },
+          {
+            "name": "commit_ttl_secs",
+            "type": "u32"
+          },
+          {
+            "name": "reveal_ttl_secs",
+            "type": "u32"
+          },
+          {
+            "name": "selection_ttl_secs",
+            "type": "u32"
+          },
+          {
+            "name": "fund_ttl_secs",
+            "type": "u32"
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "opened_at",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "selected_at",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "completed_at",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "committed_count",
+            "type": "u16"
+          },
+          {
+            "name": "revealed_count",
+            "type": "u16"
+          },
+          {
+            "name": "selected_quote",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "settlement",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "bonds_escrow",
+            "type": "pubkey"
+          },
+          {
+            "name": "maker_payment_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "facilitator",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RfqState",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Draft"
+          },
+          {
+            "name": "Open"
+          },
+          {
+            "name": "Committed"
+          },
+          {
+            "name": "Revealed"
+          },
+          {
+            "name": "Selected"
+          },
+          {
+            "name": "Settled"
+          },
+          {
+            "name": "Ignored"
+          },
+          {
+            "name": "Expired"
+          },
+          {
+            "name": "Incomplete"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Settlement",
+      "docs": [
+        "Captures the immutable settlement snapshot once a quote is selected."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "rfq",
+            "type": "pubkey"
+          },
+          {
+            "name": "quote",
+            "type": "pubkey"
+          },
+          {
+            "name": "maker",
+            "type": "pubkey"
+          },
+          {
+            "name": "taker",
+            "type": "pubkey"
+          },
+          {
+            "name": "base_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "quote_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "base_amount",
+            "type": "u64"
+          },
+          {
+            "name": "quote_amount",
+            "type": "u64"
+          },
+          {
+            "name": "bond_amount",
+            "type": "u64"
+          },
+          {
+            "name": "taker_fee_bps",
+            "type": "u16"
+          },
+          {
+            "name": "maker_payment_account",
+            "docs": [
+              "Token Accounts"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "taker_payment_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "bonds_escrow",
+            "type": "pubkey"
+          },
+          {
+            "name": "maker_base_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "taker_base_account",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "vault_base_ata",
+            "type": "pubkey"
+          },
+          {
+            "name": "maker_quote_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "taker_quote_account",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "completed_at",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "maker_funded_at",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "taker_funded_at",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SlashedBondsTracker",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "rfq",
+            "type": "pubkey"
+          },
+          {
+            "name": "usdc_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury_wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "seized_at",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ]
+}

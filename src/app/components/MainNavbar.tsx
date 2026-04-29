@@ -1,6 +1,8 @@
 import { motion, AnimatePresence } from "motion/react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { Button } from "@/app/components/ui/button";
+import { ClusterSwitcher } from "@/app/components/ClusterSwitcher";
+import { HealthPill } from "@/app/components/HealthPill";
 import { Plus, Menu, X, TrendingUp, Activity, Store, ListChecks, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import logo from "figma:asset/6d73120824de2c8c6632c71cddef1ae782b1c254.png";
@@ -102,6 +104,12 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
                 Create RFQ
               </Button>
 
+              {import.meta.env.DEV && <HealthPill />}
+
+              <div className="hidden lg:block">
+                <ClusterSwitcher />
+              </div>
+
               <div className="hidden lg:block">
                 <WalletMultiButton />
               </div>
@@ -179,8 +187,9 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.08 }}
-                  className="flex justify-center"
+                  className="flex flex-col items-center gap-3"
                 >
+                  <ClusterSwitcher />
                   <WalletMultiButton />
                 </motion.div>
 

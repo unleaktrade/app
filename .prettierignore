@@ -2,3 +2,5 @@ build
 node_modules
 package-lock.json
 .husky/_
+# Generated from ../settlement-engine by scripts/copy-idl.sh
+src/chain/idl/
