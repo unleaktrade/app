@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-Frontend for **UnleakTrade**, a confidential OTC / RFQ trading d-app on Solana. It is the app at `app.unleak.trade`; the separate marketing site lives in `../landing-page` (at `unleak.trade`). Today the app is a **mock UI with no on-chain calls**. The work in flight is wiring it into the `settlement-engine` Anchor program and the `liquidity-guard` attestation service.
+Frontend for **UnleakTrade**, a confidential OTC / RFQ trading d-app on Solana. It is the app at `app.unleak.trade`; the separate marketing site lives in `../landing-page` (at `unleak.trade`). Phase 1 (#11 + #26) shipped the `src/chain/` foundations: SWA + Anchor wiring, a `signMessage` ownership gate, a TanStack-Query-backed `useConfigAccount()` that live-subscribes to the on-chain `Config` PDA, and the liquidity-guard attestation client. Maker / taker / facilitator screens (Phase 3–5) still render against `src/data/mock.ts`; on-chain tx building lands in #14.
 
 ## Stack direction (locked)
 
@@ -16,7 +16,7 @@ Goals the stack has to deliver:
 - **DX** — one hook per concern (`useWallet`, `useConnection`, `useSettlementProgram`). No bespoke hierarchies or context soup on top of SWA.
 - **Performance** — TanStack Query for reads, websocket account subscriptions for live RFQ / Quote updates (Phase 1 task). No polling loops.
 
-**`autoConnect` is intentionally off** in `src/app/providers/WalletProviders.tsx`. Keeping it on wedges SWA when a previously-authorised but locked wallet is detected on load (`WalletConnectionError: Connection rejected`), and also swallows the user-activation gesture Chrome needs to open the extension popup on first click. Trade-off: every session requires one explicit `Select Wallet → Connect` click. Phase 1 (#26) adds a `signMessage` challenge to prove the wallet is actually unlocked and can then safely re-enable persistence.
+**`autoConnect` is scoped, not global** in `src/app/providers/WalletProviders.tsx`. It is the function form `() => Promise.resolve(hasCachedAuthSession())`, so SWA eagerly reconnects **only** when the current tab session was already authenticated (a `signMessage` signature is cached in `sessionStorage`). A fresh tab / first visit returns `false`, so we never eager-connect on a cold load — that is what kept wedging SWA when a previously-authorised but locked wallet was detected (`WalletConnectionError: Connection rejected`) and what swallowed the user-activation gesture Chrome needs for the first extension popup. Those failure modes only ever happened on cold loads, which we no longer auto-connect. SWA catches eager-connect errors internally (`WalletProviderBase` drops them) and falls back to the connect screen, so a locked wallet on refresh degrades gracefully instead of wedging. Because `sessionStorage` survives a refresh but not a tab close, this delivers "refresh stays signed in (no re-prompt)" while preserving "close tab = re-prompt". The `signMessage` challenge in `src/app/providers/AuthProvider.tsx` (#26) still proves the wallet is unlocked; `AuthProvider` holds a `restoring` status during the eager reconnect (and `RootRedirect` / `DashboardLayout` render blank for it) so the dashboard is not flashed away and back. Closed in #27.
 
 ## Source of truth is the issues, not the README
 
@@ -24,7 +24,8 @@ Goals the stack has to deliver:
 
 - **#19** — roadmap (links every phase)
 - **#10** — Phase 0: repo hygiene + `My Activity` consolidation
-- **#11–#15** — Phases 1–5 (Solana wiring, data model, maker/taker/facilitator instructions)
+- **#11 + #26** — Phase 1 (Solana/Anchor foundations + signMessage auth gate)
+- **#12–#15** — Phases 2–5 (data model, maker/taker/facilitator instructions)
 - **#17** — tests & CI
 - **#18** — docs (includes a README rewrite)
 - **#21** — Figma design file as the visual source of truth: https://www.figma.com/design/vmyQPE8WnUX4a5JEl6C2BA
@@ -63,9 +64,13 @@ npm run typecheck     # tsc --noEmit (strict, noUncheckedIndexedAccess, verbatim
 npm run lint          # eslint src (flat config at eslint.config.js)
 npm run format        # prettier --write .
 npm run format:check  # prettier --check .
+npm run copy-idl      # refresh src/chain/idl/ from ../settlement-engine/target (after `anchor build` there)
+bash scripts/dev-localnet.sh   # bring up anchor localnet + deploy program (requires sibling repo)
 ```
 
 `npm run build` intentionally **does not type-check** — Vite + `@vitejs/plugin-react` only transpile TypeScript. Always run `npm run typecheck` alongside for the real type signal. Pre-commit hook (`.husky/pre-commit` → `lint-staged`) auto-formats staged files and runs ESLint on `.ts`/`.tsx`. Test runner (Vitest + RTL + Playwright) lands in #17.
+
+The IDL files in `src/chain/idl/` are **committed**, so fresh clones can `npm install && npm run dev` without `../settlement-engine` checked out. Re-run `npm run copy-idl` after the Anchor program changes shape; `.prettierignore` and `eslint.config.js` exclude that directory because the files are generated.
 
 ## Browser-testing policy
 
@@ -83,13 +88,36 @@ If a wallet interaction can't be driven end-to-end by automation (e.g. the exten
 
 ## Architecture
 
-Entry flow: `index.html` → `src/main.tsx` (side-effect imports `./polyfills` first to set `globalThis.Buffer` / `process` / `global` before any Solana SDK module eval) → `src/app/App.tsx` (wraps `<RouterProvider>` in `<WalletProviders>`) → `src/app/routes.tsx` (react-router v7 `createBrowserRouter`). `DashboardLayout` guards `/dashboard/**` with `useWallet()` and bounces disconnected users to `/`; `WalletConnect` (at `/`) auto-clears any stale persisted wallet on mount so users always see a fresh `Select Wallet` button.
+Entry flow: `index.html` → `src/main.tsx` (side-effect imports `./polyfills` first to set `globalThis.Buffer` / `process` / `global` before any Solana SDK module eval) → `src/app/App.tsx` → `src/app/routes.tsx` (react-router v7 `createBrowserRouter`).
 
-Type / data layout after Phase 0:
+Provider tree (composed in `App.tsx` + `WalletProviders.tsx`):
+
+```
+<ErrorBoundary>
+  <AppShell>                                   // mounts the single <Toaster/>
+    <ClusterProvider>                          // {cluster, setCluster}, persisted to localStorage "unleak.cluster"
+      <ConnectionProvider endpoint={endpointFor(cluster)}>
+        <WalletProvider wallets={[]} autoConnect={() => hasCachedAuthSession()}>
+          <WalletModalProvider>
+            <QueryProvider>                     // singleton TanStack QueryClient
+              <AuthProvider>                    // signMessage ownership gate (#26)
+                <RouterProvider router={router}/>
+              </AuthProvider>
+            </QueryProvider>
+          </WalletModalProvider>
+        </WalletProvider>
+      </ConnectionProvider>
+    </ClusterProvider>
+  </AppShell>
+</ErrorBoundary>
+```
+
+`AuthProvider` (`src/app/providers/AuthProvider.tsx`) is the post-`adapter.connect()` gate. On `connected && publicKey` it asks the wallet to sign `UnleakTrade sign-in nonce=<uuid> ts=<ms>`, caches the signature in **`sessionStorage`** keyed `unleak.auth.<pubkey>` (so tab refresh stays signed in but closing the tab re-prompts), and categorises errors into `locked` / `rejected` / `unsupported` / `unknown`. Failure → toast + `adapter.disconnect()` + stay on `/`. **Never write the signature to `localStorage`** — that breaks the "close tab = re-prompt" guarantee #26 needs. `RootRedirect` and `DashboardLayout` both gate on `useAuth().authenticated`, not the raw `connected` flag.
+
+Type / data layout:
 
 - **Types**: `src/types/rfq.ts` — single source of truth for `RFQState`, `RFQ`, `Quote`, `Settlement`, `FacilitatorReward`, `UserRole`. Mirrors on-chain account shapes.
 - **Mock data**: `src/data/mock.ts` — `mockRFQs`, `mockQuotes`, `mockFacilitatorRewards` plus helpers (`getMyRFQs`, `getMyQuotes`, `getMyFacilitatorRewards`, `getRFQById`, `getStatusConfig`, `getCardGradient` / `Border` / `Glow`). Replaced in Phase 2 (#12) with Zod-decoded on-chain data; keep call sites stable.
-- **Providers**: `src/app/providers/WalletProviders.tsx` wraps `ConnectionProvider` + `WalletProvider wallets={[]}` + `WalletModalProvider`. Passing `[]` + no `autoConnect` is deliberate — see Stack direction.
 - **Polyfills**: `src/polyfills.ts` + `vite.config.ts` alias `buffer: "buffer/"` + `resolve.alias.process` + `define.global = "globalThis"`. Solana SDKs read these at module-eval time, so the polyfill import must stay the first line of `main.tsx`.
 
 Path aliases (`vite.config.ts`):
@@ -99,7 +127,34 @@ Path aliases (`vite.config.ts`):
 
 Styling: Tailwind v4 via `@tailwindcss/vite`. Global styles are split across `src/styles/{fonts,tailwind,theme}.css`, all imported from `src/styles/index.css` (with `@solana/wallet-adapter-react-ui/styles.css` as the first import so its `@import url(fonts.googleapis.com)` lands before any rule). PostCSS config is intentionally empty (`postcss.config.mjs`) — `@tailwindcss/vite` handles everything.
 
-The RFQ lifecycle has **9 states** (`Draft → Open → Committed → Revealed → Selected → Settled` plus terminal `Expired`, `Ignored`, `Incomplete`). Mirrored from `../settlement-engine/programs/settlement-engine/src/state/rfq.rs` — the Rust is the authoritative spec. When Phase 2 (#12) lands, look for `src/chain/` with Zod decoders, PDA helpers, state-machine guards, and deadline math.
+The RFQ lifecycle has **9 states** (`Draft → Open → Committed → Revealed → Selected → Settled` plus terminal `Expired`, `Ignored`, `Incomplete`). Mirrored from `../settlement-engine/programs/settlement-engine/src/state/rfq.rs` — the Rust is the authoritative spec. Phase 2 (#12) will add Zod decoders + state-machine guards + deadline math under `src/chain/`.
+
+### `src/chain/` (Phase 1)
+
+Everything that touches the chain or the attestation service. One concern per file:
+
+- `env.ts` — typed access to `import.meta.env`; throws at module-eval if a required `VITE_*` is missing. **The ed25519 attestation pubkey is intentionally NOT in env** — see "liquidity-guard pubkey" rule below.
+- `cluster.ts` — `Cluster` type, `endpointFor()`, `useClusterState()` (persists to `localStorage "unleak.cluster"`).
+- `pda.ts` — PDA derivation (Config seeds `["config"]`; more land in Phase 2).
+- `program.ts` — `useSettlementProgram()` returns a typed Anchor `Program<SettlementEngine>` once a wallet is connected.
+- `commitHash.ts` — 186-byte preimage builder + SHA-256. Byte-exact match required vs. settlement-engine + liquidity-guard.
+- `fee.ts` — `takerUplift` / `facilitatorShare` / `makerNet`, mirroring `complete_settlement.rs`.
+- `liquidityGuard.ts` — `deriveSalt` (calls `wallet.signMessage(rfq.toBytes())` → 64-byte ed25519 sig), `fetchAttestation` (POST `/check`, exp-backoff on 429), `verifyAttestation(hash, sig, pubkey)` (the pubkey arg is `config.liquidityGuard`), `fetchHealth` (GET `/health`).
+- `tx.ts` — `sendAndConfirmWithToast()` Sonner-wrapped tx submit helper.
+- `accountSubscription.ts` — `useAccountSubscription<T>(pubkey, decoder, queryKey)` glues `connection.onAccountChange` into `queryClient.setQueryData`. No polling loops.
+- `accounts/config.ts` — `useConfigAccount()`: TanStack `useQuery` keyed by program/PDA + a live subscription via the helper above. The Phase 1 smoke test for both the chain wiring and the websocket infra. Drives `HealthPill` (drift check) and `DevConfigPanel`.
+- `idl/settlement_engine.{json,ts}` — copied from `../settlement-engine/target/` by `npm run copy-idl`. **Committed**, not generated at install time.
+
+### Three load-bearing on-chain rules
+
+- **Commit-hash preimage (186 bytes)** lives in three repos and must stay byte-identical: `../settlement-engine/.../instructions/quote/commit_quote.rs` (verifier), `../liquidity-guard/src/main.rs` (signer), `src/chain/commitHash.ts` (preflight). Layout: `salt[64] ‖ rfq[32] ‖ taker[32] ‖ quote_mint[32] ‖ quote_amount_LE[8] ‖ bond_amount_LE[8] ‖ taker_fee_bps_LE[2]`. Endianness is little-endian for the numeric fields. Update all three together.
+- **liquidity-guard ed25519 pubkey is on-chain, not in env**. Source of truth is `Config.liquidity_guard` (read via `useConfigAccount()`). `verifyAttestation()` takes the pubkey as an argument — pass `config.data.liquidityGuard`. The service's `/health.service_pubkey` is cross-checked against Config and surfaces drift in `HealthPill` (amber). Do not re-introduce a `VITE_LIQUIDITY_GUARD_PUBKEY` env var.
+- **liquidity-guard is per-cluster and sets no CORS headers**. Each cluster has its own upstream (localnet `http://localhost:8080`, devnet/mainnet on Heroku — see `vite.config.ts` `LG_DEFAULTS`, overridable via `VITE_LG_URL_{LOCALNET,DEVNET,MAINNET}`). Because the dev proxy is static but the cluster is a runtime choice, we expose **one path per cluster**: `/liquidity-guard/<cluster>/*` (`<cluster>` ∈ `localnet|devnet|mainnet`; `mainnet-beta`→`mainnet`). All client code must call `/liquidity-guard/<cluster>/health` and `/liquidity-guard/<cluster>/check` via `liquidityGuard.ts` (which takes the active `Cluster`), never a raw URL — there is no `env.liquidityGuardUrl` anymore. Production deployment needs same-origin hosting or a CORS-enabled reverse proxy per cluster — open follow-up after #11/#26.
+
+### Dev-only UI
+
+- `<HealthPill/>` (`src/app/components/HealthPill.tsx`) — pings `/health` every 15s, gated by `import.meta.env.DEV`. States: green (ok), amber (network or pubkey drift vs Config), red (down), pulsing (loading).
+- `<DevConfigPanel/>` (`src/app/components/DevConfigPanel.tsx`) — dumps decoded Config fields. Renders only when `import.meta.env.DEV && URLSearchParams.get("debug") === "1"`. Use `/dashboard?debug=1` to verify chain wiring end-to-end.
 
 ## Companion repositories
 
@@ -108,8 +163,8 @@ Both sibling repos live next to this one under `../`. When anything on-chain loo
 ### `../settlement-engine` (Anchor program)
 
 - Program ID (devnet + localnet): `7wrjbU1NbVtUCUGP1obi3aiT6QrjXZnH5XJDXMsKtkPG` (from `Anchor.toml`)
-- Account state definitions — `programs/settlement-engine/src/state/{config,rfq,quote,settlement,fees_tracker,slashed_bonds_tracker,facilitator_reward_tracker}.rs`. Mirror every one into Zod + Anchor decoders under `src/chain/accounts/` during Phase 2 (#12).
-- Generated IDL — `target/idl/settlement_engine.json` after `anchor build`; copy into `src/chain/idl/` per #11.
+- Account state definitions — `programs/settlement-engine/src/state/{config,rfq,quote,settlement,fees_tracker,slashed_bonds_tracker,facilitator_reward_tracker}.rs`. `Config` is decoded in `src/chain/accounts/config.ts`; the rest land as Zod + Anchor decoders under `src/chain/accounts/` during Phase 2 (#12).
+- Generated IDL — `target/idl/settlement_engine.json` + `target/types/settlement_engine.ts` after `anchor build`; copy into `src/chain/idl/` via `npm run copy-idl`. The copies are committed so fresh clones don't depend on this sibling.
 - **14 user-facing instructions** the frontend must wire (admin `init_config` / `update_config` / `close_config` are out of scope):
   - RFQ (maker) — `init_rfq`, `update_rfq`, `open_rfq`, `set_rfq_facilitator`, `cancel_rfq`, `close_expired`, `close_incomplete`
   - Quote (taker) — `commit_quote`, `reveal_quote`, `set_quote_facilitator`, `refund_quote_bonds`
@@ -121,13 +176,13 @@ Both sibling repos live next to this one under `../`. When anything on-chain loo
 
 Minimal REST microservice that gates `commit_quote`. Two endpoints:
 
-- `GET /health` — returns service status, configured network, and the **ed25519 public key** the frontend must pin in `VITE_LIQUIDITY_GUARD_PUBKEY` (#11) and use to verify every `liquidity_proof` locally before building the tx.
+- `GET /health` — returns `{status, network, service_pubkey, timestamp, skip_fund_checks}`. The `service_pubkey` is the runtime ed25519 key — the frontend cross-checks it against the on-chain `Config.liquidity_guard` (read via `useConfigAccount()`) and shows drift in `HealthPill`. Source of truth for the expected value is **on-chain Config**, not env.
 - `POST /check` — body `{rfq, taker, salt(hex), quote_mint, quote_amount, bond_amount_usdc, taker_fee_bps}`. Returns `commit_hash` (SHA-256) + `liquidity_proof` (ed25519 signature over `commit_hash`). Validation rules the service enforces (so the UI should surface clear errors that match these):
   - USDC balance ≥ `bond_amount_usdc`
   - Quote-token balance ≥ `quote_amount + ceil(quote_amount * taker_fee_bps / 10_000)` (min `1` uplift when `taker_fee_bps > 0`)
   - `taker_fee_bps ≤ 10_000`
-- Rate limit: 2 req/s sustained, burst 5. Treat 429 as a user-visible wait with exponential backoff.
-- **Commit-hash preimage** (186 bytes) — `SHA256(salt ‖ rfq ‖ taker ‖ quote_mint ‖ quote_amount_LE ‖ bond_LE ‖ fee_bps_LE)`. Exact layout in #14; the reference implementation is `../liquidity-guard/src/main.rs`. The taker's `salt` is `wallet.signMessage(rfq.pubkey.toBytes())` — 64-byte ed25519 signature, deterministic per (wallet, rfq). Losing the salt = the taker can never reveal, so #14 requires both a localStorage backup keyed by `rfq_pubkey` and a downloadable "reveal ticket" JSON fallback.
+- Rate limit: 2 req/s sustained, burst 5. Treat 429 as a user-visible wait with exponential backoff (`fetchAttestation` already does 300/900/2700ms).
+- **Commit-hash preimage** see "Three load-bearing on-chain rules" above. The taker's `salt` is `wallet.signMessage(rfq.pubkey.toBytes())` — 64-byte ed25519 signature, deterministic per (wallet, rfq). Losing the salt = the taker can never reveal, so #14 requires both a `localStorage` backup keyed by `rfq_pubkey` and a downloadable "reveal ticket" JSON fallback.
 
 ## Deployment
 

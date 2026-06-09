@@ -1,27 +1,47 @@
-import { useMemo, type ReactNode } from "react";
-import { clusterApiUrl } from "@solana/web3.js";
+import { useCallback, useMemo, type ReactNode } from "react";
 import { ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
+import { ClusterProvider, useCluster } from "@/app/providers/ClusterProvider";
+import { QueryProvider } from "@/app/providers/QueryProvider";
+import { AuthProvider } from "@/app/providers/AuthProvider";
+import { hasCachedAuthSession } from "@/app/providers/authSession";
+import { endpointFor } from "@/chain/cluster";
 
 interface WalletProvidersProps {
   children: ReactNode;
 }
 
-export function WalletProviders({ children }: WalletProvidersProps) {
-  const endpoint = useMemo(() => clusterApiUrl("devnet"), []);
+function InnerProviders({ children }: WalletProvidersProps) {
+  const { cluster } = useCluster();
+  const endpoint = useMemo(() => endpointFor(cluster), [cluster]);
 
-  // autoConnect is intentionally OFF. It wedges SWA when a previously-connected
-  // wallet is locked: the adapter reports Connection rejected on page load and the
-  // state gets stuck, so a subsequent manual click (the "Select Wallet" modal) hangs
-  // at "Connecting…" without ever triggering the extension popup. Requiring an
-  // explicit user click every session is the trade the Solana ecosystem converged
-  // on (Jupiter/Raydium behave the same). Re-visit in Phase 1 (#11) with the
-  // useSettlementProgram hook and proper error handling around connect rejections.
+  // Scoped autoConnect: eagerly reconnect ONLY when this tab session was already
+  // authenticated (a signMessage signature is cached in sessionStorage). A fresh
+  // tab / first visit returns false, so SWA never eager-connects on a cold load —
+  // that keeps the locked-wallet wedge (#26, "Connection rejected") and the
+  // swallowed first-click gesture fixed. SWA catches eager-connect errors and
+  // falls back to the connect screen, so a locked wallet on refresh can't wedge.
+  // sessionStorage surviving refresh but not tab-close gives us "refresh stays
+  // signed in" while preserving "close tab = re-prompt".
+  const autoConnect = useCallback(() => Promise.resolve(hasCachedAuthSession()), []);
+
   return (
     <ConnectionProvider endpoint={endpoint}>
-      <WalletProvider wallets={[]}>
-        <WalletModalProvider>{children}</WalletModalProvider>
+      <WalletProvider wallets={[]} autoConnect={autoConnect}>
+        <WalletModalProvider>
+          <QueryProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </QueryProvider>
+        </WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>
+  );
+}
+
+export function WalletProviders({ children }: WalletProvidersProps) {
+  return (
+    <ClusterProvider>
+      <InnerProviders>{children}</InnerProviders>
+    </ClusterProvider>
   );
 }

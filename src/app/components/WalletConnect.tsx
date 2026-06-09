@@ -28,16 +28,23 @@ export function WalletConnect() {
       <div className="absolute inset-0 overflow-hidden">
         <motion.div
           className="absolute top-0 left-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl"
+          // Promote to its own compositor layer so the 48px-blurred bitmap is
+          // rasterized once and only transform/opacity are animated (GPU-only).
+          // Without this, scaling a blurred element re-rasterizes it every frame
+          // and pins the page at ~10fps. See #27.
+          style={{ willChange: "transform, opacity" }}
           animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
           transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
         />
         <motion.div
           className="absolute top-1/3 right-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl"
+          style={{ willChange: "transform, opacity" }}
           animate={{ scale: [1.2, 1, 1.2], opacity: [0.4, 0.6, 0.4] }}
           transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
         />
         <motion.div
           className="absolute bottom-1/4 left-1/3 w-96 h-96 bg-cyan-400/20 rounded-full blur-3xl"
+          style={{ willChange: "transform, opacity" }}
           animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.5, 0.3] }}
           transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
         />

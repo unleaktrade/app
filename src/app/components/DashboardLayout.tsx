@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Navigate, Outlet, useNavigate, useLocation } from "react-router";
 import { useWallet } from "@solana/wallet-adapter-react";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { MainNavbar, type DashboardView } from "@/app/components/MainNavbar";
 import { CreateRFQModal } from "@/app/components/CreateRFQModal";
 import { UpdateRFQModal } from "@/app/components/UpdateRFQModal";
 import { SubmitQuoteModal } from "@/app/components/SubmitQuoteModal";
-import { Toaster } from "@/app/components/ui/sonner";
+import { DevConfigPanel } from "@/app/components/DevConfigPanel";
 import type { RFQ } from "@/types/rfq";
 
 export interface DashboardOutletContext {
@@ -19,15 +20,16 @@ export interface DashboardOutletContext {
 export function DashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { connected, connecting } = useWallet();
+  const { connecting } = useWallet();
+  const { authenticated, state: authState } = useAuth();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
   const [quoteRFQ, setQuoteRFQ] = useState<RFQ | null>(null);
   const [updateRFQ, setUpdateRFQ] = useState<RFQ | null>(null);
 
-  if (connecting) return null;
-  if (!connected) return <Navigate to="/" replace />;
+  if (connecting || authState.status === "pending" || authState.status === "restoring") return null;
+  if (!authenticated) return <Navigate to="/" replace />;
 
   const getCurrentView = (): DashboardView =>
     location.pathname.includes("/my-activity") ? "my-activity" : "marketplace";
@@ -52,6 +54,8 @@ export function DashboardLayout() {
         onCreateRFQ={() => setIsCreateModalOpen(true)}
       />
 
+      <DevConfigPanel />
+
       <Outlet context={context} />
 
       <CreateRFQModal open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen} />
@@ -67,8 +71,6 @@ export function DashboardLayout() {
           onOpenChange={setIsQuoteModalOpen}
         />
       )}
-
-      <Toaster />
     </div>
   );
 }
