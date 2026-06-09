@@ -8,8 +8,17 @@
 import type { PublicKey } from "@solana/web3.js";
 import type { WalletContextState } from "@solana/wallet-adapter-react";
 import nacl from "tweetnacl";
+import type { Cluster } from "@/chain/env";
 
+// Each cluster has its own liquidity-guard upstream, proxied under a dedicated
+// path (configured in vite.config.ts). We route by the active cluster so a
+// devnet session hits the devnet guard, mainnet hits mainnet, etc.
 const BASE_PATH = "/liquidity-guard";
+
+function lgUrl(cluster: Cluster, endpoint: "health" | "check"): string {
+  const segment = cluster === "mainnet-beta" ? "mainnet" : cluster;
+  return `${BASE_PATH}/${segment}/${endpoint}`;
+}
 
 export interface AttestationRequest {
   rfq: PublicKey;
@@ -75,6 +84,7 @@ export async function deriveSalt(wallet: WalletContextState, rfq: PublicKey): Pr
 }
 
 async function postCheckOnce(
+  cluster: Cluster,
   req: AttestationRequest,
   opts?: { signal?: AbortSignal },
 ): Promise<Response> {
@@ -87,7 +97,7 @@ async function postCheckOnce(
     bond_amount_usdc: req.bondAmount.toString(),
     taker_fee_bps: String(req.takerFeeBps),
   };
-  return fetch(`${BASE_PATH}/check`, {
+  return fetch(lgUrl(cluster, "check"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -96,12 +106,13 @@ async function postCheckOnce(
 }
 
 export async function fetchAttestation(
+  cluster: Cluster,
   req: AttestationRequest,
   opts?: { signal?: AbortSignal },
 ): Promise<AttestationResponse> {
   let lastResponse: Response | null = null;
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt += 1) {
-    const res = await postCheckOnce(req, opts);
+    const res = await postCheckOnce(cluster, req, opts);
     if (res.ok) {
       const data = (await res.json()) as {
         commit_hash: string;
@@ -149,8 +160,11 @@ export function verifyAttestation(
   return nacl.sign.detached.verify(commitHash, liquidityProof, liquidityGuardPubkey.toBytes());
 }
 
-export async function fetchHealth(opts?: { signal?: AbortSignal }): Promise<HealthResponse> {
-  const res = await fetch(`${BASE_PATH}/health`, { signal: opts?.signal });
+export async function fetchHealth(
+  cluster: Cluster,
+  opts?: { signal?: AbortSignal },
+): Promise<HealthResponse> {
+  const res = await fetch(lgUrl(cluster, "health"), { signal: opts?.signal });
   if (!res.ok) throw new LiquidityGuardError(res.status, `HTTP ${res.status}`);
   const data = (await res.json()) as {
     status: string;

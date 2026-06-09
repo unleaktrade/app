@@ -34,5 +34,7 @@ export const env = {
   } satisfies Partial<Record<Cluster, string | undefined>>,
   programId: requirePublicKey("VITE_SETTLEMENT_PROGRAM_ID"),
   usdcMint: requirePublicKey("VITE_USDC_MINT"),
-  liquidityGuardUrl: requireString("VITE_LIQUIDITY_GUARD_URL"),
+  // liquidity-guard URLs are per-cluster and live only in the Vite proxy config
+  // (vite.config.ts, VITE_LG_URL_*). The client always calls the same-origin
+  // proxy path /liquidity-guard/<cluster>/* — never a raw URL — so no client env.
 } as const;

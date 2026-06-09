@@ -16,8 +16,8 @@ export function HealthPill() {
   const { cluster } = useCluster();
   const config = useConfigAccount();
   const query = useQuery({
-    queryKey: ["lg-health"],
-    queryFn: ({ signal }) => fetchHealth({ signal }),
+    queryKey: ["lg-health", cluster],
+    queryFn: ({ signal }) => fetchHealth(cluster, { signal }),
     refetchInterval: 15_000,
     retry: 0,
   });
