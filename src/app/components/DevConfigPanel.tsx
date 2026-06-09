@@ -1,5 +1,7 @@
 import { useLocation } from "react-router";
 import { useConfigAccount } from "@/chain/accounts/config";
+import { useCluster } from "@/app/providers/ClusterProvider";
+import { CLUSTER_LABELS } from "@/chain/cluster";
 import { env } from "@/chain/env";
 import { deriveConfigPda } from "@/chain/pda";
 
@@ -10,6 +12,7 @@ function formatPubkey(pk: { toBase58(): string }): string {
 
 export function DevConfigPanel() {
   const location = useLocation();
+  const { cluster } = useCluster();
   const query = useConfigAccount();
   const [configPda] = deriveConfigPda(env.programId);
 
@@ -41,7 +44,7 @@ export function DevConfigPanel() {
               ? `(error: ${(query.error as Error).message})`
               : query.data
                 ? ""
-                : "(empty)"}
+                : `(not initialized on ${CLUSTER_LABELS[cluster]} — run init_config)`}
         </summary>
         <table className="mt-3 w-full">
           <tbody>
