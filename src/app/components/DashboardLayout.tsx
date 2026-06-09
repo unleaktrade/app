@@ -28,7 +28,7 @@ export function DashboardLayout() {
   const [quoteRFQ, setQuoteRFQ] = useState<RFQ | null>(null);
   const [updateRFQ, setUpdateRFQ] = useState<RFQ | null>(null);
 
-  if (connecting || authState.status === "pending") return null;
+  if (connecting || authState.status === "pending" || authState.status === "restoring") return null;
   if (!authenticated) return <Navigate to="/" replace />;
 
   const getCurrentView = (): DashboardView =>

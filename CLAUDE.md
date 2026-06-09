@@ -16,7 +16,7 @@ Goals the stack has to deliver:
 - **DX** — one hook per concern (`useWallet`, `useConnection`, `useSettlementProgram`). No bespoke hierarchies or context soup on top of SWA.
 - **Performance** — TanStack Query for reads, websocket account subscriptions for live RFQ / Quote updates (Phase 1 task). No polling loops.
 
-**`autoConnect` is intentionally off** in `src/app/providers/WalletProviders.tsx`. Keeping it on wedges SWA when a previously-authorised but locked wallet is detected on load (`WalletConnectionError: Connection rejected`), and also swallows the user-activation gesture Chrome needs to open the extension popup on first click. Trade-off: every session requires one explicit `Select Wallet → Connect` click. Phase 1 (#26) shipped the `signMessage` challenge in `src/app/providers/AuthProvider.tsx` to prove the wallet is actually unlocked; a future PR can re-enable persistence on top of that gate.
+**`autoConnect` is scoped, not global** in `src/app/providers/WalletProviders.tsx`. It is the function form `() => Promise.resolve(hasCachedAuthSession())`, so SWA eagerly reconnects **only** when the current tab session was already authenticated (a `signMessage` signature is cached in `sessionStorage`). A fresh tab / first visit returns `false`, so we never eager-connect on a cold load — that is what kept wedging SWA when a previously-authorised but locked wallet was detected (`WalletConnectionError: Connection rejected`) and what swallowed the user-activation gesture Chrome needs for the first extension popup. Those failure modes only ever happened on cold loads, which we no longer auto-connect. SWA catches eager-connect errors internally (`WalletProviderBase` drops them) and falls back to the connect screen, so a locked wallet on refresh degrades gracefully instead of wedging. Because `sessionStorage` survives a refresh but not a tab close, this delivers "refresh stays signed in (no re-prompt)" while preserving "close tab = re-prompt". The `signMessage` challenge in `src/app/providers/AuthProvider.tsx` (#26) still proves the wallet is unlocked; `AuthProvider` holds a `restoring` status during the eager reconnect (and `RootRedirect` / `DashboardLayout` render blank for it) so the dashboard is not flashed away and back. Closed in #27.
 
 ## Source of truth is the issues, not the README
 
@@ -97,7 +97,7 @@ Provider tree (composed in `App.tsx` + `WalletProviders.tsx`):
   <AppShell>                                   // mounts the single <Toaster/>
     <ClusterProvider>                          // {cluster, setCluster}, persisted to localStorage "unleak.cluster"
       <ConnectionProvider endpoint={endpointFor(cluster)}>
-        <WalletProvider wallets={[]} autoConnect={false}>
+        <WalletProvider wallets={[]} autoConnect={() => hasCachedAuthSession()}>
           <WalletModalProvider>
             <QueryProvider>                     // singleton TanStack QueryClient
               <AuthProvider>                    // signMessage ownership gate (#26)

@@ -7,9 +7,14 @@ import { MyActivity } from "@/app/components/MyActivity";
 import { RFQDetailWrapper } from "@/app/components/RFQDetailWrapper";
 
 function RootRedirect() {
-  const { authenticated } = useAuth();
+  const { authenticated, state } = useAuth();
   if (authenticated) {
     return <Navigate to="/dashboard" replace />;
+  }
+  // Hold blank while an eager reconnect is in flight so we don't flash the
+  // connect screen (and trigger WalletConnect's select(null) reset) mid-restore.
+  if (state.status === "restoring" || state.status === "pending") {
+    return null;
   }
   return <WalletConnect />;
 }

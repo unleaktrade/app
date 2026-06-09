@@ -14,11 +14,15 @@ import bs58 from "bs58";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
 import { captureError } from "@/app/telemetry";
+import { STORAGE_PREFIX, shouldAttemptRestore } from "@/app/providers/authSession";
 
 type AuthErrorReason = "locked" | "rejected" | "unsupported" | "unknown";
 
 export type AuthState =
   | { status: "disconnected" }
+  // Eager reconnect in flight on a refresh — hold the UI (no connect-screen flash)
+  // until it resolves to authenticated or disconnected.
+  | { status: "restoring" }
   | { status: "pending"; publicKey: PublicKey; challenge: string }
   | { status: "authenticated"; publicKey: PublicKey; challenge: string; signature: Uint8Array }
   | { status: "error"; reason: AuthErrorReason };
@@ -31,8 +35,6 @@ export interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-
-const STORAGE_PREFIX = "unleak.auth.";
 
 const ERROR_COPY: Record<AuthErrorReason, string> = {
   locked: "Please unlock your wallet and try again.",
@@ -103,10 +105,13 @@ function classifyError(err: unknown): AuthErrorReason {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { publicKey, connected, signMessage, disconnect } = useWallet();
-  const [state, setState] = useState<AuthState>({ status: "disconnected" });
+  const { publicKey, connected, connecting, signMessage, disconnect } = useWallet();
+  const [state, setState] = useState<AuthState>(() =>
+    shouldAttemptRestore() ? { status: "restoring" } : { status: "disconnected" },
+  );
   const [retryToken, setRetryToken] = useState(0);
   const lastPendingKey = useRef<string | null>(null);
+  const sawConnectingRef = useRef(false);
 
   const retry = useCallback(() => {
     setRetryToken((n) => n + 1);
@@ -127,7 +132,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (!connected || !publicKey) {
       lastPendingKey.current = null;
-      setState({ status: "disconnected" });
+      // Don't clobber an in-flight eager reconnect; the connecting-resolution
+      // effect below decides when to give up and fall to disconnected.
+      setState((prev) => (prev.status === "restoring" ? prev : { status: "disconnected" }));
       return;
     }
 
@@ -184,6 +191,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, [connected, publicKey, signMessage, disconnect, retryToken]);
+
+  // Resolve the restore window. Once SWA has actually attempted an eager
+  // reconnect (connecting went true) and settled without connecting, stop
+  // holding the UI. A successful reconnect flips `connected` true and is handled
+  // by the effect above, so we only act on the failed/declined case here.
+  useEffect(() => {
+    if (connecting) {
+      sawConnectingRef.current = true;
+      return;
+    }
+    if (sawConnectingRef.current && !connected) {
+      sawConnectingRef.current = false;
+      setState((prev) => (prev.status === "restoring" ? { status: "disconnected" } : prev));
+    }
+  }, [connecting, connected]);
+
+  // Backstop: if the adapter never even attempts (extension removed, nothing
+  // remembered), don't hang on a blank screen — give up after a short grace.
+  useEffect(() => {
+    if (state.status !== "restoring") return;
+    const timer = window.setTimeout(() => {
+      setState((prev) => (prev.status === "restoring" ? { status: "disconnected" } : prev));
+    }, 4000);
+    return () => window.clearTimeout(timer);
+  }, [state.status]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
