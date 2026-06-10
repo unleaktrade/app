@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig, loadEnv, type ProxyOptions } from "vite";
 import path from "path";
 import tailwindcss from "@tailwindcss/vite";
@@ -49,6 +50,12 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       outDir: "build",
+    },
+    test: {
+      environment: "node",
+      include: ["src/**/*.test.ts"],
+      // No env injection needed: src/chain/env.ts falls back to committed
+      // defaults when VITE_* vars are absent (env.test.ts pins this).
     },
     server: {
       port: 3000,

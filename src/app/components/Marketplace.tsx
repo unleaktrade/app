@@ -1,7 +1,8 @@
 import { motion } from "motion/react";
 import { useState } from "react";
 import type { RFQ } from "@/types/rfq";
-import { mockRFQs, CURRENT_USER_FULL, getCardGradient, getCardBorder } from "@/data/mock";
+import { mockRFQs, CURRENT_USER_FULL } from "@/data/mock";
+import { getCardGradient, getCardBorder } from "@/app/lib/rfq-visuals";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { StatusBadge } from "@/app/components/StatusBadge";

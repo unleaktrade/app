@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Navigate, Outlet, useNavigate, useLocation } from "react-router";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useAuth } from "@/app/providers/AuthProvider";
+import { AuthGate } from "@/app/components/AuthGate";
 import { MainNavbar, type DashboardView } from "@/app/components/MainNavbar";
 import { CreateRFQModal } from "@/app/components/CreateRFQModal";
 import { UpdateRFQModal } from "@/app/components/UpdateRFQModal";
@@ -28,7 +29,8 @@ export function DashboardLayout() {
   const [quoteRFQ, setQuoteRFQ] = useState<RFQ | null>(null);
   const [updateRFQ, setUpdateRFQ] = useState<RFQ | null>(null);
 
-  if (connecting || authState.status === "pending" || authState.status === "restoring") return null;
+  if (authState.status === "pending") return <AuthGate variant="signing" />;
+  if (connecting || authState.status === "restoring") return <AuthGate variant="restoring" />;
   if (!authenticated) return <Navigate to="/" replace />;
 
   const getCurrentView = (): DashboardView =>

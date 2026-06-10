@@ -2,6 +2,8 @@ import { motion } from "motion/react";
 import type { RFQ } from "@/types/rfq";
 import { Button } from "@/app/components/ui/button";
 import { StatusBadge } from "@/app/components/StatusBadge";
+import { RFQActionSheet } from "@/app/components/RFQActionSheet";
+import { RFQStatePipeline } from "@/app/components/RFQStatePipeline";
 import { mockRFQs } from "@/data/mock";
 import { toast } from "sonner";
 import {
@@ -119,6 +121,9 @@ export function AdaptiveRFQDetail({ rfqId, onBack, onQuoteRFQ }: AdaptiveRFQDeta
             <StatusBadge status={rfq.state} />
           </div>
 
+          {/* Lifecycle pipeline */}
+          <RFQStatePipeline state={rfq.state} className="mb-4" />
+
           {/* Basic RFQ Info - Always Visible */}
           <div className="grid grid-cols-2 gap-6 pt-4 border-t border-white/10">
             <div>
@@ -224,8 +229,8 @@ function DraftView({
           </div>
         </div>
 
-        {/* Primary CTA */}
-        <div className="flex gap-3">
+        {/* Primary CTA — inline on md+, bottom action sheet on mobile */}
+        <RFQActionSheet title="Draft actions">
           <Button
             variant="outline"
             className="flex-1 bg-white/5 border-white/20 text-white hover:bg-white/10"
@@ -249,7 +254,7 @@ function DraftView({
             <X className="mr-2 h-4 w-4" />
             Cancel RFQ
           </Button>
-        </div>
+        </RFQActionSheet>
       </div>
     </motion.div>
   );
@@ -328,14 +333,16 @@ function OpenView({
             <p className="text-xs text-white/50">Locked until reveal or refunded if not selected</p>
           </div>
 
-          {/* Primary CTA */}
-          <Button
-            onClick={() => onQuoteRFQ?.(rfq)}
-            className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white"
-          >
-            <Lock className="mr-2 h-5 w-5" />
-            Commit Quote (Bond: 5,000 USDC)
-          </Button>
+          {/* Primary CTA — inline on md+, bottom action sheet on mobile */}
+          <RFQActionSheet title="Quote on this RFQ">
+            <Button
+              onClick={() => onQuoteRFQ?.(rfq)}
+              className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white"
+            >
+              <Lock className="mr-2 h-5 w-5" />
+              Commit Quote (Bond: 5,000 USDC)
+            </Button>
+          </RFQActionSheet>
         </div>
       )}
     </motion.div>
@@ -433,11 +440,13 @@ function CommittedView({
             <p className="text-xs text-green-400">Will be refunded if not selected</p>
           </div>
 
-          {/* Primary CTA */}
-          <Button className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white">
-            <Unlock className="mr-2 h-5 w-5" />
-            Reveal Quote Now
-          </Button>
+          {/* Primary CTA — inline on md+, bottom action sheet on mobile */}
+          <RFQActionSheet title="Reveal quote">
+            <Button className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white">
+              <Unlock className="mr-2 h-5 w-5" />
+              Reveal Quote Now
+            </Button>
+          </RFQActionSheet>
         </div>
       ) : (
         <div className="bg-gradient-to-br from-gray-500/10 to-gray-600/10 border border-gray-500/20 rounded-xl p-6">
@@ -610,10 +619,12 @@ function SelectedView({
             </div>
           </div>
 
-          <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white">
-            <Zap className="mr-2 h-5 w-5" />
-            Complete Settlement
-          </Button>
+          <RFQActionSheet title="Complete settlement">
+            <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white">
+              <Zap className="mr-2 h-5 w-5" />
+              Complete Settlement
+            </Button>
+          </RFQActionSheet>
         </div>
       ) : (
         <div className="bg-gradient-to-br from-gray-500/10 to-gray-600/10 border border-gray-500/20 rounded-xl p-6">
