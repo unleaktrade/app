@@ -2,7 +2,7 @@ import type { RFQ, UserRole } from "@/types/rfq";
 import { motion } from "motion/react";
 import { Button } from "@/app/components/ui/button";
 import { Coins, Eye } from "lucide-react";
-import { getCardGradient, getCardBorder, getCardGlow } from "@/data/mock";
+import { getCardGradient, getCardBorder, getCardGlow } from "@/app/lib/rfq-visuals";
 import { StatusBadge } from "@/app/components/StatusBadge";
 
 interface RFQCardProps {

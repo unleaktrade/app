@@ -1,5 +1,5 @@
 import type { RFQState } from "@/types/rfq";
-import { getStatusConfig } from "@/data/mock";
+import { getStatusConfig } from "@/app/lib/rfq-visuals";
 
 interface StatusBadgeProps {
   status: RFQState;

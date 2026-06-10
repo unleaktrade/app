@@ -5,6 +5,7 @@ import { DashboardLayout } from "@/app/components/DashboardLayout";
 import { MarketplaceWrapper } from "@/app/components/MarketplaceWrapper";
 import { MyActivity } from "@/app/components/MyActivity";
 import { RFQDetailWrapper } from "@/app/components/RFQDetailWrapper";
+import { ComponentStories } from "@/app/components/ComponentStories";
 
 function RootRedirect() {
   const { authenticated, state } = useAuth();
@@ -42,6 +43,15 @@ export const router = createBrowserRouter([
       },
     ],
   },
+  // DEV-only component gallery (stands in for Storybook/Ladle — see #12).
+  ...(import.meta.env.DEV
+    ? [
+        {
+          path: "/dev/stories",
+          Component: ComponentStories,
+        },
+      ]
+    : []),
   {
     path: "*",
     element: <Navigate to="/" replace />,
