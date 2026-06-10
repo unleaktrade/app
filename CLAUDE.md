@@ -50,7 +50,7 @@ The codebase was bootstrapped from **Figma Make** (AI prompt-to-code), not hand-
 - `figma:asset` Vite alias → `src/assets/` — still in use by `WalletConnect.tsx` and `MainNavbar.tsx` for the logo.
 - `src/app/components/figma/ImageWithFallback.tsx` — thin scaffold wrapper, kept as-is.
 
-`src/app/components/ui/` is the shadcn/ui catalog wrapping Radix primitives. Phase 0 pruned it to the nine files actually imported by the surviving tree (`button`, `dialog`, `input`, `label`, `select`, `separator`, `sonner`, `tabs`, `utils`). Don't reintroduce the full catalog — add only the specific ui file you need.
+`src/app/components/ui/` is the shadcn/ui catalog wrapping Radix primitives. Phase 0 pruned it to the files actually imported by the surviving tree (`button`, `dialog`, `drawer`, `input`, `label`, `select`, `separator`, `sonner`, `tabs`, `utils` — `drawer` is the vaul wrapper added in Phase 2). Don't reintroduce the full catalog — add only the specific ui file you need.
 
 **Never regenerate via Figma Make against this repo again** — it would clobber committed work. The new visual source of truth is the Figma Design file in #21, to be filled in iteratively.
 
@@ -64,11 +64,13 @@ npm run typecheck     # tsc --noEmit (strict, noUncheckedIndexedAccess, verbatim
 npm run lint          # eslint src (flat config at eslint.config.js)
 npm run format        # prettier --write .
 npm run format:check  # prettier --check .
+npm test              # vitest run — decoders, state-machine guards, deadline + fee math, PDAs
+npm run test:watch    # vitest watch mode
 npm run copy-idl      # refresh src/chain/idl/ from ../settlement-engine/target (after `anchor build` there)
 bash scripts/dev-localnet.sh   # bring up anchor localnet + deploy program (requires sibling repo)
 ```
 
-`npm run build` intentionally **does not type-check** — Vite + `@vitejs/plugin-react` only transpile TypeScript. Always run `npm run typecheck` alongside for the real type signal. Pre-commit hook (`.husky/pre-commit` → `lint-staged`) auto-formats staged files and runs ESLint on `.ts`/`.tsx`. Test runner (Vitest + RTL + Playwright) lands in #17.
+`npm run build` intentionally **does not type-check** — Vite + `@vitejs/plugin-react` only transpile TypeScript. Always run `npm run typecheck` alongside for the real type signal. Pre-commit hook (`.husky/pre-commit` → `lint-staged`) auto-formats staged files and runs ESLint on `.ts`/`.tsx`. Vitest landed with Phase 2 (#12) for the pure-logic suites under `src/chain/__tests__/` (the `test` block in `vite.config.ts` injects hermetic `VITE_*` env vars so CI needs no `.env.local`); RTL + Playwright still land in #17. There is **no Storybook/Ladle** — Ladle's transitive peers break the zero-warning install rule (#24); the DEV-only `/dev/stories` route is the component gallery instead.
 
 The IDL files in `src/chain/idl/` are **committed**, so fresh clones can `npm install && npm run dev` without `../settlement-engine` checked out. Re-run `npm run copy-idl` after the Anchor program changes shape; `.prettierignore` and `eslint.config.js` exclude that directory because the files are generated.
 
@@ -117,7 +119,7 @@ Provider tree (composed in `App.tsx` + `WalletProviders.tsx`):
 Type / data layout:
 
 - **Types**: `src/types/rfq.ts` — single source of truth for `RFQState`, `RFQ`, `Quote`, `Settlement`, `FacilitatorReward`, `UserRole`. Mirrors on-chain account shapes.
-- **Mock data**: `src/data/mock.ts` — `mockRFQs`, `mockQuotes`, `mockFacilitatorRewards` plus helpers (`getMyRFQs`, `getMyQuotes`, `getMyFacilitatorRewards`, `getRFQById`, `getStatusConfig`, `getCardGradient` / `Border` / `Glow`). Replaced in Phase 2 (#12) with Zod-decoded on-chain data; keep call sites stable.
+- **Mock data**: `src/data/mock.ts` — `mockRFQs`, `mockQuotes`, `mockFacilitatorRewards` plus data helpers (`getMyRFQs`, `getMyQuotes`, `getMyFacilitatorRewards`, `getRFQById`). The visual helpers (`getStatusConfig`, `getCardGradient` / `Border` / `Glow`) moved to `src/app/lib/rfq-visuals.ts` in Phase 2 so they survive the mock removal. Mock data itself is replaced in Phases 3–5 with the on-chain hooks from `src/chain/accounts/`; keep call sites stable.
 - **Polyfills**: `src/polyfills.ts` + `vite.config.ts` alias `buffer: "buffer/"` + `resolve.alias.process` + `define.global = "globalThis"`. Solana SDKs read these at module-eval time, so the polyfill import must stay the first line of `main.tsx`.
 
 Path aliases (`vite.config.ts`):
@@ -127,22 +129,24 @@ Path aliases (`vite.config.ts`):
 
 Styling: Tailwind v4 via `@tailwindcss/vite`. Global styles are split across `src/styles/{fonts,tailwind,theme}.css`, all imported from `src/styles/index.css` (with `@solana/wallet-adapter-react-ui/styles.css` as the first import so its `@import url(fonts.googleapis.com)` lands before any rule). PostCSS config is intentionally empty (`postcss.config.mjs`) — `@tailwindcss/vite` handles everything.
 
-The RFQ lifecycle has **9 states** (`Draft → Open → Committed → Revealed → Selected → Settled` plus terminal `Expired`, `Ignored`, `Incomplete`). Mirrored from `../settlement-engine/programs/settlement-engine/src/state/rfq.rs` — the Rust is the authoritative spec. Phase 2 (#12) will add Zod decoders + state-machine guards + deadline math under `src/chain/`.
+The RFQ lifecycle has **9 states** (`Draft → Open → Committed → Revealed → Selected → Settled` plus terminal `Expired`, `Ignored`, `Incomplete`). Mirrored from `../settlement-engine/programs/settlement-engine/src/state/rfq.rs` — the Rust is the authoritative spec. The Rust discriminant order is `… Settled=5, Ignored=6, Expired=7, Incomplete=8`; decoders map enum variants **by name**, and a unit test asserts the order against the committed IDL.
 
-### `src/chain/` (Phase 1)
+### `src/chain/` (Phase 1 + 2)
 
 Everything that touches the chain or the attestation service. One concern per file:
 
 - `env.ts` — typed access to `import.meta.env`; throws at module-eval if a required `VITE_*` is missing. **The ed25519 attestation pubkey is intentionally NOT in env** — see "liquidity-guard pubkey" rule below.
 - `cluster.ts` — `Cluster` type, `endpointFor()`, `useClusterState()` (persists to `localStorage "unleak.cluster"`).
-- `pda.ts` — PDA derivation (Config seeds `["config"]`; more land in Phase 2).
+- `pda.ts` — PDA derivation for every program account (config, rfq, quote, commit-guard, settlement, fees_tracker, slashed_bonds_tracker, facilitator_reward).
 - `program.ts` — `useSettlementProgram()` returns a typed Anchor `Program<SettlementEngine>` once a wallet is connected.
 - `commitHash.ts` — 186-byte preimage builder + SHA-256. Byte-exact match required vs. settlement-engine + liquidity-guard.
-- `fee.ts` — `takerUplift` / `facilitatorShare` / `makerNet`, mirroring `complete_settlement.rs`.
+- `math.ts` — `computeTotalFee` / `computeFacilitatorShare` / `takerUplift` / `totalToFund`, mirroring `settlement.rs` + `complete_settlement.rs` (bigint, floor division, min-1 fee when bps > 0). **The protocol fee is paid on top of the quote amount** — the RFQ poster receives the full quote amount; the funding side needs `quote + fee`.
+- `state-machine.ts` — deadline math (`commitDeadline` … `fundingDeadline`) and every instruction guard (`canCommitQuote`, `canRevealQuote`, `canSelectQuote`, …) ported 1:1 from the Rust instruction files, plus `nextAllowedStates(state, role)`. Inputs are structural so mock and decoded accounts both satisfy them; `now` is passed explicitly in unix seconds.
 - `liquidityGuard.ts` — `deriveSalt` (calls `wallet.signMessage(rfq.toBytes())` → 64-byte ed25519 sig), `fetchAttestation` (POST `/check`, exp-backoff on 429), `verifyAttestation(hash, sig, pubkey)` (the pubkey arg is `config.liquidityGuard`), `fetchHealth` (GET `/health`).
 - `tx.ts` — `sendAndConfirmWithToast()` Sonner-wrapped tx submit helper.
 - `accountSubscription.ts` — `useAccountSubscription<T>(pubkey, decoder, queryKey)` glues `connection.onAccountChange` into `queryClient.setQueryData`. No polling loops.
-- `accounts/config.ts` — `useConfigAccount()`: TanStack `useQuery` keyed by program/PDA + a live subscription via the helper above. The Phase 1 smoke test for both the chain wiring and the websocket infra. Drives `HealthPill` (drift check) and `DevConfigPanel`.
+- `accounts/` — one file per program account (`config`, `rfq`, `quote`, `commitGuard`, `settlement`, `feesTracker`, `slashedBondsTracker`, `facilitatorRewardTracker`): zod schema (`z.infer` is the exported type) + `normaliseX()` (Anchor raw → validated normalised shape: u64→bigint, i64→number unix secs, `[u8;N]`→Uint8Array, enum→`RFQState` string) + `useXAccount(address)` hook. All hooks share `accounts/useDecodedAccount.ts` (fetch + websocket subscription plumbing); zod atoms/converters live in `accounts/shared.ts`. **The Borsh coder is keyed by camelCase account names** (`"rfq"`, not `"Rfq"`) because Anchor's `Program` camelCases the IDL at construction.
+- `__tests__/` — Vitest suites; fixtures encode Raw accounts through `BorshCoder(convertIdlToCamelCase(idl))` from the committed IDL, so decode round-trips prove decoder ↔ IDL parity without a validator.
 - `idl/settlement_engine.{json,ts}` — copied from `../settlement-engine/target/` by `npm run copy-idl`. **Committed**, not generated at install time.
 
 ### Three load-bearing on-chain rules
@@ -155,6 +159,7 @@ Everything that touches the chain or the attestation service. One concern per fi
 
 - `<HealthPill/>` (`src/app/components/HealthPill.tsx`) — pings `/health` every 15s, gated by `import.meta.env.DEV`. States: green (ok), amber (network or pubkey drift vs Config), red (down), pulsing (loading).
 - `<DevConfigPanel/>` (`src/app/components/DevConfigPanel.tsx`) — dumps decoded Config fields. Renders only when `import.meta.env.DEV && URLSearchParams.get("debug") === "1"`. Use `/dashboard?debug=1` to verify chain wiring end-to-end.
+- `/dev/stories` (`src/app/components/ComponentStories.tsx`) — DEV-only gallery of the Phase 2 shared primitives (`RFQStatePipeline` in all 9 states, `DeadlineRing`, `BondBreakdown`, `TokenAmountInput`, `AddressDisplay`, empty/skeleton/error states). The Storybook/Ladle stand-in.
 
 ## Companion repositories
 
@@ -163,7 +168,7 @@ Both sibling repos live next to this one under `../`. When anything on-chain loo
 ### `../settlement-engine` (Anchor program)
 
 - Program ID (devnet + localnet): `7wrjbU1NbVtUCUGP1obi3aiT6QrjXZnH5XJDXMsKtkPG` (from `Anchor.toml`)
-- Account state definitions — `programs/settlement-engine/src/state/{config,rfq,quote,settlement,fees_tracker,slashed_bonds_tracker,facilitator_reward_tracker}.rs`. `Config` is decoded in `src/chain/accounts/config.ts`; the rest land as Zod + Anchor decoders under `src/chain/accounts/` during Phase 2 (#12).
+- Account state definitions — `programs/settlement-engine/src/state/{config,rfq,quote,settlement,fees_tracker,slashed_bonds_tracker,facilitator_reward_tracker}.rs`. All are decoded by the Zod + Anchor decoders under `src/chain/accounts/` (Phase 2 #12).
 - Generated IDL — `target/idl/settlement_engine.json` + `target/types/settlement_engine.ts` after `anchor build`; copy into `src/chain/idl/` via `npm run copy-idl`. The copies are committed so fresh clones don't depend on this sibling.
 - **14 user-facing instructions** the frontend must wire (admin `init_config` / `update_config` / `close_config` are out of scope):
   - RFQ (maker) — `init_rfq`, `update_rfq`, `open_rfq`, `set_rfq_facilitator`, `cancel_rfq`, `close_expired`, `close_incomplete`
