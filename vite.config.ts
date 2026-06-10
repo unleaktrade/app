@@ -54,12 +54,8 @@ export default defineConfig(({ mode }) => {
     test: {
       environment: "node",
       include: ["src/**/*.test.ts"],
-      // Hermetic env for CI: src/chain/env.ts throws at module eval when a
-      // required VITE_* var is missing, and .env.local is not committed.
-      env: {
-        VITE_SETTLEMENT_PROGRAM_ID: "7wrjbU1NbVtUCUGP1obi3aiT6QrjXZnH5XJDXMsKtkPG",
-        VITE_USDC_MINT: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
-      },
+      // No env injection needed: src/chain/env.ts falls back to committed
+      // defaults when VITE_* vars are absent (env.test.ts pins this).
     },
     server: {
       port: 3000,

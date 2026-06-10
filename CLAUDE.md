@@ -135,7 +135,7 @@ The RFQ lifecycle has **9 states** (`Draft → Open → Committed → Revealed �
 
 Everything that touches the chain or the attestation service. One concern per file:
 
-- `env.ts` — typed access to `import.meta.env`; throws at module-eval if a required `VITE_*` is missing. **The ed25519 attestation pubkey is intentionally NOT in env** — see "liquidity-guard pubkey" rule below.
+- `env.ts` — typed access to `import.meta.env`. `VITE_SETTLEMENT_PROGRAM_ID` / `VITE_USDC_MINT` are **optional overrides**: absent values fall back to committed defaults (the IDL's `address` field / devnet USDC) with a `console.warn`, so an unconfigured deploy (e.g. Vercel preview) still boots; an explicitly-set invalid value still throws. **The ed25519 attestation pubkey is intentionally NOT in env** — see "liquidity-guard pubkey" rule below.
 - `cluster.ts` — `Cluster` type, `endpointFor()`, `useClusterState()` (persists to `localStorage "unleak.cluster"`).
 - `pda.ts` — PDA derivation for every program account (config, rfq, quote, commit-guard, settlement, fees_tracker, slashed_bonds_tracker, facilitator_reward).
 - `program.ts` — `useSettlementProgram()` returns a typed Anchor `Program<SettlementEngine>` once a wallet is connected.

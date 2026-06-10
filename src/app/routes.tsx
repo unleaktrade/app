@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from "react-router";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { WalletConnect } from "@/app/components/WalletConnect";
+import { AuthGate } from "@/app/components/AuthGate";
 import { DashboardLayout } from "@/app/components/DashboardLayout";
 import { MarketplaceWrapper } from "@/app/components/MarketplaceWrapper";
 import { MyActivity } from "@/app/components/MyActivity";
@@ -12,10 +13,14 @@ function RootRedirect() {
   if (authenticated) {
     return <Navigate to="/dashboard" replace />;
   }
-  // Hold blank while an eager reconnect is in flight so we don't flash the
-  // connect screen (and trigger WalletConnect's select(null) reset) mid-restore.
-  if (state.status === "restoring" || state.status === "pending") {
-    return null;
+  // Hold a branded interstitial while an eager reconnect or the signMessage
+  // prompt is in flight so we don't flash the connect screen (and trigger
+  // WalletConnect's select(null) reset) mid-restore.
+  if (state.status === "restoring") {
+    return <AuthGate variant="restoring" />;
+  }
+  if (state.status === "pending") {
+    return <AuthGate variant="signing" />;
   }
   return <WalletConnect />;
 }

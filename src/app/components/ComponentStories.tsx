@@ -14,6 +14,7 @@ import { EmptyState } from "@/app/components/EmptyState";
 import { SkeletonList } from "@/app/components/SkeletonList";
 import { ErrorRetry } from "@/app/components/ErrorRetry";
 import { RFQActionSheet } from "@/app/components/RFQActionSheet";
+import { AuthGate } from "@/app/components/AuthGate";
 import { Button } from "@/app/components/ui/button";
 
 const ALL_STATES: RFQState[] = [
@@ -110,6 +111,17 @@ export function ComponentStories() {
               Secondary action
             </Button>
           </RFQActionSheet>
+        </Story>
+
+        <Story title="AuthGate — restoring / signing (scaled frames)">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="h-80 overflow-hidden rounded-lg border border-white/10 [&>div]:min-h-full">
+              <AuthGate variant="restoring" />
+            </div>
+            <div className="h-80 overflow-hidden rounded-lg border border-white/10 [&>div]:min-h-full">
+              <AuthGate variant="signing" />
+            </div>
+          </div>
         </Story>
 
         <Story title="EmptyState / ErrorRetry / SkeletonList">
