@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig, loadEnv, type ProxyOptions } from "vite";
 import path from "path";
 import tailwindcss from "@tailwindcss/vite";
@@ -49,6 +50,16 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       outDir: "build",
+    },
+    test: {
+      environment: "node",
+      include: ["src/**/*.test.ts"],
+      // Hermetic env for CI: src/chain/env.ts throws at module eval when a
+      // required VITE_* var is missing, and .env.local is not committed.
+      env: {
+        VITE_SETTLEMENT_PROGRAM_ID: "7wrjbU1NbVtUCUGP1obi3aiT6QrjXZnH5XJDXMsKtkPG",
+        VITE_USDC_MINT: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+      },
     },
     server: {
       port: 3000,
