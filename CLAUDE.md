@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-Frontend for **UnleakTrade**, a confidential OTC / RFQ trading d-app on Solana. It is the app at `app.unleak.trade`; the separate marketing site lives in `../landing-page` (at `unleak.trade`). Phase 1 (#11 + #26) shipped the `src/chain/` foundations: SWA + Anchor wiring, a `signMessage` ownership gate (with the `AuthGate` interstitial while it's in flight), a TanStack-Query-backed `useConfigAccount()` that live-subscribes to the on-chain `Config` PDA, and the liquidity-guard attestation client. Phase 2 (#12, PR #29) shipped the full on-chain data model under `src/chain/` (zod-validated decoders + hooks for all 8 accounts, every PDA, `state-machine.ts` guards/deadlines, `math.ts` fee math — all unit-tested) and the shared UI primitives (`RFQStatePipeline`, `DeadlineRing`, `BondBreakdown`, `TokenAmountInput`, `AddressDisplay`, empty/skeleton/error states, vaul bottom action sheet). Next up: Phases 3–5 (#13–#15) wire the 14 instructions and swap the screens off `src/data/mock.ts` — the screens (Marketplace / MyActivity / AdaptiveRFQDetail) still render mock data, and `AdaptiveRFQDetail` still contains pre-roadmap role-worded copy that the Phase 3/4 rewrite replaces.
+Frontend for **UnleakTrade**, a confidential OTC / RFQ trading d-app on Solana. It is the app at `app.unleak.trade`; the separate marketing site lives in `../landing-page` (at `unleak.trade`). Phase 1 (#11 + #26) shipped the `src/chain/` foundations: SWA + Anchor wiring, a `signMessage` ownership gate (with the `AuthGate` interstitial while it's in flight), a TanStack-Query-backed `useConfigAccount()` that live-subscribes to the on-chain `Config` PDA, and the liquidity-guard attestation client. Phase 2 (#12, PR #29) shipped the full on-chain data model under `src/chain/` (zod-validated decoders + hooks for all 8 accounts, every PDA, `state-machine.ts` guards/deadlines, `math.ts` fee math — all unit-tested) and the shared UI primitives (`RFQStatePipeline`, `DeadlineRing`, `BondBreakdown`, `TokenAmountInput`, `AddressDisplay`, empty/skeleton/error states, vaul bottom action sheet). Next up: Phase 2b (#30) seeds real devnet data (all 9 states), adds the list-read hooks, swaps the screens off `src/data/mock.ts` and deletes it; then Phases 3–5 (#13–#15) wire the 14 instructions. Until then the screens (Marketplace / MyActivity / AdaptiveRFQDetail) still render mock data, and `AdaptiveRFQDetail` still contains pre-roadmap role-worded copy that the Phase 3/4 rewrite replaces.
 
 ## Stack direction (locked)
 
@@ -26,7 +26,8 @@ Goals the stack has to deliver:
 - **#10** — Phase 0: repo hygiene + `My Activity` consolidation
 - **#11 + #26** — Phase 1 (Solana/Anchor foundations + signMessage auth gate)
 - **#12** — Phase 2 (data model, schemas & shared UI primitives) — shipped in PR #29
-- **#13–#15** — Phases 3–5 (maker / taker / facilitator instruction wiring) — the next milestones; all three are unblocked by #12
+- **#30** — Phase 2b (seed on-chain data + list-read hooks + mock removal) — **the next milestone**; makes Phases 3–5 testable against real devnet state
+- **#13–#15** — Phases 3–5 (maker / taker / facilitator instruction wiring) — blocked on #30 for real-data testing
 - **#17** — tests & CI
 - **#18** — docs (includes a README rewrite)
 - **#21** — Figma design file as the visual source of truth: https://www.figma.com/design/vmyQPE8WnUX4a5JEl6C2BA
