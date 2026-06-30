@@ -1,10 +1,17 @@
 import { motion } from "motion/react";
+import { PublicKey } from "@solana/web3.js";
 import type { RFQ } from "@/types/rfq";
 import { Button } from "@/app/components/ui/button";
 import { StatusBadge } from "@/app/components/StatusBadge";
+import { SkeletonList } from "@/app/components/SkeletonList";
+import { ErrorRetry } from "@/app/components/ErrorRetry";
 import { RFQActionSheet } from "@/app/components/RFQActionSheet";
 import { RFQStatePipeline } from "@/app/components/RFQStatePipeline";
-import { mockRFQs } from "@/data/mock";
+import { useRfqAccount } from "@/chain/accounts/rfq";
+import { useQuoteAccountsForRfq } from "@/chain/accounts/lists";
+import { toRfqViewModel, toQuoteViewModel } from "@/app/lib/rfq-view-model";
+import { resolveTokenMeta } from "@/app/lib/tokens";
+import { truncateAddress } from "@/app/lib/format";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -20,7 +27,7 @@ import {
   Unlock,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 interface AdaptiveRFQDetailProps {
   rfqId: string;
@@ -30,10 +37,42 @@ interface AdaptiveRFQDetailProps {
 
 export function AdaptiveRFQDetail({ rfqId, onBack, onQuoteRFQ }: AdaptiveRFQDetailProps) {
   const [userRole] = useState<"maker" | "taker" | "observer">("maker");
-  const rfq = mockRFQs.find((r) => r.publicKey === rfqId);
-  const [isSelectedTaker] = useState(rfq?.state === "Selected");
+  const pda = useMemo(() => {
+    try {
+      return new PublicKey(rfqId);
+    } catch {
+      return null;
+    }
+  }, [rfqId]);
+  const rfqQuery = useRfqAccount(pda);
+  const quotesQuery = useQuoteAccountsForRfq(pda);
+  const nowSecs = Math.floor(Date.now() / 1000);
 
-  if (!rfq) {
+  if (rfqQuery.isLoading) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0f] pb-32 pt-16">
+        <div className="relative mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          <SkeletonList count={3} />
+        </div>
+      </div>
+    );
+  }
+
+  if (rfqQuery.isError) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0f] pb-32 pt-16">
+        <div className="relative mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          <ErrorRetry
+            message="Couldn't load this RFQ from the chain."
+            onRetry={() => void rfqQuery.refetch()}
+            retrying={rfqQuery.isFetching}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (pda === null || !rfqQuery.data) {
     return (
       <div className="min-h-screen bg-[#0a0a0f] pb-32 pt-16 flex items-center justify-center">
         <div className="text-white">RFQ not found</div>
@@ -41,38 +80,32 @@ export function AdaptiveRFQDetail({ rfqId, onBack, onQuoteRFQ }: AdaptiveRFQDeta
     );
   }
 
+  const rfq = toRfqViewModel({ publicKey: pda, account: rfqQuery.data }, nowSecs);
+  const isSelectedTaker = rfq.state === "Selected";
+  const quoteDecimals = resolveTokenMeta(rfq.quoteMint).decimals;
+  const quoteRows = quotesQuery.data ?? [];
+
   const [base = rfq.baseMint, quote = rfq.quoteMint] = rfq.pair.split("/");
-  const price = rfq.minQuoteAmount / rfq.baseAmount;
 
-  const committedTakers = [
-    { id: "taker1", bondAmount: 5000, timestamp: "2024-02-04T10:15:00Z" },
-    { id: "taker2", bondAmount: 5000, timestamp: "2024-02-04T10:18:00Z" },
-    { id: "taker3", bondAmount: 5000, timestamp: "2024-02-04T10:22:00Z" },
-  ];
+  // Live committed quotes (taker + posted bond). The bond is rfq.bondAmount
+  // (USDC) — quotes don't store their own bond.
+  const committedTakers: CommittedTaker[] = quoteRows.map((row) => ({
+    id: truncateAddress(row.account.taker.toBase58()),
+    bondAmount: rfq.bondAmount,
+    timestamp: new Date(row.account.committedAt * 1000).toISOString(),
+  }));
 
-  const revealedQuotes = [
-    {
-      takerId: "taker1",
-      quoteAmount: rfq.minQuoteAmount * 0.99,
-      price: price * 0.99,
-      bondAmount: 5000,
-      revealedAt: "2024-02-04T11:00:00Z",
-    },
-    {
-      takerId: "taker2",
-      quoteAmount: rfq.minQuoteAmount * 0.995,
-      price: price * 0.995,
-      bondAmount: 5000,
-      revealedAt: "2024-02-04T11:02:00Z",
-    },
-    {
-      takerId: "taker3",
-      quoteAmount: rfq.minQuoteAmount * 1.01,
-      price: price * 1.01,
-      bondAmount: 5000,
-      revealedAt: "2024-02-04T11:05:00Z",
-    },
-  ];
+  // Revealed quotes carry a quoteAmount; price = quote / base.
+  const revealedQuotes: RevealedQuote[] = quoteRows
+    .map((row) => toQuoteViewModel(row, quoteDecimals))
+    .filter((q): q is typeof q & { quoteAmount: number } => q.quoteAmount !== null)
+    .map((q) => ({
+      takerId: truncateAddress(q.taker),
+      quoteAmount: q.quoteAmount,
+      price: rfq.baseAmount > 0 ? q.quoteAmount / rfq.baseAmount : 0,
+      bondAmount: rfq.bondAmount,
+      revealedAt: q.revealedAt !== null ? new Date(q.revealedAt * 1000).toISOString() : "",
+    }));
 
   const handleEditRFQ = () => {
     toast.info("Edit RFQ", { description: "Edit functionality will be implemented soon" });

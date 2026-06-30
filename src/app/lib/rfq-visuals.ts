@@ -1,6 +1,7 @@
-// Visual config for the 9 RFQ lifecycle states — extracted from
-// src/data/mock.ts so it survives the Phase 3–5 mock-data removal.
-// Copy stays role-neutral (no maker/taker/facilitator wording).
+// Visual config for the 9 RFQ lifecycle states. Kept separate from the data
+// layer so the screens depend only on decoded on-chain state (the mock data
+// module was removed in Phase 2b). Copy stays role-neutral (no
+// maker/taker/facilitator wording).
 
 import type { RFQState } from "@/types/rfq";
 

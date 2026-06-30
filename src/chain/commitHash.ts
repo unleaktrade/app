@@ -10,7 +10,7 @@ export interface CommitPreimageInput {
   takerFeeBps: number;
 }
 
-const PREIMAGE_LEN = 64 + 32 + 32 + 32 + 8 + 8 + 2; // 186
+const PREIMAGE_LEN = 64 + 32 + 32 + 32 + 8 + 8 + 2; // 178
 
 function writeU64LE(view: DataView, offset: number, value: bigint): void {
   view.setBigUint64(offset, value, true);
