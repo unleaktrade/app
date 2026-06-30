@@ -1,16 +1,23 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate, useOutletContext } from "react-router";
-import {
-  CURRENT_USER_FULL,
-  getMyFacilitatorRewards,
-  getMyQuotes,
-  getMyRFQs,
-  getRFQById,
-} from "@/data/mock";
+import { useWallet } from "@solana/wallet-adapter-react";
 import type { FacilitatorReward, Quote, RFQ, RFQState } from "@/types/rfq";
+import {
+  useRfqAccounts,
+  useQuoteAccountsByTaker,
+  useFacilitatorRewardTrackersByFacilitator,
+} from "@/chain/accounts/lists";
+import {
+  toRfqViewModel,
+  toQuoteViewModel,
+  toFacilitatorRewardViewModel,
+} from "@/app/lib/rfq-view-model";
+import { resolveTokenMeta } from "@/app/lib/tokens";
 import { Button } from "@/app/components/ui/button";
 import { StatusBadge } from "@/app/components/StatusBadge";
+import { SkeletonList } from "@/app/components/SkeletonList";
+import { ErrorRetry } from "@/app/components/ErrorRetry";
 import type { DashboardOutletContext } from "@/app/components/DashboardLayout";
 import {
   AlertCircle,
@@ -54,14 +61,76 @@ export function MyActivity() {
   const { setIsCreateModalOpen, setIsUpdateModalOpen, setUpdateRFQ } =
     useOutletContext<DashboardOutletContext>();
 
-  const myRFQs = useMemo(() => getMyRFQs(CURRENT_USER_FULL), []);
-  const myQuotes = useMemo(() => getMyQuotes(CURRENT_USER_FULL), []);
-  const myRewards = useMemo(() => getMyFacilitatorRewards(CURRENT_USER_FULL), []);
+  const { publicKey } = useWallet();
+  const me = publicKey ?? null;
+  const meStr = me?.toBase58() ?? null;
 
-  const unclaimedRewards = myRewards.filter((r) => !r.claimedAt);
+  // All RFQs (small at seed scale) → map by pubkey; my quotes/rewards point at
+  // RFQs I may not have posted, so we need the full set to resolve their pair.
+  const rfqQuery = useRfqAccounts();
+  const quoteQuery = useQuoteAccountsByTaker(me);
+  const rewardQuery = useFacilitatorRewardTrackersByFacilitator(me);
+
+  const nowSecs = Math.floor(Date.now() / 1000);
+
+  const allRFQs = useMemo(
+    () => (rfqQuery.data ?? []).map((row) => toRfqViewModel(row, nowSecs)),
+    // nowSecs intentionally excluded — re-deriving every second churns identity
+    // for no benefit; expiresIn refreshes on the next data refetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rfqQuery.data],
+  );
+  const rfqByKey = useMemo(() => new Map(allRFQs.map((r) => [r.publicKey, r])), [allRFQs]);
+
+  const myRFQs = useMemo(
+    () => (meStr === null ? [] : allRFQs.filter((r) => r.maker === meStr)),
+    [allRFQs, meStr],
+  );
+
+  const myQuotes = useMemo(
+    () =>
+      (quoteQuery.data ?? []).map((row) => {
+        const parent = rfqByKey.get(row.account.rfq.toBase58());
+        const decimals = parent ? resolveTokenMeta(parent.quoteMint).decimals : 0;
+        return toQuoteViewModel(row, decimals);
+      }),
+    [quoteQuery.data, rfqByKey],
+  );
+
+  const myRewards = useMemo(
+    () => (rewardQuery.data ?? []).map((row) => toFacilitatorRewardViewModel(row)),
+    [rewardQuery.data],
+  );
+
+  // Reward trackers exist only post-claim, so "Rewards history" is all claimed.
+  // Claimable = Settled RFQs I facilitated, non-zero share, with no tracker yet.
+  // The precise amount + claim action arrive in #15 (instruction wiring).
+  const claimedRfqKeys = useMemo(() => new Set(myRewards.map((r) => r.rfq)), [myRewards]);
+  const claimableRFQs = useMemo(
+    () =>
+      meStr === null
+        ? []
+        : allRFQs.filter(
+            (r) =>
+              r.state === "Settled" &&
+              r.facilitator === meStr &&
+              r.feeAmount > 0 &&
+              !claimedRfqKeys.has(r.publicKey),
+          ),
+    [allRFQs, meStr, claimedRfqKeys],
+  );
+
+  const isLoading = rfqQuery.isLoading || quoteQuery.isLoading || rewardQuery.isLoading;
+  const isError = rfqQuery.isError || quoteQuery.isError || rewardQuery.isError;
+  const refetchAll = () => {
+    void rfqQuery.refetch();
+    void quoteQuery.refetch();
+    void rewardQuery.refetch();
+  };
+
   const activeRFQs = myRFQs.filter((r) => !TERMINAL_STATES.has(r.state));
   const activeQuotes = myQuotes.filter((q) => {
-    const rfq = getRFQById(q.rfq);
+    const rfq = rfqByKey.get(q.rfq);
     return rfq && !TERMINAL_STATES.has(rfq.state);
   });
   const settledRFQs = myRFQs.filter((r) => r.state === "Settled");
@@ -70,7 +139,7 @@ export function MyActivity() {
     (r) => r.state === "Draft" || r.state === "Revealed" || r.state === "Selected",
   ).length;
   const quotesNeedAction = myQuotes.filter((q) => {
-    const rfq = getRFQById(q.rfq);
+    const rfq = rfqByKey.get(q.rfq);
     if (!rfq) return false;
     if (rfq.state === "Committed" && !q.revealedAt) return true;
     if (q.selected && rfq.state === "Selected") return true;
@@ -100,7 +169,7 @@ export function MyActivity() {
       });
     // Quotes to reveal
     myQuotes.forEach((q) => {
-      const rfq = getRFQById(q.rfq);
+      const rfq = rfqByKey.get(q.rfq);
       if (rfq && rfq.state === "Committed" && !q.revealedAt) {
         items.push({
           id: `reveal:${q.publicKey}`,
@@ -131,7 +200,7 @@ export function MyActivity() {
     myQuotes
       .filter((q) => q.selected)
       .forEach((q) => {
-        const rfq = getRFQById(q.rfq);
+        const rfq = rfqByKey.get(q.rfq);
         if (rfq && rfq.state === "Selected") {
           items.push({
             id: `settle:${q.publicKey}`,
@@ -144,18 +213,16 @@ export function MyActivity() {
           });
         }
       });
-    // Unclaimed rewards
-    unclaimedRewards.forEach((reward) => {
-      const rfq = getRFQById(reward.rfq);
-      const symbol = quoteSymbol(rfq);
+    // Claimable rewards (Settled RFQs I facilitated, not yet withdrawn)
+    claimableRFQs.forEach((rfq) => {
       items.push({
-        id: `claim:${reward.publicKey}`,
+        id: `claim:${rfq.publicKey}`,
         kind: "claim",
-        label: `Claim ${reward.amount.toLocaleString()} ${symbol}`,
-        sublabel: rfq ? `from ${rfq.pair}` : undefined,
+        label: `Claim reward — ${rfq.pair}`,
+        sublabel: "Facilitator share ready to withdraw",
         cta: "Claim",
         tone: "reward",
-        onClick: () => viewRFQ(reward.rfq),
+        onClick: () => viewRFQ(rfq.publicKey),
       });
     });
     // Urgent first, then everything else; within each, time-based first
@@ -168,15 +235,40 @@ export function MyActivity() {
       if (!a.expiresIn && b.expiresIn) return 1;
       return 0;
     });
-  }, [myRFQs, myQuotes, unclaimedRewards]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [myRFQs, myQuotes, claimableRFQs, rfqByKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const hasAnyActivity = myRFQs.length > 0 || myQuotes.length > 0 || myRewards.length > 0;
+  const hasAnyActivity =
+    myRFQs.length > 0 || myQuotes.length > 0 || myRewards.length > 0 || claimableRFQs.length > 0;
 
   const scrollToRewards = () => {
     document
       .getElementById("rewards-section")
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+
+  if (isLoading || isError) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0f] pt-20 lg:pt-24 pb-16 sm:pb-32">
+        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 sm:mb-8"
+          >
+            <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">My Activity</h1>
+          </motion.div>
+          {isError ? (
+            <ErrorRetry
+              message="Couldn't load your activity from the chain."
+              onRetry={refetchAll}
+            />
+          ) : (
+            <SkeletonList count={4} />
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (!hasAnyActivity) {
     return (
@@ -219,7 +311,7 @@ export function MyActivity() {
         </motion.div>
 
         <PinnedSummary
-          unclaimedCount={unclaimedRewards.length}
+          unclaimedCount={claimableRFQs.length}
           activeRFQs={activeRFQs.length}
           activeQuotes={activeQuotes.length}
           settled={settledRFQs.length}
@@ -273,6 +365,7 @@ export function MyActivity() {
                   <SubmittedQuoteCard
                     key={quote.publicKey}
                     quote={quote}
+                    rfq={rfqByKey.get(quote.rfq)}
                     onView={() => viewRFQ(quote.rfq)}
                   />
                 ))}
@@ -285,15 +378,16 @@ export function MyActivity() {
               id="rewards-section"
               title="Rewards history"
               count={myRewards.length}
-              needsAttentionCount={unclaimedRewards.length}
+              needsAttentionCount={0}
               icon={HandCoins}
-              defaultOpen={unclaimedRewards.length > 0}
+              defaultOpen={false}
             >
               <div className="space-y-3">
                 {myRewards.map((reward) => (
                   <RewardRow
                     key={reward.publicKey}
                     reward={reward}
+                    rfq={rfqByKey.get(reward.rfq)}
                     onView={() => viewRFQ(reward.rfq)}
                   />
                 ))}
@@ -637,8 +731,15 @@ function PostedRFQCard({
   );
 }
 
-function SubmittedQuoteCard({ quote, onView }: { quote: Quote; onView: () => void }) {
-  const rfq = getRFQById(quote.rfq);
+function SubmittedQuoteCard({
+  quote,
+  rfq,
+  onView,
+}: {
+  quote: Quote;
+  rfq: RFQ | undefined;
+  onView: () => void;
+}) {
   const isRevealed = quote.revealedAt !== null;
 
   return (
@@ -704,9 +805,16 @@ function SubmittedQuoteCard({ quote, onView }: { quote: Quote; onView: () => voi
   );
 }
 
-function RewardRow({ reward, onView }: { reward: FacilitatorReward; onView: () => void }) {
+function RewardRow({
+  reward,
+  rfq,
+  onView,
+}: {
+  reward: FacilitatorReward;
+  rfq: RFQ | undefined;
+  onView: () => void;
+}) {
   const isClaimed = reward.claimedAt !== null;
-  const rfq = getRFQById(reward.rfq);
   const symbol = quoteSymbol(rfq);
 
   return (

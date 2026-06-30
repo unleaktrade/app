@@ -3,8 +3,9 @@
 // authoritative spec; every function cites the instruction file it mirrors.
 //
 // Inputs are structural (Pick-style shapes) so both the decoded on-chain
-// accounts (src/chain/accounts/*) and the mock UI objects (src/data/mock.ts)
-// satisfy them. `now` is unix seconds, passed explicitly so the UI can tick.
+// accounts (src/chain/accounts/*) and the UI view-models (src/app/lib/
+// rfq-view-model.ts) satisfy them. `now` is unix seconds, passed explicitly so
+// the UI can tick.
 
 import type { RFQState, UserRole } from "@/types/rfq";
 import { computeFacilitatorShare, computeTotalFee } from "./math";

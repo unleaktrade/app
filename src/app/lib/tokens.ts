@@ -2,6 +2,8 @@
 // TokenSelector so non-selector components (TokenAmountInput, BondBreakdown)
 // can resolve symbols/decimals without importing the picker UI.
 
+import seedManifestDevnet from "./seed-manifest.devnet.json";
+
 export interface Token {
   symbol: string;
   name: string;
@@ -244,4 +246,52 @@ export const LISTED_SPL_TOKENS: Token[] = [
 
 export function findTokenByMint(mint: string): Token | undefined {
   return LISTED_SPL_TOKENS.find((token) => token.mint === mint);
+}
+
+// ---------------------------------------------------------------------------
+// Synchronous mint → {symbol, decimals} resolver for decoded on-chain RFQs.
+// Seeded devnet test mints (sBASE/sALT) and devnet USDC aren't in the mainnet
+// catalog above, so they come from the seed manifest the seed script writes
+// (scripts/seed.ts). Resolution order: seed manifest → static catalog →
+// truncated-mint fallback. Jupiter (async, mainnet-only) stays in useTokenMeta.
+// ---------------------------------------------------------------------------
+
+interface ManifestEntry {
+  symbol: string;
+  decimals: number;
+  logoURI?: string;
+}
+
+const SEED_MANIFEST: Record<string, ManifestEntry> = seedManifestDevnet;
+
+export interface ResolvedToken {
+  symbol: string;
+  decimals: number;
+  logoURI?: string;
+}
+
+/** Short base58 label for an unknown mint, e.g. "4zMM…ncDU". */
+function shortMint(mint: string): string {
+  return mint.length <= 9 ? mint : `${mint.slice(0, 4)}…${mint.slice(-4)}`;
+}
+
+/**
+ * Resolve a mint to its display symbol + decimals synchronously. Falls back to
+ * a truncated address with 0 decimals for mints not in the manifest or catalog
+ * (which on a seeded devnet should never happen — seeded mints are committed to
+ * the manifest). Decimals drive base-unit → display scaling, so an unknown mint
+ * renders raw rather than mis-scaled.
+ */
+export function resolveTokenMeta(mint: string): ResolvedToken {
+  const fromManifest = SEED_MANIFEST[mint];
+  if (fromManifest) return fromManifest;
+  const fromCatalog = findTokenByMint(mint);
+  if (fromCatalog) {
+    return {
+      symbol: fromCatalog.symbol,
+      decimals: fromCatalog.decimals,
+      ...(fromCatalog.logoURI !== undefined ? { logoURI: fromCatalog.logoURI } : {}),
+    };
+  }
+  return { symbol: shortMint(mint), decimals: 0 };
 }

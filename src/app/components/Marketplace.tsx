@@ -1,11 +1,16 @@
 import { motion } from "motion/react";
 import { useState } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
 import type { RFQ } from "@/types/rfq";
-import { mockRFQs, CURRENT_USER_FULL } from "@/data/mock";
+import { useRfqAccounts } from "@/chain/accounts/lists";
+import { toRfqViewModel } from "@/app/lib/rfq-view-model";
 import { getCardGradient, getCardBorder } from "@/app/lib/rfq-visuals";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { StatusBadge } from "@/app/components/StatusBadge";
+import { SkeletonList } from "@/app/components/SkeletonList";
+import { EmptyState } from "@/app/components/EmptyState";
+import { ErrorRetry } from "@/app/components/ErrorRetry";
 import { PieChart, Pie, Cell } from "recharts";
 import {
   Search,
@@ -86,9 +91,17 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
     });
   };
 
+  // Live on-chain RFQs → UI view-model. Lists refetch on focus (no websocket);
+  // detail pages keep the per-account subscription.
+  const { publicKey } = useWallet();
+  const currentUser = publicKey?.toBase58() ?? null;
+  const { data: rfqRows, isLoading, isError, refetch, isFetching } = useRfqAccounts();
+  const nowSecs = Math.floor(Date.now() / 1000);
+  const allRFQs: RFQ[] = (rfqRows ?? []).map((row) => toRfqViewModel(row, nowSecs));
+
   // Filter RFQs: Show ALL states including Draft
   // NOW SHOWING my own RFQs with visual distinction
-  const availableRFQs = mockRFQs.filter((rfq) => {
+  const availableRFQs = allRFQs.filter((rfq) => {
     // Apply state filter
     if (stateFilter === "draft" && rfq.state !== "Draft") return false;
     if (stateFilter === "open" && rfq.state !== "Open") return false;
@@ -120,8 +133,8 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
   // Sort each group: MY RFQs first, then others
   const sortByOwnership = (rfqs: RFQ[]) => {
     return rfqs.sort((a, b) => {
-      const aIsMine = a.maker === CURRENT_USER_FULL;
-      const bIsMine = b.maker === CURRENT_USER_FULL;
+      const aIsMine = currentUser !== null && a.maker === currentUser;
+      const bIsMine = currentUser !== null && b.maker === currentUser;
 
       // My RFQs come first
       if (aIsMine && !bIsMine) return -1;
@@ -221,13 +234,11 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
   };
 
   // Stats
-  const openCount = mockRFQs.filter(
-    (r) => r.state === "Open" && r.maker !== CURRENT_USER_FULL,
+  const openCount = allRFQs.filter((r) => r.state === "Open" && r.maker !== currentUser).length;
+  const committedCount = allRFQs.filter(
+    (r) => r.state === "Committed" && r.maker !== currentUser,
   ).length;
-  const committedCount = mockRFQs.filter(
-    (r) => r.state === "Committed" && r.maker !== CURRENT_USER_FULL,
-  ).length;
-  const totalVolume = mockRFQs
+  const totalVolume = allRFQs
     .filter((r) => r.state === "Settled")
     .reduce((sum, rfq) => sum + rfq.baseAmount, 0);
 
@@ -403,13 +414,22 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
           </div>
 
           {/* RFQ Grid */}
-          {sortedRFQs.length > 0 ? (
+          {isLoading ? (
+            <SkeletonList count={6} />
+          ) : isError ? (
+            <ErrorRetry
+              message="Couldn't load RFQs from the chain."
+              onRetry={() => void refetch()}
+              retrying={isFetching}
+            />
+          ) : sortedRFQs.length > 0 ? (
             viewMode === "card" ? (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {sortedRFQs.map((rfq) => (
                   <RFQMarketplaceCard
                     key={rfq.publicKey}
                     rfq={rfq}
+                    currentUser={currentUser}
                     onQuote={() => onQuoteRFQ(rfq)}
                     onView={() => onViewRFQ(rfq.publicKey)}
                     onEdit={onEditRFQ ? () => onEditRFQ(rfq) : undefined}
@@ -422,6 +442,7 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
                   <RFQMarketplaceListItem
                     key={rfq.publicKey}
                     rfq={rfq}
+                    currentUser={currentUser}
                     onQuote={() => onQuoteRFQ(rfq)}
                     onView={() => onViewRFQ(rfq.publicKey)}
                     onEdit={onEditRFQ ? () => onEditRFQ(rfq) : undefined}
@@ -483,6 +504,7 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
                                 <div key={rfq.publicKey} className="flex-shrink-0 w-80">
                                   <RFQMarketplaceCard
                                     rfq={rfq}
+                                    currentUser={currentUser}
                                     onQuote={() => onQuoteRFQ(rfq)}
                                     onView={() => onViewRFQ(rfq.publicKey)}
                                     onEdit={onEditRFQ ? () => onEditRFQ(rfq) : undefined}
@@ -531,6 +553,7 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
                             <RFQMarketplaceCard
                               key={rfq.publicKey}
                               rfq={rfq}
+                              currentUser={currentUser}
                               onQuote={() => onQuoteRFQ(rfq)}
                               onView={() => onViewRFQ(rfq.publicKey)}
                               onEdit={onEditRFQ ? () => onEditRFQ(rfq) : undefined}
@@ -544,11 +567,11 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
               </div>
             )
           ) : (
-            <div className="bg-white/5 border border-white/10 rounded-xl p-12 text-center">
-              <Filter className="h-12 w-12 text-white/20 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-white mb-2">No RFQs Found</h3>
-              <p className="text-sm text-white/50">Try adjusting your filters or search query</p>
-            </div>
+            <EmptyState
+              icon={Filter}
+              title="No RFQs Found"
+              hint="Try adjusting your filters or search query"
+            />
           )}
         </div>
       </div>
@@ -586,18 +609,25 @@ function StatCard({ label, value, subtext, icon: Icon, gradient }: StatCardProps
 
 interface RFQMarketplaceCardProps {
   rfq: RFQ;
+  currentUser: string | null;
   onQuote: () => void;
   onView: () => void;
   onEdit?: () => void;
 }
 
-function RFQMarketplaceCard({ rfq, onQuote, onView, onEdit }: RFQMarketplaceCardProps) {
+function RFQMarketplaceCard({
+  rfq,
+  currentUser,
+  onQuote,
+  onView,
+  onEdit,
+}: RFQMarketplaceCardProps) {
   const [base, quote] = rfq.pair.split("/");
   const isCommitted = rfq.state === "Committed";
   const canQuote = rfq.state === "Open" || rfq.state === "Committed";
 
   // Check if this RFQ belongs to current user
-  const isMyRFQ = rfq.maker === CURRENT_USER_FULL;
+  const isMyRFQ = currentUser !== null && rfq.maker === currentUser;
 
   // Get state-based styling
   const cardGradient = getCardGradient(rfq.state);
@@ -795,18 +825,25 @@ function RFQMarketplaceCard({ rfq, onQuote, onView, onEdit }: RFQMarketplaceCard
 
 interface RFQMarketplaceListItemProps {
   rfq: RFQ;
+  currentUser: string | null;
   onQuote: () => void;
   onView: () => void;
   onEdit?: () => void;
 }
 
-function RFQMarketplaceListItem({ rfq, onQuote, onView, onEdit }: RFQMarketplaceListItemProps) {
+function RFQMarketplaceListItem({
+  rfq,
+  currentUser,
+  onQuote,
+  onView,
+  onEdit,
+}: RFQMarketplaceListItemProps) {
   const [base, quote] = rfq.pair.split("/");
   const isCommitted = rfq.state === "Committed";
   const canQuote = rfq.state === "Open" || rfq.state === "Committed";
 
   // Check if this RFQ belongs to current user
-  const isMyRFQ = rfq.maker === CURRENT_USER_FULL;
+  const isMyRFQ = currentUser !== null && rfq.maker === currentUser;
 
   // Get state-based styling
   const cardGradient = getCardGradient(rfq.state);
