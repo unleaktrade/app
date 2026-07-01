@@ -265,7 +265,7 @@ export function MyActivity() {
           cta: "Reveal",
           tone: "urgent",
           expiresIn: rfq.expiresIn,
-          onClick: () => viewRFQ(rfq.publicKey),
+          onClick: () => navigate(`/dashboard/quote/${q.publicKey}/reveal`),
         });
       }
     });
@@ -296,7 +296,7 @@ export function MyActivity() {
             cta: "Settle",
             tone: "urgent",
             expiresIn: rfq.expiresIn,
-            onClick: () => viewRFQ(rfq.publicKey),
+            onClick: () => navigate(`/dashboard/quote/${q.publicKey}/settle`),
           });
         }
       });
@@ -455,14 +455,29 @@ export function MyActivity() {
               defaultOpen={quotesNeedAction > 0}
             >
               <HorizontalStrip>
-                {myQuotes.map((quote) => (
-                  <SubmittedQuoteCard
-                    key={quote.publicKey}
-                    quote={quote}
-                    rfq={rfqByKey.get(quote.rfq)}
-                    onView={() => viewRFQ(quote.rfq)}
-                  />
-                ))}
+                {myQuotes.map((quote) => {
+                  const parent = rfqByKey.get(quote.rfq);
+                  const canReveal = parent?.state === "Committed" && !quote.revealedAt;
+                  const canSettle = quote.selected && parent?.state === "Selected";
+                  return (
+                    <SubmittedQuoteCard
+                      key={quote.publicKey}
+                      quote={quote}
+                      rfq={parent}
+                      onView={() => viewRFQ(quote.rfq)}
+                      onReveal={
+                        canReveal
+                          ? () => navigate(`/dashboard/quote/${quote.publicKey}/reveal`)
+                          : undefined
+                      }
+                      onSettle={
+                        canSettle
+                          ? () => navigate(`/dashboard/quote/${quote.publicKey}/settle`)
+                          : undefined
+                      }
+                    />
+                  );
+                })}
               </HorizontalStrip>
             </CollapsibleSection>
           )}
@@ -866,10 +881,14 @@ function SubmittedQuoteCard({
   quote,
   rfq,
   onView,
+  onReveal,
+  onSettle,
 }: {
   quote: Quote;
   rfq: RFQ | undefined;
   onView: () => void;
+  onReveal?: () => void;
+  onSettle?: () => void;
 }) {
   const isRevealed = quote.revealedAt !== null;
 
@@ -932,6 +951,27 @@ function SubmittedQuoteCard({
         <Eye className="mr-2 h-4 w-4" />
         View RFQ
       </Button>
+
+      {onReveal && (
+        <Button
+          onClick={onReveal}
+          size="sm"
+          className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-semibold mt-2"
+        >
+          <Unlock className="mr-2 h-4 w-4" />
+          Reveal
+        </Button>
+      )}
+      {onSettle && (
+        <Button
+          onClick={onSettle}
+          size="sm"
+          className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold mt-2"
+        >
+          <Zap className="mr-2 h-4 w-4" />
+          Settle
+        </Button>
+      )}
     </div>
   );
 }

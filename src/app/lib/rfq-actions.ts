@@ -14,13 +14,19 @@ import type { RFQState } from "@/types/rfq";
 import {
   canCloseExpired,
   canCloseIncomplete,
+  canCommitQuote,
+  canCompleteSettlement,
   canMakerCancel,
   canOpenRfq,
+  canRefundQuoteBonds,
+  canRevealQuote,
+  canSetQuoteFacilitator,
   canSetRfqFacilitator,
   canUpdateRfq,
   canWithdrawReward,
   revealDeadline,
   selectionDeadline,
+  type QuoteView,
   type RfqView,
 } from "@/chain/state-machine";
 
@@ -31,7 +37,13 @@ export type RfqActionId =
   | "setFacilitator"
   | "closeExpired"
   | "closeIncomplete"
-  | "claimReward";
+  | "claimReward"
+  // taker (Phase 4)
+  | "commit"
+  | "reveal"
+  | "settle"
+  | "refundBond"
+  | "setQuoteFacilitator";
 
 export type RfqActionTone = "primary" | "default" | "danger" | "reward";
 
@@ -59,6 +71,8 @@ export interface RfqActionRfq extends RfqView {
 
 export interface RfqActionsInput {
   rfq: RfqActionRfq;
+  /** The connected wallet's quote on this RFQ, if it owns one (structural). */
+  myQuote?: QuoteView | null;
   /** Connected wallet base58, or null when disconnected. */
   connected: string | null;
   now: number;
@@ -139,6 +153,50 @@ export function deriveRfqActions(input: RfqActionsInput): RfqActionDescriptor[] 
         description: "Discard this draft and refund the account rent.",
       });
     }
+  }
+
+  // Taker actions, derived from the connected wallet's quote on this RFQ.
+  const myQuote = input.myQuote ?? null;
+  if (myQuote) {
+    if (canRevealQuote(rfq, myQuote, now)) {
+      actions.push({
+        id: "reveal",
+        label: "Reveal quote",
+        tone: "primary",
+        description: "Disclose your committed amount before the reveal deadline.",
+      });
+    }
+    if (canCompleteSettlement(rfq, myQuote, now)) {
+      actions.push({
+        id: "settle",
+        label: "Settle now",
+        tone: "primary",
+        description: "Fund and finalize the trade before the funding deadline.",
+      });
+    }
+    if (canRefundQuoteBonds(rfq, myQuote, now)) {
+      actions.push({
+        id: "refundBond",
+        label: "Reclaim bond",
+        tone: "default",
+        description: "Your quote wasn't selected — reclaim your posted bond.",
+      });
+    }
+    if (canSetQuoteFacilitator(rfq)) {
+      actions.push({
+        id: "setQuoteFacilitator",
+        label: "Facilitator",
+        tone: "default",
+        description: "Assign or clear the facilitator credited on your quote.",
+      });
+    }
+  } else if (!isMaker && canCommitQuote(rfq, now)) {
+    actions.push({
+      id: "commit",
+      label: "Commit quote",
+      tone: "primary",
+      description: "Post a sealed quote and bond to compete for this RFQ.",
+    });
   }
 
   if (

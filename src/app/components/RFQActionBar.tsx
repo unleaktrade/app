@@ -8,6 +8,7 @@
 // here: picking a winner needs the comparison table, so it lives per-row there.
 
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { useQueryClient } from "@tanstack/react-query";
@@ -27,6 +28,7 @@ import {
   buildSetRfqFacilitatorTx,
   buildWithdrawRewardTx,
 } from "@/chain/instructions/maker";
+import { buildRefundQuoteBondsTx, buildSetQuoteFacilitatorTx } from "@/chain/instructions/taker";
 import {
   deriveRfqActions,
   type RfqActionDescriptor,
@@ -57,6 +59,8 @@ interface RFQActionBarProps {
   config: ConfigAccount | null;
   /** Opens the UpdateRFQModal (mounted at DashboardLayout). */
   onEdit: () => void;
+  /** Opens the SubmitQuoteModal (commit_quote flow). */
+  onCommit: () => void;
   /** Called after an account-closing action (cancel) so the page can navigate away. */
   onClosed: () => void;
 }
@@ -70,11 +74,20 @@ const toneClass: Record<RfqActionTone, string> = {
   danger: "bg-red-500/10 border border-red-500/30 text-red-300 hover:bg-red-500/20",
 };
 
-export function RFQActionBar({ rfqPda, rfq, quotes, config, onEdit, onClosed }: RFQActionBarProps) {
+export function RFQActionBar({
+  rfqPda,
+  rfq,
+  quotes,
+  config,
+  onEdit,
+  onCommit,
+  onClosed,
+}: RFQActionBarProps) {
   const program = useSettlementProgram();
   const { connection } = useConnection();
   const wallet = useWallet();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<RfqActionId | null>(null);
@@ -91,6 +104,15 @@ export function RFQActionBar({ rfqPda, rfq, quotes, config, onEdit, onClosed }: 
     return winning?.account.facilitator?.toBase58() ?? null;
   }, [rfq.selectedQuote, quotes]);
 
+  // The connected wallet's own quote on this RFQ (drives the taker CTAs).
+  const myQuoteRow = useMemo(
+    () =>
+      connected === null
+        ? null
+        : (quotes.find((q) => q.account.taker.toBase58() === connected) ?? null),
+    [quotes, connected],
+  );
+
   const actions = deriveRfqActions({
     rfq: {
       ...rfq,
@@ -99,6 +121,13 @@ export function RFQActionBar({ rfqPda, rfq, quotes, config, onEdit, onClosed }: 
       settlementCompletedAt: rfq.completedAt,
       selectedQuoteFacilitator,
     },
+    myQuote: myQuoteRow
+      ? {
+          revealedAt: myQuoteRow.account.revealedAt,
+          bondsRefundedAt: myQuoteRow.account.bondsRefundedAt,
+          selected: myQuoteRow.account.selected,
+        }
+      : null,
     connected,
     now,
     facilitatorFeeBps: config?.facilitatorFeeBps ?? 0,
@@ -139,12 +168,21 @@ export function RFQActionBar({ rfqPda, rfq, quotes, config, onEdit, onClosed }: 
   }
 
   function onActionClick(id: RfqActionId) {
-    if (id === "edit") {
-      onEdit();
+    // Immediate actions (no confirm dialog).
+    if (id === "edit") return void onEdit();
+    if (id === "commit") return void onCommit();
+    if (id === "reveal" || id === "settle") {
+      const quotePda = myQuoteRow?.publicKey.toBase58();
+      if (!quotePda) return void toast.error("Your quote isn't loaded yet");
+      navigate(`/dashboard/quote/${quotePda}/${id}`);
       return;
     }
+    // Dialog-confirmed actions.
     if (id === "setFacilitator") {
       setFacilitatorInput(rfq.facilitator?.toBase58() ?? "");
+    }
+    if (id === "setQuoteFacilitator") {
+      setFacilitatorInput(myQuoteRow?.account.facilitator?.toBase58() ?? "");
     }
     setConfirm(id);
   }
@@ -216,9 +254,10 @@ export function RFQActionBar({ rfqPda, rfq, quotes, config, onEdit, onClosed }: 
         );
         break;
       }
-      case "setFacilitator": {
-        let update: FacilitatorUpdate;
+      case "setFacilitator":
+      case "setQuoteFacilitator": {
         const trimmed = facilitatorInput.trim();
+        let update: FacilitatorUpdate;
         if (trimmed === "") {
           update = { kind: "clear" };
         } else {
@@ -230,12 +269,29 @@ export function RFQActionBar({ rfqPda, rfq, quotes, config, onEdit, onClosed }: 
           }
           update = { kind: "set", pubkey: trimmed };
         }
-        void run(() => buildSetRfqFacilitatorTx({ program, maker, rfq: rfqPda, update }), {
+        const messages = {
           pending: "Updating facilitator…",
           success: trimmed === "" ? "Facilitator cleared" : "Facilitator assigned",
-        });
+        };
+        if (confirm === "setFacilitator") {
+          void run(
+            () => buildSetRfqFacilitatorTx({ program, maker, rfq: rfqPda, update }),
+            messages,
+          );
+        } else {
+          void run(
+            () => buildSetQuoteFacilitatorTx({ program, taker: wallet.publicKey!, rfqPda, update }),
+            messages,
+          );
+        }
         break;
       }
+      case "refundBond":
+        void run(
+          () => buildRefundQuoteBondsTx({ program, taker: wallet.publicKey!, rfqPda, rfq }),
+          { pending: "Reclaiming bond…", success: "Bond reclaimed to your wallet" },
+        );
+        break;
       default:
         break;
     }
@@ -274,7 +330,7 @@ export function RFQActionBar({ rfqPda, rfq, quotes, config, onEdit, onClosed }: 
             />
           )}
 
-          {confirm === "setFacilitator" && (
+          {(confirm === "setFacilitator" || confirm === "setQuoteFacilitator") && (
             <div className="space-y-2">
               <Label htmlFor="facilitator-address">Facilitator address</Label>
               <Input

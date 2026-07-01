@@ -7,6 +7,13 @@ import {
   type RfqActionRfq,
   type RfqActionsInput,
 } from "@/app/lib/rfq-actions";
+import type { QuoteView } from "@/chain/state-machine";
+
+const TAKER = "Taker1111111111111111111111111111111111111";
+
+function makeQuote(overrides: Partial<QuoteView> = {}): QuoteView {
+  return { revealedAt: null, bondsRefundedAt: null, selected: false, ...overrides };
+}
 
 const MAKER = "Maker1111111111111111111111111111111111111";
 const FAC = "Facilitator11111111111111111111111111111111";
@@ -164,6 +171,64 @@ describe("deriveRfqActions — facilitator claim (withdraw_reward)", () => {
   it("no claim when the RFQ and quote facilitators disagree", () => {
     const mismatched = makeRfq({ ...settled, selectedQuoteFacilitator: OTHER });
     expect(ids({ rfq: mismatched, connected: FAC, now: 1200, facilitatorFeeBps: 5000 })).toEqual(
+      [],
+    );
+  });
+});
+
+describe("deriveRfqActions — taker", () => {
+  it("a non-maker with no quote can commit within the commit window", () => {
+    const rfq = makeRfq({ state: "Open", openedAt: 1000 });
+    expect(ids({ rfq, myQuote: null, connected: TAKER, now: 1050, facilitatorFeeBps: 0 })).toEqual([
+      "commit",
+    ]);
+  });
+
+  it("the maker never sees commit on their own RFQ", () => {
+    const rfq = makeRfq({ state: "Open", openedAt: 1000 });
+    expect(
+      ids({ rfq, myQuote: null, connected: MAKER, now: 1050, facilitatorFeeBps: 0 }),
+    ).not.toContain("commit");
+  });
+
+  it("commit is gone once the wallet already holds a quote", () => {
+    const rfq = makeRfq({ state: "Open", openedAt: 1000 });
+    const q = makeQuote();
+    expect(
+      ids({ rfq, myQuote: q, connected: TAKER, now: 1050, facilitatorFeeBps: 0 }),
+    ).not.toContain("commit");
+  });
+
+  it("a committed quote can reveal (and set its facilitator) in the reveal window", () => {
+    // commit=1100, reveal=1200 → reveal window is (1100, 1200]
+    const rfq = makeRfq({ state: "Committed", openedAt: 1000, revealedCount: 0 });
+    const q = makeQuote({ revealedAt: null });
+    expect(ids({ rfq, myQuote: q, connected: TAKER, now: 1150, facilitatorFeeBps: 0 })).toEqual([
+      "reveal",
+      "setQuoteFacilitator",
+    ]);
+  });
+
+  it("the selected quote can settle before the funding deadline", () => {
+    // Selected: fundingDeadline = selectedAt + fundTtl = 1000 + 100 = 1100
+    const rfq = makeRfq({ state: "Selected", openedAt: 800, selectedAt: 1000 });
+    const q = makeQuote({ revealedAt: 950, selected: true });
+    expect(ids({ rfq, myQuote: q, connected: TAKER, now: 1050, facilitatorFeeBps: 0 })).toContain(
+      "settle",
+    );
+  });
+
+  it("an unselected revealed quote can reclaim its bond past the funding deadline", () => {
+    const rfq = makeRfq({ state: "Ignored", openedAt: 800, selectedAt: null, revealedCount: 2 });
+    const q = makeQuote({ revealedAt: 950, selected: false, bondsRefundedAt: null });
+    expect(ids({ rfq, myQuote: q, connected: TAKER, now: 2000, facilitatorFeeBps: 0 })).toContain(
+      "refundBond",
+    );
+  });
+
+  it("no taker CTAs when disconnected", () => {
+    const rfq = makeRfq({ state: "Open", openedAt: 1000 });
+    expect(ids({ rfq, myQuote: null, connected: null, now: 1050, facilitatorFeeBps: 0 })).toEqual(
       [],
     );
   });

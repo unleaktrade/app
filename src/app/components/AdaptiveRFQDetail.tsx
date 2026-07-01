@@ -7,7 +7,6 @@ import { Button } from "@/app/components/ui/button";
 import { StatusBadge } from "@/app/components/StatusBadge";
 import { SkeletonList } from "@/app/components/SkeletonList";
 import { ErrorRetry } from "@/app/components/ErrorRetry";
-import { RFQActionSheet } from "@/app/components/RFQActionSheet";
 import { RFQActionBar } from "@/app/components/RFQActionBar";
 import { RFQStatePipeline } from "@/app/components/RFQStatePipeline";
 import { AddressDisplay } from "@/app/components/AddressDisplay";
@@ -31,7 +30,6 @@ import {
   Eye,
   CheckCircle2,
   AlertTriangle,
-  Lock,
   Trophy,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -176,7 +174,6 @@ export function AdaptiveRFQDetail({
           quoteDecimals={quoteMeta.decimals}
           nowSecs={nowSecs}
           rfqPda={pda}
-          onQuoteRFQ={onQuoteRFQ}
         />
 
         {/* The single action bar — legal maker/facilitator CTAs for this state */}
@@ -187,6 +184,7 @@ export function AdaptiveRFQDetail({
             quotes={quoteRows}
             config={configQuery.data ?? null}
             onEdit={() => onEditRFQ?.(rfq)}
+            onCommit={() => onQuoteRFQ?.(rfq)}
             onClosed={onBack}
           />
         </div>
@@ -227,7 +225,6 @@ function StatePanel({
   quoteDecimals,
   nowSecs,
   rfqPda,
-  onQuoteRFQ,
 }: {
   rfq: RFQ;
   account: RfqAccount;
@@ -237,7 +234,6 @@ function StatePanel({
   quoteDecimals: number;
   nowSecs: number;
   rfqPda: PublicKey;
-  onQuoteRFQ?: (rfq: RFQ) => void;
 }) {
   switch (rfq.state) {
     case "Draft":
@@ -251,17 +247,12 @@ function StatePanel({
       );
     case "Open":
       return (
-        <div className="space-y-6">
-          <Panel
-            icon={<Clock className="h-6 w-6 text-green-400" />}
-            title="Open for quotes"
-            subtitle={`Committing closes ${rfq.expiresIn ? `in ${rfq.expiresIn}` : "soon"}. ${account.committedCount} commitment${account.committedCount === 1 ? "" : "s"} so far.`}
-            tone="green"
-          />
-          {!relation.isMaker && (
-            <CommitCta rfq={rfq} bond={rfq.bondAmount} onQuoteRFQ={onQuoteRFQ} />
-          )}
-        </div>
+        <Panel
+          icon={<Clock className="h-6 w-6 text-green-400" />}
+          title="Open for quotes"
+          subtitle={`Committing closes ${rfq.expiresIn ? `in ${rfq.expiresIn}` : "soon"}. ${account.committedCount} commitment${account.committedCount === 1 ? "" : "s"} so far. Use Commit quote below to bid.`}
+          tone="green"
+        />
       );
     case "Committed":
       return (
@@ -380,34 +371,6 @@ function InfoNote({ text }: { text: string }) {
   return (
     <div className="bg-white/5 border border-white/10 rounded-lg p-4 text-sm text-white/70">
       {text}
-    </div>
-  );
-}
-
-function CommitCta({
-  rfq,
-  bond,
-  onQuoteRFQ,
-}: {
-  rfq: RFQ;
-  bond: number;
-  onQuoteRFQ?: (rfq: RFQ) => void;
-}) {
-  return (
-    <div className="bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 rounded-xl p-6">
-      <div className="flex items-center gap-3 mb-4">
-        <Shield className="h-5 w-5 text-cyan-400" />
-        <span className="text-white font-medium">Bond required: {bond.toLocaleString()} USDC</span>
-      </div>
-      <RFQActionSheet title="Commit a quote">
-        <Button
-          onClick={() => onQuoteRFQ?.(rfq)}
-          className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white"
-        >
-          <Lock className="mr-2 h-5 w-5" />
-          Commit a quote
-        </Button>
-      </RFQActionSheet>
     </div>
   );
 }
