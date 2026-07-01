@@ -6,7 +6,8 @@ import type { DashboardOutletContext } from "@/app/components/DashboardLayout";
 export function RFQDetailWrapper() {
   const { rfqId } = useParams<{ rfqId: string }>();
   const navigate = useNavigate();
-  const { setIsQuoteModalOpen, setQuoteRFQ } = useOutletContext<DashboardOutletContext>();
+  const { setIsQuoteModalOpen, setQuoteRFQ, setUpdateRFQ, setIsUpdateModalOpen } =
+    useOutletContext<DashboardOutletContext>();
 
   if (!rfqId) {
     navigate("/dashboard");
@@ -18,7 +19,17 @@ export function RFQDetailWrapper() {
     setIsQuoteModalOpen(true);
   };
 
+  const handleEditRFQ = (rfq: RFQ) => {
+    setUpdateRFQ(rfq);
+    setIsUpdateModalOpen(true);
+  };
+
   return (
-    <AdaptiveRFQDetail rfqId={rfqId} onBack={() => navigate(-1)} onQuoteRFQ={handleQuoteRFQ} />
+    <AdaptiveRFQDetail
+      rfqId={rfqId}
+      onBack={() => navigate(-1)}
+      onQuoteRFQ={handleQuoteRFQ}
+      onEditRFQ={handleEditRFQ}
+    />
   );
 }

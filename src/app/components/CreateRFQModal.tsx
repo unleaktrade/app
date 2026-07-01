@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { PublicKey } from "@solana/web3.js";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +14,12 @@ import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Separator } from "@/app/components/ui/separator";
 import { TokenSelector, type Token } from "@/app/components/TokenSelector";
+import { useSettlementProgram } from "@/chain/program";
+import { useConfigAccount } from "@/chain/accounts/config";
+import { buildInitRfqTx } from "@/chain/instructions/maker";
+import { newRfqUuid, submitRfqTx } from "@/chain/instructions/shared";
+import { parseTokenAmount } from "@/app/lib/format";
+import { resolveTokenMeta } from "@/app/lib/tokens";
 import { toast } from "sonner";
 import {
   ArrowRight,
@@ -24,6 +33,7 @@ import {
   Sparkles,
   ChevronDown,
   ChevronUp,
+  Loader2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -44,7 +54,14 @@ const TIME_PRESETS = [
 ];
 
 export function CreateRFQModal({ open, onOpenChange }: CreateRFQModalProps) {
+  const program = useSettlementProgram();
+  const { connection } = useConnection();
+  const wallet = useWallet();
+  const queryClient = useQueryClient();
+  const configQuery = useConfigAccount();
+
   const [currentStep, setCurrentStep] = useState<FormStep>("tokens");
+  const [submitting, setSubmitting] = useState(false);
 
   // Form state matching Solana instruction parameters
   const [baseToken, setBaseToken] = useState<Token | null>(null);
@@ -53,7 +70,9 @@ export function CreateRFQModal({ open, onOpenChange }: CreateRFQModalProps) {
   const [minQuoteAmount, setMinQuoteAmount] = useState("");
 
   const [bondAmount, setBondAmount] = useState("5000");
-  const [takerFeeUsdc, setTakerFeeUsdc] = useState("100");
+  // Protocol fee in basis points (on-chain arg is taker_fee_bps: u16 ≤ 10000),
+  // NOT an absolute USDC amount — the fee is bps × the settled quote amount.
+  const [takerFeeBps, setTakerFeeBps] = useState("50");
 
   const [commitTtlSecs, setCommitTtlSecs] = useState("3600");
   const [revealTtlSecs, setRevealTtlSecs] = useState("1800");
@@ -70,7 +89,7 @@ export function CreateRFQModal({ open, onOpenChange }: CreateRFQModalProps) {
     setBaseAmount("");
     setMinQuoteAmount("");
     setBondAmount("5000");
-    setTakerFeeUsdc("100");
+    setTakerFeeBps("50");
     setCommitTtlSecs("3600");
     setRevealTtlSecs("1800");
     setSelectionTtlSecs("1800");
@@ -100,8 +119,9 @@ export function CreateRFQModal({ open, onOpenChange }: CreateRFQModalProps) {
       toast.error("Bond amount must be greater than 0");
       return false;
     }
-    if (!takerFeeUsdc || parseFloat(takerFeeUsdc) <= 0) {
-      toast.error("Taker fee must be greater than 0");
+    const bps = Number(takerFeeBps);
+    if (!Number.isInteger(bps) || bps < 0 || bps > 10_000) {
+      toast.error("Taker fee must be between 0 and 10000 bps");
       return false;
     }
     return true;
@@ -138,15 +158,74 @@ export function CreateRFQModal({ open, onOpenChange }: CreateRFQModalProps) {
     if (prev) setCurrentStep(prev);
   };
 
-  const handleCreate = () => {
-    // Here you would call the Solana program instruction
-    // For now, just show success toast
-    toast.success("RFQ Created!", {
-      description: `Exchanging ${baseAmount} ${baseToken?.symbol} for minimum ${minQuoteAmount} ${quoteToken?.symbol}`,
-    });
+  const handleCreate = async () => {
+    if (!program || !wallet.publicKey) {
+      toast.error("Connect a wallet to create an RFQ");
+      return;
+    }
+    const config = configQuery.data;
+    if (!config) {
+      toast.error("On-chain config not loaded yet — try again in a moment");
+      return;
+    }
+    if (!baseToken || !quoteToken) return;
 
-    resetForm();
-    onOpenChange(false);
+    // Convert display decimals → base-unit bigints (no floats).
+    const usdcDecimals = resolveTokenMeta(config.usdcMint.toBase58()).decimals;
+    const baseUnits = parseTokenAmount(baseAmount, baseToken.decimals);
+    const quoteUnits = parseTokenAmount(minQuoteAmount, quoteToken.decimals);
+    const bondUnits = parseTokenAmount(bondAmount, usdcDecimals);
+    if (baseUnits === null || baseUnits <= 0n) return void toast.error("Invalid base amount");
+    if (quoteUnits === null || quoteUnits <= 0n) return void toast.error("Invalid quote amount");
+    if (bondUnits === null || bondUnits <= 0n) return void toast.error("Invalid bond amount");
+
+    let baseMint: PublicKey;
+    let quoteMint: PublicKey;
+    let facilitator: PublicKey | null = null;
+    try {
+      baseMint = new PublicKey(baseToken.mint);
+      quoteMint = new PublicKey(quoteToken.mint);
+      const fac = facilitatorAddress.trim();
+      if (fac !== "") facilitator = new PublicKey(fac);
+    } catch {
+      return void toast.error("Invalid token mint or facilitator address");
+    }
+
+    setSubmitting(true);
+    try {
+      const uuid = newRfqUuid();
+      await submitRfqTx({
+        connection,
+        wallet,
+        queryClient,
+        build: () =>
+          buildInitRfqTx({
+            program,
+            maker: wallet.publicKey!,
+            usdcMint: config.usdcMint,
+            uuid,
+            baseMint,
+            quoteMint,
+            bondAmount: bondUnits,
+            baseAmount: baseUnits,
+            minQuoteAmount: quoteUnits,
+            takerFeeBps: Number(takerFeeBps),
+            commitTtlSecs: parseInt(commitTtlSecs, 10),
+            revealTtlSecs: parseInt(revealTtlSecs, 10),
+            selectionTtlSecs: parseInt(selectionTtlSecs, 10),
+            fundTtlSecs: parseInt(fundTtlSecs, 10),
+            facilitator,
+          }),
+        pendingMessage: "Creating draft RFQ…",
+        successMessage: "Draft RFQ created — open it to go live",
+      });
+      resetForm();
+      onOpenChange(false);
+    } catch {
+      // sendAndConfirmWithToast already surfaced the error toast.
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const calculateImpliedPrice = () => {
@@ -380,19 +459,21 @@ export function CreateRFQModal({ open, onOpenChange }: CreateRFQModalProps) {
                       </div>
                       <div className="flex-1">
                         <Label htmlFor="takerFee" className="text-white/90 text-base">
-                          Taker Fee (USDC) <span className="text-red-400">*</span>
+                          Protocol Fee (bps) <span className="text-red-400">*</span>
                         </Label>
                         <p className="text-sm text-white/50 mt-1 mb-3">
-                          Fee paid by the Taker upon successful settlement (can be shared with
-                          Facilitator)
+                          Basis points (max 10000) applied to the settled quote amount and paid on
+                          top by the counterparty. 50 bps = 0.50%.
                         </p>
                         <Input
                           id="takerFee"
                           type="number"
-                          step="any"
-                          placeholder="100"
-                          value={takerFeeUsdc}
-                          onChange={(e) => setTakerFeeUsdc(e.target.value)}
+                          step="1"
+                          min="0"
+                          max="10000"
+                          placeholder="50"
+                          value={takerFeeBps}
+                          onChange={(e) => setTakerFeeBps(e.target.value)}
                           className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
                         />
                       </div>
@@ -642,8 +723,10 @@ export function CreateRFQModal({ open, onOpenChange }: CreateRFQModalProps) {
                       <div className="text-xl font-semibold">{bondAmount} USDC</div>
                     </div>
                     <div className="p-4 rounded-lg bg-white/5 border border-white/10">
-                      <div className="text-sm text-white/60 mb-2">Taker Fee</div>
-                      <div className="text-xl font-semibold">{takerFeeUsdc} USDC</div>
+                      <div className="text-sm text-white/60 mb-2">Protocol Fee</div>
+                      <div className="text-xl font-semibold">
+                        {takerFeeBps} bps ({(Number(takerFeeBps) / 100).toFixed(2)}%)
+                      </div>
                     </div>
                   </div>
 
@@ -737,10 +820,15 @@ export function CreateRFQModal({ open, onOpenChange }: CreateRFQModalProps) {
             </Button>
           ) : (
             <Button
-              onClick={handleCreate}
-              className="flex-1 bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 hover:from-purple-600 hover:via-purple-700 hover:to-purple-800 text-white"
+              onClick={() => void handleCreate()}
+              disabled={submitting}
+              className="flex-1 bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 hover:from-purple-600 hover:via-purple-700 hover:to-purple-800 text-white disabled:opacity-60"
             >
-              <Sparkles className="h-4 w-4 mr-2" />
+              {submitting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4 mr-2" />
+              )}
               Create RFQ
             </Button>
           )}

@@ -1,17 +1,27 @@
 import { motion } from "motion/react";
 import { PublicKey } from "@solana/web3.js";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { RFQ } from "@/types/rfq";
 import { Button } from "@/app/components/ui/button";
 import { StatusBadge } from "@/app/components/StatusBadge";
 import { SkeletonList } from "@/app/components/SkeletonList";
 import { ErrorRetry } from "@/app/components/ErrorRetry";
 import { RFQActionSheet } from "@/app/components/RFQActionSheet";
+import { RFQActionBar } from "@/app/components/RFQActionBar";
 import { RFQStatePipeline } from "@/app/components/RFQStatePipeline";
-import { useRfqAccount } from "@/chain/accounts/rfq";
-import { useQuoteAccountsForRfq } from "@/chain/accounts/lists";
-import { toRfqViewModel, toQuoteViewModel } from "@/app/lib/rfq-view-model";
+import { AddressDisplay } from "@/app/components/AddressDisplay";
+import { useRfqAccount, type RfqAccount } from "@/chain/accounts/rfq";
+import { useQuoteAccountsForRfq, type ProgramAccount } from "@/chain/accounts/lists";
+import type { QuoteAccount } from "@/chain/accounts/quote";
+import { useConfigAccount } from "@/chain/accounts/config";
+import { useSettlementProgram } from "@/chain/program";
+import { canSelectQuote } from "@/chain/state-machine";
+import { buildSelectQuoteTx } from "@/chain/instructions/maker";
+import { submitRfqTx } from "@/chain/instructions/shared";
+import { toRfqViewModel } from "@/app/lib/rfq-view-model";
 import { resolveTokenMeta } from "@/app/lib/tokens";
-import { truncateAddress } from "@/app/lib/format";
+import { formatTokenAmount, truncateAddress } from "@/app/lib/format";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -20,12 +30,9 @@ import {
   Coins,
   Eye,
   CheckCircle2,
-  Edit,
   AlertTriangle,
-  Zap,
   Lock,
-  Unlock,
-  X,
+  Trophy,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
@@ -33,10 +40,22 @@ interface AdaptiveRFQDetailProps {
   rfqId: string;
   onBack: () => void;
   onQuoteRFQ?: (rfq: RFQ) => void;
+  onEditRFQ?: (rfq: RFQ) => void;
 }
 
-export function AdaptiveRFQDetail({ rfqId, onBack, onQuoteRFQ }: AdaptiveRFQDetailProps) {
-  const [userRole] = useState<"maker" | "taker" | "observer">("maker");
+/** The connected wallet's relation to this RFQ. Role is internal — never copy. */
+interface Relation {
+  isMaker: boolean;
+  isFacilitator: boolean;
+  myQuote: ProgramAccount<QuoteAccount> | null;
+}
+
+export function AdaptiveRFQDetail({
+  rfqId,
+  onBack,
+  onQuoteRFQ,
+  onEditRFQ,
+}: AdaptiveRFQDetailProps) {
   const pda = useMemo(() => {
     try {
       return new PublicKey(rfqId);
@@ -46,29 +65,27 @@ export function AdaptiveRFQDetail({ rfqId, onBack, onQuoteRFQ }: AdaptiveRFQDeta
   }, [rfqId]);
   const rfqQuery = useRfqAccount(pda);
   const quotesQuery = useQuoteAccountsForRfq(pda);
+  const configQuery = useConfigAccount();
+  const { publicKey } = useWallet();
   const nowSecs = Math.floor(Date.now() / 1000);
 
   if (rfqQuery.isLoading) {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] pb-32 pt-16">
-        <div className="relative mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-          <SkeletonList count={3} />
-        </div>
-      </div>
+      <Shell>
+        <SkeletonList count={3} />
+      </Shell>
     );
   }
 
   if (rfqQuery.isError) {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] pb-32 pt-16">
-        <div className="relative mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-          <ErrorRetry
-            message="Couldn't load this RFQ from the chain."
-            onRetry={() => void rfqQuery.refetch()}
-            retrying={rfqQuery.isFetching}
-          />
-        </div>
-      </div>
+      <Shell>
+        <ErrorRetry
+          message="Couldn't load this RFQ from the chain."
+          onRetry={() => void rfqQuery.refetch()}
+          retrying={rfqQuery.isFetching}
+        />
+      </Shell>
     );
   }
 
@@ -80,57 +97,32 @@ export function AdaptiveRFQDetail({ rfqId, onBack, onQuoteRFQ }: AdaptiveRFQDeta
     );
   }
 
-  const rfq = toRfqViewModel({ publicKey: pda, account: rfqQuery.data }, nowSecs);
-  const isSelectedTaker = rfq.state === "Selected";
-  const quoteDecimals = resolveTokenMeta(rfq.quoteMint).decimals;
+  const account = rfqQuery.data;
+  const rfq = toRfqViewModel({ publicKey: pda, account }, nowSecs);
   const quoteRows = quotesQuery.data ?? [];
+  const connected = publicKey?.toBase58() ?? null;
+
+  const relation: Relation = {
+    isMaker: connected !== null && connected === account.maker.toBase58(),
+    isFacilitator: connected !== null && account.facilitator?.toBase58() === connected,
+    myQuote:
+      connected === null
+        ? null
+        : (quoteRows.find((q) => q.account.taker.toBase58() === connected) ?? null),
+  };
 
   const [base = rfq.baseMint, quote = rfq.quoteMint] = rfq.pair.split("/");
-
-  // Live committed quotes (taker + posted bond). The bond is rfq.bondAmount
-  // (USDC) — quotes don't store their own bond.
-  const committedTakers: CommittedTaker[] = quoteRows.map((row) => ({
-    id: truncateAddress(row.account.taker.toBase58()),
-    bondAmount: rfq.bondAmount,
-    timestamp: new Date(row.account.committedAt * 1000).toISOString(),
-  }));
-
-  // Revealed quotes carry a quoteAmount; price = quote / base.
-  const revealedQuotes: RevealedQuote[] = quoteRows
-    .map((row) => toQuoteViewModel(row, quoteDecimals))
-    .filter((q): q is typeof q & { quoteAmount: number } => q.quoteAmount !== null)
-    .map((q) => ({
-      takerId: truncateAddress(q.taker),
-      quoteAmount: q.quoteAmount,
-      price: rfq.baseAmount > 0 ? q.quoteAmount / rfq.baseAmount : 0,
-      bondAmount: rfq.bondAmount,
-      revealedAt: q.revealedAt !== null ? new Date(q.revealedAt * 1000).toISOString() : "",
-    }));
-
-  const handleEditRFQ = () => {
-    toast.info("Edit RFQ", { description: "Edit functionality will be implemented soon" });
-  };
-
-  const handleCancelRFQ = () => {
-    toast.error("Cancel RFQ", { description: "RFQ cancelled. Your draft has been deleted." });
-    setTimeout(() => onBack(), 1500);
-  };
-
-  const handleOpenRFQ = () => {
-    toast.success("RFQ Opened!", { description: "Your RFQ is now open for quotes" });
-    setTimeout(() => onBack(), 1500);
-  };
+  const quoteMeta = resolveTokenMeta(rfq.quoteMint);
+  const usdcSymbol = "USDC";
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] pb-32 pt-16">
-      {/* Background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl" />
         <div className="absolute top-40 right-1/4 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl" />
       </div>
 
       <div className="relative mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        {/* Back Button */}
         <Button
           variant="ghost"
           onClick={onBack}
@@ -144,8 +136,10 @@ export function AdaptiveRFQDetail({ rfqId, onBack, onQuoteRFQ }: AdaptiveRFQDeta
         <div className="bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-sm border border-white/10 rounded-xl p-6 mb-6">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <div className="text-xs text-white/40 font-mono mb-1">RFQ ID</div>
-              <div className="text-lg font-mono text-white mb-3">{rfq.publicKey}</div>
+              <div className="text-xs text-white/40 font-mono mb-1">RFQ</div>
+              <div className="mb-3">
+                <AddressDisplay address={rfq.publicKey} />
+              </div>
               <div className="flex items-center gap-3">
                 <Coins className="h-5 w-5 text-cyan-400" />
                 <span className="text-2xl font-bold text-white">{rfq.pair}</span>
@@ -154,578 +148,442 @@ export function AdaptiveRFQDetail({ rfqId, onBack, onQuoteRFQ }: AdaptiveRFQDeta
             <StatusBadge status={rfq.state} />
           </div>
 
-          {/* Lifecycle pipeline */}
           <RFQStatePipeline state={rfq.state} className="mb-4" />
 
-          {/* Basic RFQ Info - Always Visible */}
-          <div className="grid grid-cols-2 gap-6 pt-4 border-t border-white/10">
-            <div>
-              <div className="text-xs text-white/50 mb-1">Base Amount</div>
-              <div className="text-xl font-semibold text-white">
-                {rfq.baseAmount.toLocaleString()}
-              </div>
-              <div className="text-sm text-white/40">{base}</div>
-            </div>
-            <div>
-              <div className="text-xs text-white/50 mb-1">Quote Amount (Target)</div>
-              <div className="text-xl font-semibold text-white">
-                {rfq.minQuoteAmount.toLocaleString()}
-              </div>
-              <div className="text-sm text-white/40">{quote}</div>
-            </div>
+          <div className="grid grid-cols-2 gap-6 pt-4 border-t border-white/10 sm:grid-cols-4">
+            <Metric label="Base amount" value={rfq.baseAmount.toLocaleString()} unit={base} />
+            <Metric label="Target quote" value={rfq.minQuoteAmount.toLocaleString()} unit={quote} />
+            <Metric
+              label="Bond per side"
+              value={rfq.bondAmount.toLocaleString()}
+              unit={usdcSymbol}
+            />
+            <Metric
+              label={rfq.expiresIn ? "Expires in" : "Status"}
+              value={rfq.expiresIn ?? rfq.state}
+              unit={rfq.facilitator ? `fac ${truncateAddress(rfq.facilitator)}` : "no facilitator"}
+            />
           </div>
         </div>
 
-        {/* STATE-SPECIFIC CONTENT */}
+        {/* State-specific informational panel (role-neutral) */}
+        <StatePanel
+          rfq={rfq}
+          account={account}
+          relation={relation}
+          quoteRows={quoteRows}
+          quoteSymbol={quoteMeta.symbol}
+          quoteDecimals={quoteMeta.decimals}
+          nowSecs={nowSecs}
+          rfqPda={pda}
+          onQuoteRFQ={onQuoteRFQ}
+        />
 
-        {/* DRAFT STATE - creator only */}
-        {rfq.state === "Draft" && userRole === "maker" && (
-          <DraftView
-            rfq={rfq}
-            handleEditRFQ={handleEditRFQ}
-            handleCancelRFQ={handleCancelRFQ}
-            handleOpenRFQ={handleOpenRFQ}
+        {/* The single action bar — legal maker/facilitator CTAs for this state */}
+        <div className="mt-6">
+          <RFQActionBar
+            rfqPda={pda}
+            rfq={account}
+            quotes={quoteRows}
+            config={configQuery.data ?? null}
+            onEdit={() => onEditRFQ?.(rfq)}
+            onClosed={onBack}
           />
-        )}
-
-        {/* OPEN STATE */}
-        {rfq.state === "Open" && <OpenView rfq={rfq} userRole={userRole} onQuoteRFQ={onQuoteRFQ} />}
-
-        {/* COMMITTED STATE */}
-        {rfq.state === "Committed" && (
-          <CommittedView rfq={rfq} userRole={userRole} committedTakers={committedTakers} />
-        )}
-
-        {/* REVEALED STATE */}
-        {rfq.state === "Revealed" && (
-          <RevealedView rfq={rfq} userRole={userRole} revealedQuotes={revealedQuotes} />
-        )}
-
-        {/* SELECTED STATE */}
-        {rfq.state === "Selected" && (
-          <SelectedView rfq={rfq} userRole={userRole} isSelectedTaker={isSelectedTaker} />
-        )}
-
-        {/* SETTLED STATE */}
-        {rfq.state === "Settled" && <SettledView rfq={rfq} userRole={userRole} />}
+        </div>
       </div>
     </div>
   );
 }
 
-// STATE-SPECIFIC VIEW COMPONENTS
-
-function DraftView({
-  handleEditRFQ,
-  handleCancelRFQ,
-  handleOpenRFQ,
-}: {
-  rfq: RFQ;
-  handleEditRFQ: () => void;
-  handleCancelRFQ: () => void;
-  handleOpenRFQ: () => void;
-}) {
+function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-6"
-    >
-      <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-xl p-6">
-        <div className="flex items-start gap-4 mb-6">
-          <div className="p-3 rounded-lg bg-purple-500/20">
-            <Edit className="h-6 w-6 text-purple-400" />
-          </div>
-          <div>
-            <h2 className="text-xl font-semibold text-white mb-2">Complete Your RFQ</h2>
-            <p className="text-white/60">Review parameters and open this RFQ for takers to quote</p>
-          </div>
-        </div>
-
-        {/* Bond Requirement Preview */}
-        <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-6">
-          <div className="flex items-center gap-3 mb-3">
-            <Shield className="h-5 w-5 text-cyan-400" />
-            <h3 className="font-semibold text-white">Bond Requirements</h3>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <div className="text-xs text-white/50">Your Bond</div>
-              <div className="text-lg font-semibold text-white">2,500 USDC</div>
-              <div className="text-xs text-green-400">Available in wallet</div>
-            </div>
-            <div>
-              <div className="text-xs text-white/50">Counterparty Bond (Required)</div>
-              <div className="text-lg font-semibold text-white">5,000 USDC</div>
-              <div className="text-xs text-white/40">Per counterparty quote</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Primary CTA — inline on md+, bottom action sheet on mobile */}
-        <RFQActionSheet title="Draft actions">
-          <Button
-            variant="outline"
-            className="flex-1 bg-white/5 border-white/20 text-white hover:bg-white/10"
-            onClick={handleEditRFQ}
-          >
-            <Edit className="mr-2 h-4 w-4" />
-            Edit Parameters
-          </Button>
-          <Button
-            className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
-            onClick={handleOpenRFQ}
-          >
-            <Zap className="mr-2 h-4 w-4" />
-            Open RFQ
-          </Button>
-          <Button
-            variant="outline"
-            className="flex-1 bg-white/5 border-white/20 text-white hover:bg-white/10"
-            onClick={handleCancelRFQ}
-          >
-            <X className="mr-2 h-4 w-4" />
-            Cancel RFQ
-          </Button>
-        </RFQActionSheet>
-      </div>
-    </motion.div>
+    <div className="min-h-screen bg-[#0a0a0f] pb-32 pt-16">
+      <div className="relative mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">{children}</div>
+    </div>
   );
 }
 
-function OpenView({
+function Metric({ label, value, unit }: { label: string; value: string; unit: string }) {
+  return (
+    <div>
+      <div className="text-xs text-white/50 mb-1">{label}</div>
+      <div className="text-lg font-semibold text-white truncate">{value}</div>
+      <div className="text-sm text-white/40 truncate">{unit}</div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// State panels — informational only; all CTAs live in RFQActionBar / the
+// selection table. Copy is role-neutral (no maker/taker/facilitator strings).
+// ---------------------------------------------------------------------------
+
+function StatePanel({
   rfq,
-  userRole,
+  account,
+  relation,
+  quoteRows,
+  quoteSymbol,
+  quoteDecimals,
+  nowSecs,
+  rfqPda,
   onQuoteRFQ,
 }: {
   rfq: RFQ;
-  userRole: string;
+  account: RfqAccount;
+  relation: Relation;
+  quoteRows: ProgramAccount<QuoteAccount>[];
+  quoteSymbol: string;
+  quoteDecimals: number;
+  nowSecs: number;
+  rfqPda: PublicKey;
+  onQuoteRFQ?: (rfq: RFQ) => void;
+}) {
+  switch (rfq.state) {
+    case "Draft":
+      return (
+        <Panel
+          icon={<Shield className="h-6 w-6 text-purple-400" />}
+          title="Draft"
+          subtitle="Review the parameters, then open this RFQ to post the bond and start the clock."
+          tone="purple"
+        />
+      );
+    case "Open":
+      return (
+        <div className="space-y-6">
+          <Panel
+            icon={<Clock className="h-6 w-6 text-green-400" />}
+            title="Open for quotes"
+            subtitle={`Committing closes ${rfq.expiresIn ? `in ${rfq.expiresIn}` : "soon"}. ${account.committedCount} commitment${account.committedCount === 1 ? "" : "s"} so far.`}
+            tone="green"
+          />
+          {!relation.isMaker && (
+            <CommitCta rfq={rfq} bond={rfq.bondAmount} onQuoteRFQ={onQuoteRFQ} />
+          )}
+        </div>
+      );
+    case "Committed":
+      return (
+        <div className="space-y-6">
+          <Panel
+            icon={<Eye className="h-6 w-6 text-blue-400" />}
+            title="Commitments received"
+            subtitle={`${account.committedCount} committed; reveals open until the deadline${rfq.expiresIn ? ` (${rfq.expiresIn})` : ""}.`}
+            tone="blue"
+          />
+          {relation.myQuote && relation.myQuote.account.revealedAt === null && (
+            <InfoNote text="Your quote is committed. Reveal it in the reveal window from My Activity." />
+          )}
+        </div>
+      );
+    case "Revealed":
+      return (
+        <SelectionTable
+          account={account}
+          relation={relation}
+          quoteRows={quoteRows}
+          quoteSymbol={quoteSymbol}
+          quoteDecimals={quoteDecimals}
+          nowSecs={nowSecs}
+          rfqPda={rfqPda}
+        />
+      );
+    case "Selected":
+      return (
+        <Panel
+          icon={<CheckCircle2 className="h-6 w-6 text-green-400" />}
+          title="Quote selected"
+          subtitle={
+            relation.myQuote?.account.selected
+              ? "Your quote won — complete the settlement from My Activity before the funding deadline."
+              : "A winning quote was chosen. Settlement is pending the funding deadline."
+          }
+          tone="green"
+        />
+      );
+    case "Settled":
+      return <SettledPanel rfq={rfq} quoteSymbol={quoteSymbol} />;
+    case "Expired":
+      return (
+        <Panel
+          icon={<AlertTriangle className="h-6 w-6 text-orange-400" />}
+          title="Expired"
+          subtitle="No valid reveals before the deadline. Bonds are reclaimable by their owners."
+          tone="orange"
+        />
+      );
+    case "Ignored":
+      return (
+        <Panel
+          icon={<AlertTriangle className="h-6 w-6 text-gray-400" />}
+          title="Ignored"
+          subtitle="The selection window lapsed with no winner. Revealed quotes can reclaim their bond."
+          tone="gray"
+        />
+      );
+    case "Incomplete":
+      return (
+        <Panel
+          icon={<AlertTriangle className="h-6 w-6 text-red-400" />}
+          title="Incomplete"
+          subtitle="The selected counterparty never funded in time. Escrow and bonds have been resolved."
+          tone="red"
+        />
+      );
+    default:
+      return null;
+  }
+}
+
+const toneBg: Record<string, string> = {
+  purple: "from-purple-500/10 to-pink-500/10 border-purple-500/20",
+  green: "from-green-500/10 to-emerald-500/10 border-green-500/20",
+  blue: "from-blue-500/10 to-purple-500/10 border-blue-500/20",
+  orange: "from-orange-500/10 to-amber-500/10 border-orange-500/20",
+  gray: "from-gray-500/10 to-gray-600/10 border-gray-500/20",
+  red: "from-red-500/10 to-rose-500/10 border-red-500/20",
+};
+
+function Panel({
+  icon,
+  title,
+  subtitle,
+  tone,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  tone: keyof typeof toneBg | string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`bg-gradient-to-br ${toneBg[tone] ?? toneBg.gray} border rounded-xl p-6`}
+    >
+      <div className="flex items-start gap-4">
+        <div className="p-3 rounded-lg bg-white/5">{icon}</div>
+        <div className="flex-1">
+          <h2 className="text-xl font-semibold text-white mb-1">{title}</h2>
+          <p className="text-white/60">{subtitle}</p>
+        </div>
+      </div>
+      {children}
+    </motion.div>
+  );
+}
+
+function InfoNote({ text }: { text: string }) {
+  return (
+    <div className="bg-white/5 border border-white/10 rounded-lg p-4 text-sm text-white/70">
+      {text}
+    </div>
+  );
+}
+
+function CommitCta({
+  rfq,
+  bond,
+  onQuoteRFQ,
+}: {
+  rfq: RFQ;
+  bond: number;
   onQuoteRFQ?: (rfq: RFQ) => void;
 }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-6"
+    <div className="bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 rounded-xl p-6">
+      <div className="flex items-center gap-3 mb-4">
+        <Shield className="h-5 w-5 text-cyan-400" />
+        <span className="text-white font-medium">Bond required: {bond.toLocaleString()} USDC</span>
+      </div>
+      <RFQActionSheet title="Commit a quote">
+        <Button
+          onClick={() => onQuoteRFQ?.(rfq)}
+          className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white"
+        >
+          <Lock className="mr-2 h-5 w-5" />
+          Commit a quote
+        </Button>
+      </RFQActionSheet>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Selection table (Revealed) — sorted by quote_amount desc (best for the poster
+// first). Per-row "Select" CTA gated by canSelectQuote; visible to the maker
+// only. This IS the select_quote surface.
+// ---------------------------------------------------------------------------
+
+function SelectionTable({
+  account,
+  relation,
+  quoteRows,
+  quoteSymbol,
+  quoteDecimals,
+  nowSecs,
+  rfqPda,
+}: {
+  account: RfqAccount;
+  relation: Relation;
+  quoteRows: ProgramAccount<QuoteAccount>[];
+  quoteSymbol: string;
+  quoteDecimals: number;
+  nowSecs: number;
+  rfqPda: PublicKey;
+}) {
+  const program = useSettlementProgram();
+  const { connection } = useConnection();
+  const wallet = useWallet();
+  const queryClient = useQueryClient();
+  const [busyPda, setBusyPda] = useState<string | null>(null);
+
+  const revealed = quoteRows
+    .filter((q) => q.account.revealedAt !== null && q.account.quoteAmount !== null)
+    .sort((a, b) => Number((b.account.quoteAmount ?? 0n) - (a.account.quoteAmount ?? 0n)));
+
+  async function select(quoteRow: ProgramAccount<QuoteAccount>) {
+    if (!program || !wallet.publicKey) {
+      toast.error("Connect a wallet to continue");
+      return;
+    }
+    // Re-check the guard at click time — state can flip via the subscription.
+    const legal = canSelectQuote(
+      account,
+      {
+        revealedAt: quoteRow.account.revealedAt,
+        bondsRefundedAt: quoteRow.account.bondsRefundedAt,
+        selected: quoteRow.account.selected,
+      },
+      Math.floor(Date.now() / 1000),
+    );
+    if (!legal) {
+      toast.error("This quote can no longer be selected");
+      return;
+    }
+    setBusyPda(quoteRow.publicKey.toBase58());
+    try {
+      await submitRfqTx({
+        connection,
+        wallet,
+        queryClient,
+        rfq: rfqPda,
+        build: () =>
+          buildSelectQuoteTx({
+            program,
+            maker: account.maker,
+            rfq: rfqPda,
+            quote: quoteRow.publicKey,
+            baseMint: account.baseMint,
+            quoteMint: account.quoteMint,
+          }),
+        pendingMessage: "Selecting quote…",
+        successMessage: "Quote selected — settlement can now proceed",
+      });
+    } catch {
+      // toast already surfaced
+    } finally {
+      setBusyPda(null);
+    }
+  }
+
+  return (
+    <Panel
+      icon={<Trophy className="h-6 w-6 text-purple-400" />}
+      title={relation.isMaker ? "Select the winning quote" : "Revealed quotes"}
+      subtitle={
+        relation.isMaker
+          ? "Sorted best-first (highest quote amount). Selecting escrows your base tokens."
+          : "The poster is choosing a winner within the selection window."
+      }
+      tone="purple"
     >
-      {userRole === "maker" ? (
-        <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-xl p-6">
-          <div className="flex items-start gap-4 mb-6">
-            <div className="p-3 rounded-lg bg-green-500/20">
-              <Clock className="h-6 w-6 text-green-400" />
-            </div>
-            <div className="flex-1">
-              <h2 className="text-xl font-semibold text-white mb-2">Waiting for Quotes</h2>
-              <p className="text-white/60">
-                RFQ is open. Takers can commit quotes until the deadline.
-              </p>
-            </div>
-            <div className="text-right">
-              <div className="text-xs text-white/50">Expires in</div>
-              <div className="text-2xl font-bold text-orange-400">{rfq.expiresIn}</div>
-            </div>
-          </div>
-
-          {/* No commitments yet indicator */}
-          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Zap className="h-5 w-5 text-green-400" />
-                <span className="text-white font-medium">RFQ is Open</span>
-              </div>
-              <div className="text-sm text-white/60">Waiting for first commitment...</div>
-            </div>
-            <p className="text-xs text-white/50 mt-2">
-              You'll be notified when takers start committing
-            </p>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 rounded-xl p-6">
-          <div className="flex items-start gap-4 mb-6">
-            <div className="p-3 rounded-lg bg-cyan-500/20">
-              <Zap className="h-6 w-6 text-cyan-400" />
-            </div>
-            <div className="flex-1">
-              <h2 className="text-xl font-semibold text-white mb-2">Quote on this RFQ</h2>
-              <p className="text-white/60">Submit a competitive quote before the deadline</p>
-            </div>
-            <div className="text-right">
-              <div className="text-xs text-white/50">Time left</div>
-              <div className="text-2xl font-bold text-orange-400">{rfq.expiresIn}</div>
-            </div>
-          </div>
-
-          {/* Bond Requirement */}
-          <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-6">
-            <div className="flex items-center gap-3 mb-2">
-              <Shield className="h-5 w-5 text-cyan-400" />
-              <span className="text-white font-medium">Bond Required</span>
-            </div>
-            <div className="text-2xl font-bold text-white mb-1">5,000 USDC</div>
-            <p className="text-xs text-white/50">Locked until reveal or refunded if not selected</p>
-          </div>
-
-          {/* Primary CTA — inline on md+, bottom action sheet on mobile */}
-          <RFQActionSheet title="Quote on this RFQ">
-            <Button
-              onClick={() => onQuoteRFQ?.(rfq)}
-              className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white"
+      <div className="space-y-3 mt-6">
+        {revealed.length === 0 && <InfoNote text="No revealed quotes yet." />}
+        {revealed.map((row, idx) => {
+          const amount = row.account.quoteAmount ?? 0n;
+          const canSelect =
+            relation.isMaker &&
+            canSelectQuote(
+              account,
+              {
+                revealedAt: row.account.revealedAt,
+                bondsRefundedAt: row.account.bondsRefundedAt,
+                selected: row.account.selected,
+              },
+              nowSecs,
+            );
+          return (
+            <div
+              key={row.publicKey.toBase58()}
+              className={`bg-white/5 border rounded-lg p-4 transition-all ${
+                idx === 0 ? "border-green-500/30 bg-green-500/5" : "border-white/10"
+              }`}
             >
-              <Lock className="mr-2 h-5 w-5" />
-              Commit Quote (Bond: 5,000 USDC)
-            </Button>
-          </RFQActionSheet>
-        </div>
-      )}
-    </motion.div>
-  );
-}
-
-interface CommittedTaker {
-  id: string;
-  bondAmount: number;
-  timestamp: string;
-}
-
-function CommittedView({
-  userRole,
-  committedTakers,
-}: {
-  rfq: RFQ;
-  userRole: string;
-  committedTakers: CommittedTaker[];
-}) {
-  const [hasCommitted] = useState(true);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-6"
-    >
-      {userRole === "maker" ? (
-        <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl p-6">
-          <div className="flex items-start gap-4 mb-6">
-            <div className="p-3 rounded-lg bg-blue-500/20">
-              <Shield className="h-6 w-6 text-blue-400" />
-            </div>
-            <div className="flex-1">
-              <h2 className="text-xl font-semibold text-white mb-2">Commitments Received</h2>
-              <p className="text-white/60">Waiting for reveal deadline to see quotes</p>
-            </div>
-            <div className="text-right">
-              <div className="text-xs text-white/50">Reveal in</div>
-              <div className="text-2xl font-bold text-orange-400">28m</div>
-            </div>
-          </div>
-
-          {/* Anonymous Taker List */}
-          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-white mb-3">
-              Commitments ({committedTakers.length})
-            </h3>
-            <div className="space-y-2">
-              {committedTakers.map((taker, idx) => (
-                <div
-                  key={taker.id}
-                  className="flex items-center justify-between bg-white/5 rounded-lg p-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-white text-sm font-bold">
-                      {idx + 1}
-                    </div>
-                    <span className="text-white/60 font-mono text-sm">{taker.id}</span>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-white font-bold ${
+                      idx === 0
+                        ? "bg-gradient-to-br from-green-500 to-emerald-500"
+                        : "bg-gradient-to-br from-cyan-500 to-blue-500"
+                    }`}
+                  >
+                    {idx + 1}
                   </div>
-                  <div className="text-sm text-white/80">
-                    Bond: {taker.bondAmount.toLocaleString()} USDC
+                  <div className="min-w-0">
+                    <div className="text-sm font-mono text-white/70 truncate">
+                      {truncateAddress(row.account.taker.toBase58())}
+                    </div>
+                    <div className="text-lg font-semibold text-white tabular-nums">
+                      {formatTokenAmount(amount, quoteDecimals)} {quoteSymbol}
+                    </div>
+                    {idx === 0 && <div className="text-xs text-green-400">Best quote</div>}
+                    {row.account.selected && <div className="text-xs text-green-400">Selected</div>}
                   </div>
                 </div>
-              ))}
+                {relation.isMaker && (
+                  <Button
+                    size="sm"
+                    disabled={!canSelect || busyPda !== null}
+                    onClick={() => void select(row)}
+                    className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white disabled:opacity-40"
+                  >
+                    {busyPda === row.publicKey.toBase58() ? "Selecting…" : "Select"}
+                  </Button>
+                )}
+              </div>
             </div>
-          </div>
-        </div>
-      ) : hasCommitted ? (
-        <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl p-6">
-          <div className="flex items-start gap-4 mb-6">
-            <div className="p-3 rounded-lg bg-blue-500/20">
-              <Eye className="h-6 w-6 text-blue-400" />
-            </div>
-            <div className="flex-1">
-              <h2 className="text-xl font-semibold text-white mb-2">Reveal Your Quote</h2>
-              <p className="text-white/60">
-                Your quote is committed. Reveal it before the deadline.
-              </p>
-            </div>
-            <div className="text-right">
-              <div className="text-xs text-white/50">Reveal by</div>
-              <div className="text-2xl font-bold text-orange-400">28m</div>
-            </div>
-          </div>
-
-          {/* Bond Status */}
-          <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-6">
-            <div className="flex items-center gap-3 mb-2">
-              <Lock className="h-5 w-5 text-yellow-400" />
-              <span className="text-white font-medium">Your Bond: Locked</span>
-            </div>
-            <div className="text-2xl font-bold text-white mb-1">5,000 USDC</div>
-            <p className="text-xs text-green-400">Will be refunded if not selected</p>
-          </div>
-
-          {/* Primary CTA — inline on md+, bottom action sheet on mobile */}
-          <RFQActionSheet title="Reveal quote">
-            <Button className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white">
-              <Unlock className="mr-2 h-5 w-5" />
-              Reveal Quote Now
-            </Button>
-          </RFQActionSheet>
-        </div>
-      ) : (
-        <div className="bg-gradient-to-br from-gray-500/10 to-gray-600/10 border border-gray-500/20 rounded-xl p-6">
-          <div className="flex items-start gap-4">
-            <div className="p-3 rounded-lg bg-gray-500/20">
-              <AlertTriangle className="h-6 w-6 text-gray-400" />
-            </div>
-            <div>
-              <h2 className="text-xl font-semibold text-white mb-2">Commitment Window Closed</h2>
-              <p className="text-white/60">You did not commit a quote for this RFQ</p>
-            </div>
-          </div>
-        </div>
-      )}
-    </motion.div>
-  );
-}
-
-interface RevealedQuote {
-  takerId: string;
-  quoteAmount: number;
-  price: number;
-  bondAmount: number;
-  revealedAt: string;
-}
-
-function RevealedView({
-  userRole,
-  revealedQuotes,
-}: {
-  rfq: RFQ;
-  userRole: string;
-  revealedQuotes: RevealedQuote[];
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-6"
-    >
-      {userRole === "maker" ? (
-        <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-xl p-6">
-          <div className="flex items-start gap-4 mb-6">
-            <div className="p-3 rounded-lg bg-purple-500/20">
-              <Eye className="h-6 w-6 text-purple-400" />
-            </div>
-            <div className="flex-1">
-              <h2 className="text-xl font-semibold text-white mb-2">Select Best Quote</h2>
-              <p className="text-white/60">Compare quotes and choose the winner</p>
-            </div>
-          </div>
-
-          {/* Quote Comparison */}
-          <div className="space-y-3 mb-6">
-            {revealedQuotes
-              .sort((a, b) => a.price - b.price) // Sort by best price
-              .map((quote, idx) => (
-                <div
-                  key={quote.takerId}
-                  className={`bg-white/5 border ${idx === 0 ? "border-green-500/30 bg-green-500/5" : "border-white/10"} rounded-lg p-4 hover:border-white/20 transition-all`}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-10 h-10 rounded-full ${idx === 0 ? "bg-gradient-to-br from-green-500 to-emerald-500" : "bg-gradient-to-br from-cyan-500 to-blue-500"} flex items-center justify-center text-white font-bold`}
-                      >
-                        {idx + 1}
-                      </div>
-                      <div>
-                        <div className="text-sm font-mono text-white/60">{quote.takerId}</div>
-                        {idx === 0 && (
-                          <div className="text-xs text-green-400 font-medium">Best Price</div>
-                        )}
-                      </div>
-                    </div>
-                    <Button
-                      size="sm"
-                      className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
-                    >
-                      Select This Quote
-                    </Button>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <div className="text-xs text-white/50">Quote Amount</div>
-                      <div className="text-lg font-semibold text-white">
-                        {quote.quoteAmount.toLocaleString()}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-white/50">Price</div>
-                      <div className="text-lg font-semibold text-white">{quote.price}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-white/50">Bond</div>
-                      <div className="text-lg font-semibold text-white">
-                        {quote.bondAmount.toLocaleString()}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-          </div>
-        </div>
-      ) : (
-        <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-xl p-6">
-          <div className="flex items-start gap-4 mb-6">
-            <div className="p-3 rounded-lg bg-purple-500/20">
-              <Clock className="h-6 w-6 text-purple-400" />
-            </div>
-            <div>
-              <h2 className="text-xl font-semibold text-white mb-2">Quote Revealed</h2>
-              <p className="text-white/60">Waiting for a quote to be selected</p>
-            </div>
-          </div>
-
-          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="h-5 w-5 text-green-400" />
-              <span className="text-white">Your quote has been successfully revealed</span>
-            </div>
-          </div>
-        </div>
-      )}
-    </motion.div>
-  );
-}
-
-function SelectedView({
-  userRole,
-  isSelectedTaker,
-}: {
-  rfq: RFQ;
-  userRole: string;
-  isSelectedTaker: boolean;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-6"
-    >
-      {userRole === "maker" ? (
-        <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-xl p-6">
-          <div className="flex items-start gap-4 mb-6">
-            <div className="p-3 rounded-lg bg-green-500/20">
-              <CheckCircle2 className="h-6 w-6 text-green-400" />
-            </div>
-            <div>
-              <h2 className="text-xl font-semibold text-white mb-2">Quote Selected</h2>
-              <p className="text-white/60">Waiting for settlement to complete</p>
-            </div>
-          </div>
-
-          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
-            <div className="text-sm text-white/50 mb-1">Selected Quote</div>
-            <div className="text-lg font-mono text-white mb-3">quote-1</div>
-            <div className="text-xs text-green-400">Settlement in progress...</div>
-          </div>
-        </div>
-      ) : isSelectedTaker ? (
-        <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-xl p-6">
-          <div className="flex items-start gap-4 mb-6">
-            <div className="p-3 rounded-lg bg-green-500/20">
-              <CheckCircle2 className="h-6 w-6 text-green-400" />
-            </div>
-            <div>
-              <h2 className="text-xl font-semibold text-white mb-2">🎉 Your Quote Won!</h2>
-              <p className="text-white/60">Complete the settlement to finalize the trade</p>
-            </div>
-          </div>
-
-          <RFQActionSheet title="Complete settlement">
-            <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white">
-              <Zap className="mr-2 h-5 w-5" />
-              Complete Settlement
-            </Button>
-          </RFQActionSheet>
-        </div>
-      ) : (
-        <div className="bg-gradient-to-br from-gray-500/10 to-gray-600/10 border border-gray-500/20 rounded-xl p-6">
-          <div className="flex items-start gap-4 mb-6">
-            <div className="p-3 rounded-lg bg-gray-500/20">
-              <AlertTriangle className="h-6 w-6 text-gray-400" />
-            </div>
-            <div>
-              <h2 className="text-xl font-semibold text-white mb-2">Not Selected</h2>
-              <p className="text-white/60">Your quote was not chosen. Bond will be refunded.</p>
-            </div>
-          </div>
-
-          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
-            <div className="flex items-center gap-3">
-              <Unlock className="h-5 w-5 text-cyan-400" />
-              <span className="text-white/80">Bond refund pending: 5,000 USDC</span>
-            </div>
-          </div>
-        </div>
-      )}
-    </motion.div>
-  );
-}
-
-function SettledView({ rfq }: { rfq: RFQ; userRole: string }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-xl p-6"
-    >
-      <div className="flex items-start gap-4 mb-6">
-        <div className="p-3 rounded-lg bg-green-500/20">
-          <CheckCircle2 className="h-6 w-6 text-green-400" />
-        </div>
-        <div>
-          <h2 className="text-xl font-semibold text-white mb-2">✅ Settlement Complete</h2>
-          <p className="text-white/60">Trade executed successfully</p>
-        </div>
+          );
+        })}
       </div>
+    </Panel>
+  );
+}
 
-      {/* Settlement Summary */}
-      <div className="bg-white/5 border border-white/10 rounded-lg p-4 space-y-3">
-        <h3 className="text-sm font-medium text-white mb-3">Settlement Summary</h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <div className="text-xs text-white/50">Final Price</div>
-            <div className="text-lg font-semibold text-white">
-              {(rfq.minQuoteAmount / rfq.baseAmount).toFixed(4)}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-white/50">Total Volume</div>
-            <div className="text-lg font-semibold text-white">
-              {rfq.minQuoteAmount.toLocaleString()} USDC
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-white/50">Settled At</div>
-            <div className="text-sm text-white/80">Feb 4, 2024 11:45 AM</div>
-          </div>
-          <div>
-            <div className="text-xs text-white/50">Bond Status</div>
-            <div className="text-sm text-green-400">Refunded</div>
-          </div>
-        </div>
+function SettledPanel({ rfq, quoteSymbol }: { rfq: RFQ; quoteSymbol: string }) {
+  const settledAt =
+    rfq.completedAt !== null ? new Date(rfq.completedAt * 1000).toLocaleString() : "—";
+  const price = rfq.baseAmount > 0 ? (rfq.minQuoteAmount / rfq.baseAmount).toFixed(4) : "—";
+  return (
+    <Panel
+      icon={<CheckCircle2 className="h-6 w-6 text-green-400" />}
+      title="Settlement complete"
+      subtitle="The trade executed and bonds were refunded."
+      tone="green"
+    >
+      <div className="bg-white/5 border border-white/10 rounded-lg p-4 mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
+        <Metric label="Reference price" value={price} unit={`${quoteSymbol}/base`} />
+        <Metric
+          label="Quote volume"
+          value={rfq.minQuoteAmount.toLocaleString()}
+          unit={quoteSymbol}
+        />
+        <Metric label="Settled at" value={settledAt} unit="" />
       </div>
-    </motion.div>
+    </Panel>
   );
 }

@@ -1,13 +1,20 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate, useOutletContext } from "react-router";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { PublicKey } from "@solana/web3.js";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import type { FacilitatorReward, Quote, RFQ, RFQState } from "@/types/rfq";
 import {
   useRfqAccounts,
   useQuoteAccountsByTaker,
   useFacilitatorRewardTrackersByFacilitator,
 } from "@/chain/accounts/lists";
+import { useConfigAccount } from "@/chain/accounts/config";
+import { useSettlementProgram } from "@/chain/program";
+import { buildOpenRfqTx, buildWithdrawRewardTx } from "@/chain/instructions/maker";
+import { submitRfqTx } from "@/chain/instructions/shared";
 import {
   toRfqViewModel,
   toQuoteViewModel,
@@ -29,6 +36,7 @@ import {
   Eye,
   FileText,
   HandCoins,
+  Loader2,
   Lock,
   MousePointerClick,
   Plus,
@@ -62,6 +70,10 @@ export function MyActivity() {
     useOutletContext<DashboardOutletContext>();
 
   const { publicKey } = useWallet();
+  const { connection } = useConnection();
+  const program = useSettlementProgram();
+  const queryClient = useQueryClient();
+  const wallet = useWallet();
   const me = publicKey ?? null;
   const meStr = me?.toBase58() ?? null;
 
@@ -70,6 +82,9 @@ export function MyActivity() {
   const rfqQuery = useRfqAccounts();
   const quoteQuery = useQuoteAccountsByTaker(me);
   const rewardQuery = useFacilitatorRewardTrackersByFacilitator(me);
+  const configQuery = useConfigAccount();
+
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const nowSecs = Math.floor(Date.now() / 1000);
 
@@ -150,6 +165,78 @@ export function MyActivity() {
   const editRFQ = (rfq: RFQ) => {
     setUpdateRFQ(rfq);
     setIsUpdateModalOpen(true);
+  };
+
+  // Quick-publish a draft (open_rfq) inline. Posts the maker bond, so the toast
+  // pipeline surfaces pending/confirm state; usdcMint comes from on-chain Config.
+  const openDraft = async (rfq: RFQ) => {
+    const config = configQuery.data;
+    if (!program || !me || !config) {
+      toast.error("Wallet or config not ready — try again in a moment");
+      return;
+    }
+    let pda: PublicKey;
+    try {
+      pda = new PublicKey(rfq.publicKey);
+    } catch {
+      return;
+    }
+    setBusyId(rfq.publicKey);
+    try {
+      await submitRfqTx({
+        connection,
+        wallet,
+        queryClient,
+        rfq: pda,
+        build: () => buildOpenRfqTx({ program, maker: me, rfq: pda, usdcMint: config.usdcMint }),
+        pendingMessage: "Opening RFQ…",
+        successMessage: "RFQ opened — the clock is running",
+      });
+    } catch {
+      // toast already surfaced
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // Claim a facilitator reward (withdraw_reward) inline. The winning quote PDA is
+  // rfq.selectedQuote; the reward is denominated in the quote mint.
+  const claimReward = async (rfq: RFQ) => {
+    if (!program || !me) {
+      toast.error("Connect a wallet to claim");
+      return;
+    }
+    if (!rfq.selectedQuote) {
+      toast.error("No selected quote to claim against");
+      return;
+    }
+    let pda: PublicKey;
+    let quote: PublicKey;
+    let quoteMint: PublicKey;
+    try {
+      pda = new PublicKey(rfq.publicKey);
+      quote = new PublicKey(rfq.selectedQuote);
+      quoteMint = new PublicKey(rfq.quoteMint);
+    } catch {
+      return;
+    }
+    setBusyId(rfq.publicKey);
+    try {
+      await submitRfqTx({
+        connection,
+        wallet,
+        queryClient,
+        rfq: pda,
+        build: () =>
+          buildWithdrawRewardTx({ program, facilitator: me, rfq: pda, quote, quoteMint }),
+        pendingMessage: "Claiming reward…",
+        successMessage: "Reward claimed to your wallet",
+      });
+    } catch {
+      // toast already surfaced
+    } finally {
+      setBusyId(null);
+    }
   };
 
   const attention: Attention[] = useMemo(() => {
@@ -315,7 +402,12 @@ export function MyActivity() {
           activeRFQs={activeRFQs.length}
           activeQuotes={activeQuotes.length}
           settled={settledRFQs.length}
-          onClaim={scrollToRewards}
+          claiming={busyId !== null && claimableRFQs.some((r) => r.publicKey === busyId)}
+          onClaim={() => {
+            const first = claimableRFQs[0];
+            if (first) void claimReward(first);
+            else scrollToRewards();
+          }}
         />
 
         {attention.length > 0 && <AttentionRibbon items={attention} />}
@@ -344,8 +436,10 @@ export function MyActivity() {
                 <PostedRFQCard
                   key={rfq.publicKey}
                   rfq={rfq}
+                  busy={busyId === rfq.publicKey}
                   onView={() => viewRFQ(rfq.publicKey)}
                   onEdit={rfq.state === "Draft" ? () => editRFQ(rfq) : undefined}
+                  onOpen={rfq.state === "Draft" ? () => void openDraft(rfq) : undefined}
                 />
               ))}
             </HorizontalStrip>
@@ -405,6 +499,7 @@ interface PinnedSummaryProps {
   activeRFQs: number;
   activeQuotes: number;
   settled: number;
+  claiming: boolean;
   onClaim: () => void;
 }
 
@@ -413,12 +508,13 @@ function PinnedSummary({
   activeRFQs,
   activeQuotes,
   settled,
+  claiming,
   onClaim,
 }: PinnedSummaryProps) {
   return (
     <div className="sticky top-16 z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 bg-[#0a0a0f]/80 backdrop-blur-xl border-y border-white/10 py-3 sm:py-4 mb-4">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 items-stretch">
-        <RewardsTile count={unclaimedCount} onClaim={onClaim} />
+        <RewardsTile count={unclaimedCount} claiming={claiming} onClaim={onClaim} />
         <StatTile label="Active RFQs" value={activeRFQs} tone="cyan" />
         <StatTile label="Active quotes" value={activeQuotes} tone="blue" />
         <StatTile label="Settled" value={settled} tone="teal" />
@@ -427,7 +523,15 @@ function PinnedSummary({
   );
 }
 
-function RewardsTile({ count, onClaim }: { count: number; onClaim: () => void }) {
+function RewardsTile({
+  count,
+  claiming,
+  onClaim,
+}: {
+  count: number;
+  claiming: boolean;
+  onClaim: () => void;
+}) {
   const hasUnclaimed = count > 0;
   return (
     <div
@@ -453,10 +557,15 @@ function RewardsTile({ count, onClaim }: { count: number; onClaim: () => void })
       {hasUnclaimed ? (
         <Button
           onClick={onClaim}
+          disabled={claiming}
           size="sm"
-          className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-lg shadow-green-500/20"
+          className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-lg shadow-green-500/20 disabled:opacity-60"
         >
-          <HandCoins className="mr-1.5 h-3.5 w-3.5" />
+          {claiming ? (
+            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <HandCoins className="mr-1.5 h-3.5 w-3.5" />
+          )}
           Claim
         </Button>
       ) : (
@@ -668,12 +777,16 @@ function EmptyState({ onCreateRFQ }: { onCreateRFQ: () => void }) {
 
 function PostedRFQCard({
   rfq,
+  busy,
   onView,
   onEdit,
+  onOpen,
 }: {
   rfq: RFQ;
+  busy?: boolean;
   onView: () => void;
   onEdit?: () => void;
+  onOpen?: () => void;
 }) {
   return (
     <div className="flex-shrink-0 w-72 bg-white/5 border border-white/10 rounded-lg p-4 hover:border-white/20 transition-all">
@@ -717,11 +830,29 @@ function PostedRFQCard({
         View
       </Button>
 
+      {onOpen && (
+        <Button
+          onClick={onOpen}
+          disabled={busy}
+          size="sm"
+          className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-semibold shadow-lg shadow-cyan-500/20 mt-2 disabled:opacity-60"
+        >
+          {busy ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Zap className="mr-2 h-4 w-4" />
+          )}
+          Open
+        </Button>
+      )}
+
       {onEdit && (
         <Button
           onClick={onEdit}
+          disabled={busy}
           size="sm"
-          className="w-full bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white font-semibold shadow-lg shadow-purple-500/20 mt-2"
+          variant="outline"
+          className="w-full bg-white/5 border-white/20 text-white hover:bg-white/10 mt-2 disabled:opacity-60"
         >
           <Edit className="mr-2 h-4 w-4" />
           Edit Draft

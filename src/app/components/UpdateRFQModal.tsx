@@ -1,4 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { PublicKey } from "@solana/web3.js";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +14,14 @@ import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Separator } from "@/app/components/ui/separator";
 import { TokenSelector, type Token } from "@/app/components/TokenSelector";
+import { useSettlementProgram } from "@/chain/program";
+import { useRfqAccount } from "@/chain/accounts/rfq";
+import { canUpdateRfq } from "@/chain/state-machine";
+import { buildUpdateRfqTx, type UpdateRfqFields } from "@/chain/instructions/maker";
+import { submitRfqTx } from "@/chain/instructions/shared";
+import { formatTokenAmount, parseTokenAmount } from "@/app/lib/format";
+import { resolveTokenMeta } from "@/app/lib/tokens";
+import type { FacilitatorUpdate } from "@/types/rfq";
 import { toast } from "sonner";
 import {
   ArrowRight,
@@ -23,6 +34,7 @@ import {
   AlertCircle,
   ChevronDown,
   ChevronUp,
+  Loader2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import type { RFQ } from "@/types/rfq";
@@ -45,7 +57,27 @@ const TIME_PRESETS = [
 ];
 
 export function UpdateRFQModal({ open, onOpenChange, rfq }: UpdateRFQModalProps) {
+  const program = useSettlementProgram();
+  const { connection } = useConnection();
+  const wallet = useWallet();
+  const queryClient = useQueryClient();
+
+  const pda = useMemo(() => {
+    if (!rfq) return null;
+    try {
+      return new PublicKey(rfq.publicKey);
+    } catch {
+      return null;
+    }
+  }, [rfq]);
+  // The decoded account is the authoritative source for the diff (base units +
+  // taker_fee_bps + real decimals), which the display view-model doesn't carry.
+  const accountQuery = useRfqAccount(pda);
+  const account = accountQuery.data ?? null;
+  const isDraft = account !== null && canUpdateRfq(account);
+
   const [currentStep, setCurrentStep] = useState<FormStep>("tokens");
+  const [submitting, setSubmitting] = useState(false);
 
   // Form state matching Solana instruction parameters
   const [baseToken, setBaseToken] = useState<Token | null>(null);
@@ -54,7 +86,8 @@ export function UpdateRFQModal({ open, onOpenChange, rfq }: UpdateRFQModalProps)
   const [minQuoteAmount, setMinQuoteAmount] = useState("");
 
   const [bondAmount, setBondAmount] = useState("");
-  const [takerFeeUsdc, setTakerFeeUsdc] = useState("");
+  // Protocol fee in basis points (u16 ≤ 10000) — matches the on-chain field.
+  const [takerFeeBps, setTakerFeeBps] = useState("");
 
   const [commitTtlSecs, setCommitTtlSecs] = useState("");
   const [revealTtlSecs, setRevealTtlSecs] = useState("");
@@ -64,41 +97,49 @@ export function UpdateRFQModal({ open, onOpenChange, rfq }: UpdateRFQModalProps)
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [facilitatorAddress, setFacilitatorAddress] = useState("");
 
-  // Pre-fill form when RFQ changes
+  // Pre-fill once per open from the decoded account (correct decimals + bps).
+  // A ref keeps later account subscription pushes from clobbering edits.
+  const prefilledRef = useRef<string | null>(null);
   useEffect(() => {
-    if (rfq && open) {
-      // Parse the pair to get base and quote symbols
-      const [baseSymbol = rfq.baseMint, quoteSymbol = rfq.quoteMint] = rfq.pair.split("/");
-
-      setBaseToken({
-        symbol: baseSymbol,
-        name: baseSymbol,
-        mint: rfq.baseMint,
-        decimals: 9,
-        logoURI: "",
-      });
-
-      setQuoteToken({
-        symbol: quoteSymbol,
-        name: quoteSymbol,
-        mint: rfq.quoteMint,
-        decimals: 9,
-        logoURI: "",
-      });
-
-      setBaseAmount(rfq.baseAmount.toString());
-      setMinQuoteAmount(rfq.minQuoteAmount.toString());
-      setBondAmount(rfq.bondAmount.toString());
-      setTakerFeeUsdc(rfq.feeAmount.toString());
-      setCommitTtlSecs(rfq.commitTtlSecs.toString());
-      setRevealTtlSecs(rfq.revealTtlSecs.toString());
-      setSelectionTtlSecs(rfq.selectionTtlSecs.toString());
-      setFundTtlSecs(rfq.fundTtlSecs.toString());
-      setFacilitatorAddress(rfq.facilitator || "");
-      setShowAdvanced(!!rfq.facilitator);
-      setCurrentStep("tokens");
+    if (!open) {
+      prefilledRef.current = null;
+      return;
     }
-  }, [rfq, open]);
+    if (!account || !pda) return;
+    const key = pda.toBase58();
+    if (prefilledRef.current === key) return;
+    prefilledRef.current = key;
+
+    const baseMeta = resolveTokenMeta(account.baseMint.toBase58());
+    const quoteMeta = resolveTokenMeta(account.quoteMint.toBase58());
+    const usdcMeta = resolveTokenMeta(account.usdcMint.toBase58());
+
+    setBaseToken({
+      symbol: baseMeta.symbol,
+      name: baseMeta.symbol,
+      mint: account.baseMint.toBase58(),
+      decimals: baseMeta.decimals,
+      logoURI: baseMeta.logoURI ?? "",
+    });
+    setQuoteToken({
+      symbol: quoteMeta.symbol,
+      name: quoteMeta.symbol,
+      mint: account.quoteMint.toBase58(),
+      decimals: quoteMeta.decimals,
+      logoURI: quoteMeta.logoURI ?? "",
+    });
+    setBaseAmount(formatTokenAmount(account.baseAmount, baseMeta.decimals));
+    setMinQuoteAmount(formatTokenAmount(account.minQuoteAmount, quoteMeta.decimals));
+    setBondAmount(formatTokenAmount(account.bondAmount, usdcMeta.decimals));
+    setTakerFeeBps(String(account.takerFeeBps));
+    setCommitTtlSecs(String(account.commitTtlSecs));
+    setRevealTtlSecs(String(account.revealTtlSecs));
+    setSelectionTtlSecs(String(account.selectionTtlSecs));
+    setFundTtlSecs(String(account.fundTtlSecs));
+    setFacilitatorAddress(account.facilitator?.toBase58() ?? "");
+    setShowAdvanced(account.facilitator !== null);
+    setCurrentStep("tokens");
+  }, [open, account, pda]);
 
   const resetForm = () => {
     setCurrentStep("tokens");
@@ -107,7 +148,7 @@ export function UpdateRFQModal({ open, onOpenChange, rfq }: UpdateRFQModalProps)
     setBaseAmount("");
     setMinQuoteAmount("");
     setBondAmount("");
-    setTakerFeeUsdc("");
+    setTakerFeeBps("");
     setCommitTtlSecs("");
     setRevealTtlSecs("");
     setSelectionTtlSecs("");
@@ -137,8 +178,9 @@ export function UpdateRFQModal({ open, onOpenChange, rfq }: UpdateRFQModalProps)
       toast.error("Bond amount must be greater than 0");
       return false;
     }
-    if (!takerFeeUsdc || parseFloat(takerFeeUsdc) < 0) {
-      toast.error("Taker fee must be 0 or greater");
+    const bps = Number(takerFeeBps);
+    if (!Number.isInteger(bps) || bps < 0 || bps > 10_000) {
+      toast.error("Protocol fee must be between 0 and 10000 bps");
       return false;
     }
     return true;
@@ -175,14 +217,85 @@ export function UpdateRFQModal({ open, onOpenChange, rfq }: UpdateRFQModalProps)
     if (prev) setCurrentStep(prev);
   };
 
-  const handleUpdate = () => {
-    // Here you would call the Solana program update_rfq instruction
-    toast.success("RFQ Updated!", {
-      description: `Updated ${baseToken?.symbol}/${quoteToken?.symbol} RFQ parameters`,
-    });
+  const handleUpdate = async () => {
+    if (!program || !wallet.publicKey || !account || !pda || !baseToken || !quoteToken) return;
+    if (!canUpdateRfq(account)) {
+      toast.error("Only draft RFQs can be edited");
+      return;
+    }
 
-    resetForm();
-    onOpenChange(false);
+    const usdcDecimals = resolveTokenMeta(account.usdcMint.toBase58()).decimals;
+    const nextBase = parseTokenAmount(baseAmount, baseToken.decimals);
+    const nextQuote = parseTokenAmount(minQuoteAmount, quoteToken.decimals);
+    const nextBond = parseTokenAmount(bondAmount, usdcDecimals);
+    if (nextBase === null || nextBase <= 0n) return void toast.error("Invalid base amount");
+    if (nextQuote === null || nextQuote <= 0n) return void toast.error("Invalid quote amount");
+    if (nextBond === null || nextBond <= 0n) return void toast.error("Invalid bond amount");
+
+    let nextBaseMint: PublicKey;
+    let nextQuoteMint: PublicKey;
+    try {
+      nextBaseMint = new PublicKey(baseToken.mint);
+      nextQuoteMint = new PublicKey(quoteToken.mint);
+    } catch {
+      return void toast.error("Invalid token mint");
+    }
+
+    // Diff against the on-chain account — only changed fields are sent (null = keep).
+    const fields: UpdateRfqFields = {};
+    if (nextBaseMint.toBase58() !== account.baseMint.toBase58()) fields.newBaseMint = nextBaseMint;
+    if (nextQuoteMint.toBase58() !== account.quoteMint.toBase58())
+      fields.newQuoteMint = nextQuoteMint;
+    if (nextBond !== account.bondAmount) fields.newBondAmount = nextBond;
+    if (nextBase !== account.baseAmount) fields.newBaseAmount = nextBase;
+    if (nextQuote !== account.minQuoteAmount) fields.newMinQuoteAmount = nextQuote;
+    if (Number(takerFeeBps) !== account.takerFeeBps) fields.newTakerFeeBps = Number(takerFeeBps);
+    if (Number(commitTtlSecs) !== account.commitTtlSecs)
+      fields.newCommitTtlSecs = Number(commitTtlSecs);
+    if (Number(revealTtlSecs) !== account.revealTtlSecs)
+      fields.newRevealTtlSecs = Number(revealTtlSecs);
+    if (Number(selectionTtlSecs) !== account.selectionTtlSecs)
+      fields.newSelectionTtlSecs = Number(selectionTtlSecs);
+    if (Number(fundTtlSecs) !== account.fundTtlSecs) fields.newFundTtlSecs = Number(fundTtlSecs);
+
+    const facInput = facilitatorAddress.trim();
+    const originalFac = account.facilitator?.toBase58() ?? null;
+    if (facInput !== (originalFac ?? "")) {
+      if (facInput === "") {
+        fields.newFacilitatorUpdate = { kind: "clear" } satisfies FacilitatorUpdate;
+      } else {
+        try {
+          new PublicKey(facInput);
+        } catch {
+          return void toast.error("Invalid facilitator address");
+        }
+        fields.newFacilitatorUpdate = { kind: "set", pubkey: facInput } satisfies FacilitatorUpdate;
+      }
+    }
+
+    if (Object.keys(fields).length === 0) {
+      toast.info("No changes to save");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await submitRfqTx({
+        connection,
+        wallet,
+        queryClient,
+        rfq: pda,
+        build: () => buildUpdateRfqTx({ program, maker: account.maker, rfq: pda, ...fields }),
+        pendingMessage: "Updating RFQ…",
+        successMessage: "RFQ updated",
+      });
+      resetForm();
+      onOpenChange(false);
+    } catch {
+      // sendAndConfirmWithToast already surfaced the error toast.
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const calculateImpliedPrice = () => {
@@ -254,6 +367,15 @@ export function UpdateRFQModal({ open, onOpenChange, rfq }: UpdateRFQModalProps)
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto pr-2">
+          {account && !isDraft && (
+            <div className="mt-3 flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                This RFQ is {account.state.toLowerCase()} and can no longer be edited — only drafts
+                are editable.
+              </span>
+            </div>
+          )}
           <AnimatePresence mode="wait">
             {/* Step 1: Token Selection */}
             {currentStep === "tokens" && (
@@ -423,24 +545,26 @@ export function UpdateRFQModal({ open, onOpenChange, rfq }: UpdateRFQModalProps)
 
                   <div className="space-y-2">
                     <Label htmlFor="takerFee" className="text-white/90">
-                      Taker Fee <span className="text-red-400">*</span>
+                      Protocol Fee (bps) <span className="text-red-400">*</span>
                     </Label>
                     <div className="relative">
                       <Input
                         id="takerFee"
                         type="number"
-                        step="any"
-                        placeholder="100"
-                        value={takerFeeUsdc}
-                        onChange={(e) => setTakerFeeUsdc(e.target.value)}
+                        step="1"
+                        min="0"
+                        max="10000"
+                        placeholder="50"
+                        value={takerFeeBps}
+                        onChange={(e) => setTakerFeeBps(e.target.value)}
                         className="bg-white/5 border-white/10 text-white placeholder:text-white/30 pr-16"
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-white/50 font-semibold">
-                        USDC
+                        bps
                       </span>
                     </div>
                     <p className="text-xs text-white/40">
-                      Fee paid by the selected Taker (can be 0)
+                      Basis points (max 10000) on the settled quote amount. 0 = no fee.
                     </p>
                   </div>
                 </div>
@@ -715,9 +839,9 @@ export function UpdateRFQModal({ open, onOpenChange, rfq }: UpdateRFQModalProps)
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-white/50">Taker Fee:</span>
+                      <span className="text-white/50">Protocol Fee:</span>
                       <span className="font-semibold">
-                        {parseFloat(takerFeeUsdc).toLocaleString()} USDC
+                        {takerFeeBps} bps ({(Number(takerFeeBps) / 100).toFixed(2)}%)
                       </span>
                     </div>
                   </div>
@@ -786,10 +910,15 @@ export function UpdateRFQModal({ open, onOpenChange, rfq }: UpdateRFQModalProps)
             </Button>
           ) : (
             <Button
-              onClick={handleUpdate}
-              className="bg-gradient-to-r from-purple-500 to-purple-700 hover:from-purple-600 hover:to-purple-800"
+              onClick={() => void handleUpdate()}
+              disabled={submitting || !isDraft}
+              className="bg-gradient-to-r from-purple-500 to-purple-700 hover:from-purple-600 hover:to-purple-800 disabled:opacity-60"
             >
-              <Check className="h-4 w-4 mr-2" />
+              {submitting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Check className="h-4 w-4 mr-2" />
+              )}
               Update RFQ
             </Button>
           )}
