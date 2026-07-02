@@ -25,6 +25,8 @@ import { useConfigAccount } from "@/chain/accounts/config";
 import { useSettlementProgram } from "@/chain/program";
 import { useCluster } from "@/app/providers/ClusterProvider";
 import { commitHash } from "@/chain/commitHash";
+import { commitDeadline, revealDeadline } from "@/chain/state-machine";
+import { formatDuration } from "@/app/lib/format";
 import {
   deriveSalt,
   fetchAttestation,
@@ -238,6 +240,20 @@ export function SubmitQuoteModal({ rfq, open, onOpenChange }: SubmitQuoteModalPr
               <span>
                 Committing signs a message, runs a funds check, and posts your bond. You'll reveal
                 the amount later — keep the reveal ticket.
+                {(() => {
+                  const now = Math.floor(Date.now() / 1000);
+                  const commitBy = commitDeadline(account);
+                  const revealBy = revealDeadline(account);
+                  if (commitBy === null || revealBy === null) return null;
+                  return (
+                    <>
+                      {" "}
+                      Commits close in {formatDuration(Math.max(0, commitBy - now))}; once
+                      committed, you'll need to reveal within {formatDuration(revealBy - commitBy)}{" "}
+                      after that.
+                    </>
+                  );
+                })()}
               </span>
             </div>
 

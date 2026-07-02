@@ -1,8 +1,26 @@
 /// <reference types="vitest/config" />
 import { defineConfig, loadEnv, type ProxyOptions } from "vite";
 import path from "path";
+import fs from "fs";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+
+// Dev-only keypair-backed wallets (src/dev/devWallet.ts) so Claude / local dev
+// can drive wallet-gated flows without a real Phantom-style extension. Only
+// read when running the dev server (never `vite build`), so a leftover env
+// var can't leak secret keys into a production bundle. Point
+// DEV_WALLET_KEYPAIR_DIR at a folder of Solana CLI keypair JSON files
+// (arrays of 64 secret-key bytes) — each file becomes one selectable wallet.
+function loadDevWallets(dir: string | undefined): { label: string; secretKey: number[] }[] {
+  if (!dir) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith(".json"))
+    .map((f) => ({
+      label: f.replace(/\.json$/, ""),
+      secretKey: JSON.parse(fs.readFileSync(path.join(dir, f), "utf-8")),
+    }));
+}
 
 // liquidity-guard upstreams per Solana cluster. The service sets no CORS
 // headers, so in dev every cluster is proxied through the dev server (same
@@ -16,13 +34,15 @@ const LG_DEFAULTS = {
   mainnet: "https://liquidity-guard-mainnet-162b828790cf.herokuapp.com",
 } as const;
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const lgTarget = {
     localnet: env.VITE_LG_URL_LOCALNET || LG_DEFAULTS.localnet,
     devnet: env.VITE_LG_URL_DEVNET || LG_DEFAULTS.devnet,
     mainnet: env.VITE_LG_URL_MAINNET || LG_DEFAULTS.mainnet,
   };
+  // command === "serve" excludes `vite build` — dev wallets never ship.
+  const devWallets = command === "serve" ? loadDevWallets(env.DEV_WALLET_KEYPAIR_DIR) : [];
   const lgProxy = (segment: string, target: string): ProxyOptions => ({
     target,
     changeOrigin: true,
@@ -44,6 +64,7 @@ export default defineConfig(({ mode }) => {
     },
     define: {
       global: "globalThis",
+      __DEV_WALLETS__: JSON.stringify(devWallets),
     },
     optimizeDeps: {
       include: ["buffer", "process"],

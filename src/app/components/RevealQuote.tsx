@@ -181,10 +181,9 @@ export function RevealQuote({ quote, rfqPda, rfq, onDone, onBack }: RevealQuoteP
             <div>
               <h1 className="text-2xl font-bold text-white">Reveal your quote</h1>
               <p className="text-white/60">
-                {rfq.baseMint.toBase58() === rfq.quoteMint.toBase58()
-                  ? ""
-                  : `${quoteMeta.symbol} quote`}{" "}
-                on <AddressDisplay address={rfqPda.toBase58()} />
+                You committed a sealed {quoteMeta.symbol} quote on{" "}
+                <AddressDisplay address={rfqPda.toBase58()} /> — disclose the amount before the
+                reveal deadline or it can't be considered and your bond is forfeited.
               </p>
             </div>
             {revealBy !== null && (
@@ -256,7 +255,8 @@ export function RevealQuote({ quote, rfqPda, rfq, onDone, onBack }: RevealQuoteP
               {!inWindow && (
                 <Note tone="amber">
                   The reveal window isn't open right now (it opens after commits close and ends at
-                  the reveal deadline).
+                  the reveal deadline). If the deadline has already passed, this quote can no longer
+                  be revealed and its bond is forfeited.
                 </Note>
               )}
 

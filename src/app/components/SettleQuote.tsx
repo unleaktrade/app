@@ -161,7 +161,8 @@ export function SettleQuote({
           <div>
             <h1 className="text-2xl font-bold text-white">Complete settlement</h1>
             <p className="text-white/60">
-              <AddressDisplay address={rfqPda.toBase58()} />
+              Your quote won on <AddressDisplay address={rfqPda.toBase58()} /> — fund it before the
+              deadline or the trade lapses to Incomplete and your bond is forfeited.
             </p>
           </div>
           {fundDeadline > 0 && (
@@ -216,7 +217,8 @@ export function SettleQuote({
             {!canSettle && (
               <Note tone="amber">
                 This quote can't be settled right now (it must be the selected quote, before the
-                funding deadline).
+                funding deadline). If the funding deadline has already passed, the trade is marked
+                Incomplete and this bond is forfeited.
               </Note>
             )}
 

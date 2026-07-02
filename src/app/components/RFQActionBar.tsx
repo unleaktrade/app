@@ -35,6 +35,7 @@ import {
   type RfqActionId,
   type RfqActionTone,
 } from "@/app/lib/rfq-actions";
+import { findQuoteByPda } from "@/app/lib/quote-lookup";
 import { resolveTokenMeta } from "@/app/lib/tokens";
 import type { FacilitatorUpdate } from "@/types/rfq";
 import { Button } from "@/app/components/ui/button";
@@ -98,9 +99,7 @@ export function RFQActionBar({
   const now = Math.floor(Date.now() / 1000);
 
   const selectedQuoteFacilitator = useMemo(() => {
-    const selectedPda = rfq.selectedQuote?.toBase58() ?? null;
-    if (!selectedPda) return null;
-    const winning = quotes.find((q) => q.publicKey.toBase58() === selectedPda);
+    const winning = findQuoteByPda(quotes, rfq.selectedQuote?.toBase58() ?? null);
     return winning?.account.facilitator?.toBase58() ?? null;
   }, [rfq.selectedQuote, quotes]);
 
@@ -133,7 +132,10 @@ export function RFQActionBar({
     facilitatorFeeBps: config?.facilitatorFeeBps ?? 0,
   });
 
-  if (actions.length === 0) return null;
+  const emptyStateMessage =
+    connected === null
+      ? "Connect a wallet to see what you can do here."
+      : "No pending action for your wallet on this RFQ.";
 
   const quoteMeta = resolveTokenMeta(rfq.quoteMint.toBase58());
   const usdcMeta = resolveTokenMeta(rfq.usdcMint.toBase58());
@@ -301,11 +303,19 @@ export function RFQActionBar({
 
   return (
     <>
-      <RFQActionSheet title="Actions" className="justify-end">
-        {actions.map((action) => (
-          <ActionButton key={action.id} action={action} onClick={() => onActionClick(action.id)} />
-        ))}
-      </RFQActionSheet>
+      {actions.length > 0 ? (
+        <RFQActionSheet title="Actions" className="justify-end">
+          {actions.map((action) => (
+            <ActionButton
+              key={action.id}
+              action={action}
+              onClick={() => onActionClick(action.id)}
+            />
+          ))}
+        </RFQActionSheet>
+      ) : (
+        <p className="text-right text-sm text-white/40">{emptyStateMessage}</p>
+      )}
 
       <Dialog
         open={confirm !== null && confirm !== "edit"}

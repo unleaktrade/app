@@ -19,6 +19,7 @@ import { canSelectQuote } from "@/chain/state-machine";
 import { buildSelectQuoteTx } from "@/chain/instructions/maker";
 import { submitRfqTx } from "@/chain/instructions/shared";
 import { toRfqViewModel } from "@/app/lib/rfq-view-model";
+import { findQuoteByPda } from "@/app/lib/quote-lookup";
 import { resolveTokenMeta } from "@/app/lib/tokens";
 import { formatTokenAmount, truncateAddress } from "@/app/lib/format";
 import { toast } from "sonner";
@@ -138,9 +139,13 @@ export function AdaptiveRFQDetail({
               <div className="mb-3">
                 <AddressDisplay address={rfq.publicKey} />
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 mb-2">
                 <Coins className="h-5 w-5 text-cyan-400" />
                 <span className="text-2xl font-bold text-white">{rfq.pair}</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-white/40">
+                <span>Maker</span>
+                <AddressDisplay address={account.maker.toBase58()} />
               </div>
             </div>
             <StatusBadge status={rfq.state} />
@@ -241,7 +246,7 @@ function StatePanel({
         <Panel
           icon={<Shield className="h-6 w-6 text-purple-400" />}
           title="Draft"
-          subtitle="Review the parameters, then open this RFQ to post the bond and start the clock."
+          subtitle={`Not visible to takers yet. Parameters are still editable. Opening will post the bond shown above and start a ${Math.round(rfq.commitTtlSecs / 3600)}h commit window.`}
           tone="purple"
         />
       );
@@ -260,7 +265,7 @@ function StatePanel({
           <Panel
             icon={<Eye className="h-6 w-6 text-blue-400" />}
             title="Commitments received"
-            subtitle={`${account.committedCount} committed; reveals open until the deadline${rfq.expiresIn ? ` (${rfq.expiresIn})` : ""}.`}
+            subtitle={`${account.committedCount} committed, ${account.revealedCount} revealed so far; reveals open until the deadline${rfq.expiresIn ? ` (${rfq.expiresIn})` : ""}.`}
             tone="blue"
           />
           {relation.myQuote && relation.myQuote.account.revealedAt === null && (
@@ -280,7 +285,8 @@ function StatePanel({
           rfqPda={rfqPda}
         />
       );
-    case "Selected":
+    case "Selected": {
+      const winningQuote = findQuoteByPda(quoteRows, rfq.selectedQuote);
       return (
         <Panel
           icon={<CheckCircle2 className="h-6 w-6 text-green-400" />}
@@ -291,16 +297,30 @@ function StatePanel({
               : "A winning quote was chosen. Settlement is pending the funding deadline."
           }
           tone="green"
+        >
+          <WinnerSummary
+            quoteRow={winningQuote}
+            quoteSymbol={quoteSymbol}
+            quoteDecimals={quoteDecimals}
+          />
+        </Panel>
+      );
+    }
+    case "Settled":
+      return (
+        <SettledPanel
+          rfq={rfq}
+          quoteSymbol={quoteSymbol}
+          quoteDecimals={quoteDecimals}
+          quoteRows={quoteRows}
         />
       );
-    case "Settled":
-      return <SettledPanel rfq={rfq} quoteSymbol={quoteSymbol} />;
     case "Expired":
       return (
         <Panel
           icon={<AlertTriangle className="h-6 w-6 text-orange-400" />}
           title="Expired"
-          subtitle="No valid reveals before the deadline. Bonds are reclaimable by their owners."
+          subtitle={`No valid reveals before the deadline (${account.revealedCount} of ${account.committedCount} committed quotes revealed). Bonds are reclaimable by their owners.`}
           tone="orange"
         />
       );
@@ -309,22 +329,53 @@ function StatePanel({
         <Panel
           icon={<AlertTriangle className="h-6 w-6 text-gray-400" />}
           title="Ignored"
-          subtitle="The selection window lapsed with no winner. Revealed quotes can reclaim their bond."
+          subtitle={`The selection window lapsed with no winner (${account.revealedCount} revealed quote${account.revealedCount === 1 ? "" : "s"}, none selected). Revealed quotes can reclaim their bond.`}
           tone="gray"
         />
       );
-    case "Incomplete":
+    case "Incomplete": {
+      const winningQuote = findQuoteByPda(quoteRows, rfq.selectedQuote);
       return (
         <Panel
           icon={<AlertTriangle className="h-6 w-6 text-red-400" />}
           title="Incomplete"
           subtitle="The selected counterparty never funded in time. Escrow and bonds have been resolved."
           tone="red"
-        />
+        >
+          <WinnerSummary
+            quoteRow={winningQuote}
+            quoteSymbol={quoteSymbol}
+            quoteDecimals={quoteDecimals}
+          />
+        </Panel>
       );
+    }
     default:
       return null;
   }
+}
+
+function WinnerSummary({
+  quoteRow,
+  quoteSymbol,
+  quoteDecimals,
+}: {
+  quoteRow: ProgramAccount<QuoteAccount> | null;
+  quoteSymbol: string;
+  quoteDecimals: number;
+}) {
+  if (!quoteRow || quoteRow.account.quoteAmount === null) return null;
+  return (
+    <div className="bg-white/5 border border-white/10 rounded-lg p-4 mt-6 flex items-center justify-between gap-4 flex-wrap">
+      <div className="flex items-center gap-1.5 text-sm text-white/60">
+        <span>Winning quote</span>
+        <AddressDisplay address={quoteRow.account.taker.toBase58()} />
+      </div>
+      <div className="text-lg font-semibold text-white tabular-nums">
+        {formatTokenAmount(quoteRow.account.quoteAmount, quoteDecimals)} {quoteSymbol}
+      </div>
+    </div>
+  );
 }
 
 const toneBg: Record<string, string> = {
@@ -504,6 +555,11 @@ function SelectionTable({
                     <div className="text-lg font-semibold text-white tabular-nums">
                       {formatTokenAmount(amount, quoteDecimals)} {quoteSymbol}
                     </div>
+                    <div className="text-xs text-white/40 truncate">
+                      {row.account.facilitator
+                        ? `fac ${truncateAddress(row.account.facilitator.toBase58())}`
+                        : "no facilitator"}
+                    </div>
                     {idx === 0 && <div className="text-xs text-green-400">Best quote</div>}
                     {row.account.selected && <div className="text-xs text-green-400">Selected</div>}
                   </div>
@@ -527,10 +583,32 @@ function SelectionTable({
   );
 }
 
-function SettledPanel({ rfq, quoteSymbol }: { rfq: RFQ; quoteSymbol: string }) {
+function SettledPanel({
+  rfq,
+  quoteSymbol,
+  quoteDecimals,
+  quoteRows,
+}: {
+  rfq: RFQ;
+  quoteSymbol: string;
+  quoteDecimals: number;
+  quoteRows: ProgramAccount<QuoteAccount>[];
+}) {
   const settledAt =
     rfq.completedAt !== null ? new Date(rfq.completedAt * 1000).toLocaleString() : "—";
-  const price = rfq.baseAmount > 0 ? (rfq.minQuoteAmount / rfq.baseAmount).toFixed(4) : "—";
+  // The actual traded amount is the winning quote's own quoteAmount, not
+  // rfq.minQuoteAmount (the poster's ask floor) — a trade that cleared above
+  // the minimum would otherwise show a misleadingly low price/volume here.
+  const winningQuote = findQuoteByPda(quoteRows, rfq.selectedQuote);
+  const winningAmountRaw = winningQuote?.account.quoteAmount ?? null;
+  const winningAmountScaled =
+    winningAmountRaw !== null ? Number(winningAmountRaw) / 10 ** quoteDecimals : null;
+  const volume =
+    winningAmountRaw !== null ? formatTokenAmount(winningAmountRaw, quoteDecimals) : "—";
+  const price =
+    winningAmountScaled !== null && rfq.baseAmount > 0
+      ? (winningAmountScaled / rfq.baseAmount).toFixed(4)
+      : "—";
   return (
     <Panel
       icon={<CheckCircle2 className="h-6 w-6 text-green-400" />}
@@ -540,13 +618,15 @@ function SettledPanel({ rfq, quoteSymbol }: { rfq: RFQ; quoteSymbol: string }) {
     >
       <div className="bg-white/5 border border-white/10 rounded-lg p-4 mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
         <Metric label="Reference price" value={price} unit={`${quoteSymbol}/base`} />
-        <Metric
-          label="Quote volume"
-          value={rfq.minQuoteAmount.toLocaleString()}
-          unit={quoteSymbol}
-        />
+        <Metric label="Quote volume" value={volume} unit={quoteSymbol} />
         <Metric label="Settled at" value={settledAt} unit="" />
       </div>
+      {winningQuote && (
+        <div className="mt-4 flex items-center gap-1.5 text-sm text-white/60">
+          <span>Settled with</span>
+          <AddressDisplay address={winningQuote.account.taker.toBase58()} />
+        </div>
+      )}
     </Panel>
   );
 }

@@ -891,6 +891,10 @@ function SubmittedQuoteCard({
   onSettle?: () => void;
 }) {
   const isRevealed = quote.revealedAt !== null;
+  const decided =
+    rfq !== undefined &&
+    (rfq.state === "Selected" || rfq.state === "Settled" || rfq.state === "Incomplete");
+  const notSelected = decided && !quote.selected;
 
   return (
     <div
@@ -902,6 +906,11 @@ function SubmittedQuoteCard({
         <div className="flex items-center gap-2 text-xs text-cyan-400 mb-2 font-semibold">
           <CheckCircle2 className="h-4 w-4" />
           <span>Selected</span>
+        </div>
+      )}
+      {notSelected && (
+        <div className="flex items-center gap-2 text-xs text-white/40 mb-2 font-semibold">
+          <span>Not selected</span>
         </div>
       )}
 
@@ -938,7 +947,20 @@ function SubmittedQuoteCard({
       {rfq?.expiresIn && (
         <div className="flex items-center gap-2 text-xs text-orange-400 mb-3 bg-orange-500/10 rounded p-2">
           <Clock className="h-3 w-3" />
-          <span>Expires in {rfq.expiresIn}</span>
+          <span>
+            {rfq.state === "Committed" && !isRevealed
+              ? `Reveal within ${rfq.expiresIn}`
+              : rfq.state === "Selected" && quote.selected
+                ? `Settle within ${rfq.expiresIn}`
+                : `Expires in ${rfq.expiresIn}`}
+          </span>
+        </div>
+      )}
+
+      {quote.bondsRefundedAt !== null && (
+        <div className="flex items-center gap-2 text-xs text-teal-400 mb-3 bg-teal-500/10 rounded p-2">
+          <CheckCircle2 className="h-3 w-3" />
+          <span>Bond refunded</span>
         </div>
       )}
 
