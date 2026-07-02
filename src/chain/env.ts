@@ -5,12 +5,10 @@ export type Cluster = "devnet" | "mainnet-beta" | "localnet";
 
 const CLUSTERS: readonly Cluster[] = ["devnet", "mainnet-beta", "localnet"] as const;
 
-// Defaults keep an unconfigured deploy bootable (e.g. a Vercel preview with no
+// Default keeps an unconfigured deploy bootable (e.g. a Vercel preview with no
 // project env vars) instead of dying at module eval with a white screen.
-// The program id ships inside the committed IDL (same id on devnet/localnet);
-// the USDC mint default matches the devnet default cluster.
+// The program id ships inside the committed IDL (same id on devnet/localnet).
 const DEFAULT_PROGRAM_ID = (idlJson as { address: string }).address;
-const DEFAULT_USDC_MINT = "5jBqJmY2mKetudVa2XaC8U6UN2BNNirDiTnDEuA6pdyR";
 
 function publicKeyOr(key: keyof ImportMetaEnv, fallback: string): PublicKey {
   const raw = import.meta.env[key];
@@ -41,7 +39,9 @@ export const env = {
     localnet: import.meta.env.VITE_RPC_URL_LOCALNET,
   } satisfies Partial<Record<Cluster, string | undefined>>,
   programId: publicKeyOr("VITE_SETTLEMENT_PROGRAM_ID", DEFAULT_PROGRAM_ID),
-  usdcMint: publicKeyOr("VITE_USDC_MINT", DEFAULT_USDC_MINT),
+  // The USDC mint is never read from env — every real code path reads it live
+  // from the decoded Config account (config.usdcMint) or a decoded RFQ's own
+  // snapshot (rfq.usdcMint), so there's no client-side default to keep in sync.
   // liquidity-guard URLs are per-cluster and live only in the Vite proxy config
   // (vite.config.ts, VITE_LG_URL_*). The client always calls the same-origin
   // proxy path /liquidity-guard/<cluster>/* — never a raw URL — so no client env.
