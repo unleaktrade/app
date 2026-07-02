@@ -57,6 +57,12 @@ export default defineConfig({
     timeout: 60_000,
     env: {
       DEV_WALLET_KEYPAIR_DIR: devWalletKeypairDir() ?? "",
+      // Public devnet RPC throttles getProgramAccounts from datacenter IPs,
+      // so CI must supply a dedicated endpoint (secret DEVNET_RPC_URL →
+      // VITE_RPC_URL_DEVNET). Locally the baked-in default is fine.
+      ...(process.env.VITE_RPC_URL_DEVNET
+        ? { VITE_RPC_URL_DEVNET: process.env.VITE_RPC_URL_DEVNET }
+        : {}),
     },
   },
 });

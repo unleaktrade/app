@@ -74,6 +74,9 @@ jobs:
         run: npx playwright test --project=desktop --project=mobile
         env:
           DEV_WALLET_KEYPAIR_DIR: ${{ runner.temp }}/dev-wallets
+          # Public devnet RPC throttles getProgramAccounts from datacenter
+          # IPs — a dedicated endpoint is required for the runner (see #34).
+          VITE_RPC_URL_DEVNET: ${{ secrets.DEVNET_RPC_URL }}
 
       - name: Upload Playwright report
         if: failure()
