@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import idlJson from "@/chain/idl/settlement_engine.json";
 
 const IDL_ADDRESS = (idlJson as { address: string }).address;
-const DEVNET_USDC = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
+const DEVNET_USDC = "5jBqJmY2mKetudVa2XaC8U6UN2BNNirDiTnDEuA6pdyR";
 // Any valid base58 pubkey ≠ the defaults.
 const OVERRIDE = "11111111111111111111111111111112";
 

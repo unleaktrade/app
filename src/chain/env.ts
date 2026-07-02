@@ -10,7 +10,7 @@ const CLUSTERS: readonly Cluster[] = ["devnet", "mainnet-beta", "localnet"] as c
 // The program id ships inside the committed IDL (same id on devnet/localnet);
 // the USDC mint default matches the devnet default cluster.
 const DEFAULT_PROGRAM_ID = (idlJson as { address: string }).address;
-const DEFAULT_USDC_MINT = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
+const DEFAULT_USDC_MINT = "5jBqJmY2mKetudVa2XaC8U6UN2BNNirDiTnDEuA6pdyR";
 
 function publicKeyOr(key: keyof ImportMetaEnv, fallback: string): PublicKey {
   const raw = import.meta.env[key];
