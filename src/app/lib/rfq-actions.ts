@@ -60,7 +60,6 @@ export interface RfqActionDescriptor {
 export interface RfqActionRfq extends RfqView {
   maker: string;
   facilitator: string | null;
-  /** Config.facilitator_fee_bps — governs whether a claim has a non-zero share. */
   minQuoteAmount: bigint;
   takerFeeBps: number;
   /** Settlement.completed_at, or null if not settled/complete. */
@@ -76,7 +75,8 @@ export interface RfqActionsInput {
   /** Connected wallet base58, or null when disconnected. */
   connected: string | null;
   now: number;
-  /** Config.facilitator_fee_bps. */
+  /** Rfq.facilitator_fee_bps — the RFQ's snapshot of the config value at init,
+   * which is what withdraw_reward recomputes the share from on-chain. */
   facilitatorFeeBps: number;
 }
 
@@ -124,9 +124,9 @@ export function deriveRfqActions(input: RfqActionsInput): RfqActionDescriptor[] 
     if (canSetRfqFacilitator(rfq)) {
       actions.push({
         id: "setFacilitator",
-        label: rfq.facilitator ? "Change facilitator" : "Add facilitator",
+        label: rfq.facilitator ? "Change reward recipient" : "Set reward recipient",
         tone: "default",
-        description: "Assign or clear the facilitator that earns the fee share.",
+        description: "Assign or clear the address that earns the fee share on settlement.",
       });
     }
     if (canCloseExpired(rfq, now)) {
@@ -185,9 +185,9 @@ export function deriveRfqActions(input: RfqActionsInput): RfqActionDescriptor[] 
     if (canSetQuoteFacilitator(rfq)) {
       actions.push({
         id: "setQuoteFacilitator",
-        label: "Facilitator",
+        label: "Reward recipient",
         tone: "default",
-        description: "Assign or clear the facilitator credited on your quote.",
+        description: "Assign or clear the address credited on your quote.",
       });
     }
   } else if (!isMaker && canCommitQuote(rfq, now)) {
@@ -216,7 +216,7 @@ export function deriveRfqActions(input: RfqActionsInput): RfqActionDescriptor[] 
       id: "claimReward",
       label: "Claim reward",
       tone: "reward",
-      description: "Withdraw your facilitator fee share for this settled RFQ.",
+      description: "Withdraw your fee share for this settled RFQ.",
     });
   }
 

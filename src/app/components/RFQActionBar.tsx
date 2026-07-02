@@ -16,7 +16,6 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import type { RfqAccount } from "@/chain/accounts/rfq";
 import type { QuoteAccount } from "@/chain/accounts/quote";
-import type { ConfigAccount } from "@/chain/accounts/config";
 import type { ProgramAccount } from "@/chain/accounts/lists";
 import { useSettlementProgram } from "@/chain/program";
 import { submitRfqTx } from "@/chain/instructions/shared";
@@ -57,7 +56,6 @@ interface RFQActionBarProps {
   rfqPda: PublicKey;
   rfq: RfqAccount;
   quotes: ProgramAccount<QuoteAccount>[];
-  config: ConfigAccount | null;
   /** Opens the UpdateRFQModal (mounted at DashboardLayout). */
   onEdit: () => void;
   /** Opens the SubmitQuoteModal (commit_quote flow). */
@@ -79,7 +77,6 @@ export function RFQActionBar({
   rfqPda,
   rfq,
   quotes,
-  config,
   onEdit,
   onCommit,
   onClosed,
@@ -129,7 +126,9 @@ export function RFQActionBar({
       : null,
     connected,
     now,
-    facilitatorFeeBps: config?.facilitatorFeeBps ?? 0,
+    // withdraw_reward recomputes the share from the RFQ's snapshot, not the
+    // live Config value — pass the snapshot so the guard matches on-chain.
+    facilitatorFeeBps: rfq.facilitatorFeeBps,
   });
 
   const emptyStateMessage =
@@ -272,8 +271,8 @@ export function RFQActionBar({
           update = { kind: "set", pubkey: trimmed };
         }
         const messages = {
-          pending: "Updating facilitator…",
-          success: trimmed === "" ? "Facilitator cleared" : "Facilitator assigned",
+          pending: "Updating reward recipient…",
+          success: trimmed === "" ? "Reward recipient cleared" : "Reward recipient assigned",
         };
         if (confirm === "setFacilitator") {
           void run(
@@ -336,13 +335,13 @@ export function RFQActionBar({
               quoteSymbol={quoteMeta.symbol}
               quoteDecimals={quoteMeta.decimals}
               takerFeeBps={rfq.takerFeeBps}
-              facilitatorFeeBps={config?.facilitatorFeeBps ?? 0}
+              facilitatorFeeBps={rfq.facilitatorFeeBps}
             />
           )}
 
           {(confirm === "setFacilitator" || confirm === "setQuoteFacilitator") && (
             <div className="space-y-2">
-              <Label htmlFor="facilitator-address">Facilitator address</Label>
+              <Label htmlFor="facilitator-address">Reward recipient address</Label>
               <Input
                 id="facilitator-address"
                 placeholder="Leave blank to clear"
@@ -351,7 +350,12 @@ export function RFQActionBar({
                 className="border-white/15 bg-white/5 font-mono text-sm text-white"
               />
               <p className="text-xs text-white/40">
-                The facilitator earns the configured share of the protocol fee on settlement.
+                This address earns the configured share of the protocol fee on settlement.
+              </p>
+              <p className="text-xs text-amber-200/70">
+                Rewards accrue only when the same address is set on both this request and the
+                winning quote. The request side locks once a quote is selected; the quote side can
+                still change it until then.
               </p>
             </div>
           )}

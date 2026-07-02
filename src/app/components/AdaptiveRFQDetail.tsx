@@ -14,7 +14,6 @@ import { AddressDisplay } from "@/app/components/AddressDisplay";
 import { useRfqAccount, type RfqAccount } from "@/chain/accounts/rfq";
 import { useQuoteAccountsForRfq, type ProgramAccount } from "@/chain/accounts/lists";
 import type { QuoteAccount } from "@/chain/accounts/quote";
-import { useConfigAccount } from "@/chain/accounts/config";
 import { useSettlementProgram } from "@/chain/program";
 import { canSelectQuote } from "@/chain/state-machine";
 import { buildSelectQuoteTx } from "@/chain/instructions/maker";
@@ -65,7 +64,6 @@ export function AdaptiveRFQDetail({
   }, [rfqId]);
   const rfqQuery = useRfqAccount(pda);
   const quotesQuery = useQuoteAccountsForRfq(pda);
-  const configQuery = useConfigAccount();
   const { publicKey } = useWallet();
   const nowSecs = Math.floor(Date.now() / 1000);
 
@@ -155,7 +153,11 @@ export function AdaptiveRFQDetail({
           <Metric
             label={rfq.expiresIn ? "Expires in" : "Status"}
             value={rfq.expiresIn ?? rfq.state}
-            unit={rfq.facilitator ? `fac ${truncateAddress(rfq.facilitator)}` : "no facilitator"}
+            unit={
+              rfq.facilitator
+                ? `reward → ${truncateAddress(rfq.facilitator)}`
+                : "no reward recipient"
+            }
           />
         </div>
       </div>
@@ -178,7 +180,6 @@ export function AdaptiveRFQDetail({
           rfqPda={pda}
           rfq={account}
           quotes={quoteRows}
-          config={configQuery.data ?? null}
           onEdit={() => onEditRFQ?.(rfq)}
           onCommit={() => onQuoteRFQ?.(rfq)}
           onClosed={onBack}
@@ -547,8 +548,8 @@ function SelectionTable({
                     </div>
                     <div className="text-xs text-white/40 truncate">
                       {row.account.facilitator
-                        ? `fac ${truncateAddress(row.account.facilitator.toBase58())}`
-                        : "no facilitator"}
+                        ? `reward → ${truncateAddress(row.account.facilitator.toBase58())}`
+                        : "no reward recipient"}
                     </div>
                     {idx === 0 && <div className="text-xs text-green-400">Best quote</div>}
                     {row.account.selected && <div className="text-xs text-green-400">Selected</div>}
