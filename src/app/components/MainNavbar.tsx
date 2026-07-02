@@ -3,6 +3,8 @@ import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { Button } from "@/app/components/ui/button";
 import { ClusterSwitcher } from "@/app/components/ClusterSwitcher";
 import { HealthPill } from "@/app/components/HealthPill";
+import { useRfqAccounts } from "@/chain/accounts/lists";
+import { LIVE_RFQ_STATES } from "@/app/lib/market-stats";
 import { Plus, Menu, X, TrendingUp, Activity, Store, ListChecks, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import logo from "figma:asset/6d73120824de2c8c6632c71cddef1ae782b1c254.png";
@@ -32,6 +34,11 @@ const NAV_ITEMS: Array<{
 
 export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Same list query Marketplace uses — react-query dedupes on the shared key.
+  const { data: rfqRows } = useRfqAccounts();
+  const openCount = rfqRows?.filter((row) => row.account.state === "Open").length;
+  const liveCount = rfqRows?.filter((row) => LIVE_RFQ_STATES.includes(row.account.state)).length;
 
   const handleNavigate = (view: DashboardView) => {
     onNavigate(view);
@@ -279,9 +286,9 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
                         <div className="p-1.5 rounded-lg bg-green-500/20">
                           <Activity className="h-3.5 w-3.5 text-green-400" />
                         </div>
-                        <div className="text-xs text-white/50">Active</div>
+                        <div className="text-xs text-white/50">Open</div>
                       </div>
-                      <div className="text-2xl font-bold text-white">12</div>
+                      <div className="text-2xl font-bold text-white">{openCount ?? "—"}</div>
                       <div className="text-xs text-green-400 mt-0.5">RFQs</div>
                     </div>
 
@@ -290,10 +297,10 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
                         <div className="p-1.5 rounded-lg bg-cyan-500/20">
                           <TrendingUp className="h-3.5 w-3.5 text-cyan-400" />
                         </div>
-                        <div className="text-xs text-white/50">Volume</div>
+                        <div className="text-xs text-white/50">Live</div>
                       </div>
-                      <div className="text-2xl font-bold text-white">$4.7M</div>
-                      <div className="text-xs text-cyan-400 mt-0.5">24h</div>
+                      <div className="text-2xl font-bold text-white">{liveCount ?? "—"}</div>
+                      <div className="text-xs text-cyan-400 mt-0.5">RFQs</div>
                     </div>
                   </div>
                 </motion.div>
