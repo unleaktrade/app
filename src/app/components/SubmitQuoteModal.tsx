@@ -10,13 +10,7 @@ import { PublicKey } from "@solana/web3.js";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/app/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/app/components/ui/dialog";
+import { ResponsiveModal } from "@/app/components/ResponsiveModal";
 import { TokenAmountInput } from "@/app/components/TokenAmountInput";
 import { BondBreakdown } from "@/app/components/BondBreakdown";
 import type { RFQ } from "@/types/rfq";
@@ -197,111 +191,111 @@ export function SubmitQuoteModal({ rfq, open, onOpenChange }: SubmitQuoteModalPr
   const [base, quote] = rfq.pair.split("/");
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
-      <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto border-white/10 bg-surface-raised text-white">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold">Commit a quote</DialogTitle>
-          <DialogDescription className="text-sm text-white/60">
-            {rfq.pair} · you deliver {rfq.baseAmount.toLocaleString()} {base}, quote in {quote}
-          </DialogDescription>
-        </DialogHeader>
-
-        {!account ? (
-          <div className="py-8 text-center text-white/50">Loading RFQ…</div>
-        ) : (
-          <div className="mt-4 space-y-6">
-            <div className="space-y-2">
-              <label className="text-sm text-white/80">Your quote amount ({quote})</label>
-              <TokenAmountInput
-                mint={account.quoteMint.toBase58()}
-                value={amount}
-                onChange={setAmount}
-              />
-              <p className="text-xs text-white/40">
-                Minimum {account.minQuoteAmount.toString()} base units. Higher is more competitive.
-              </p>
-            </div>
-
-            {quoteMeta && usdcMeta && (
-              <BondBreakdown
-                bondAmount={account.bondAmount}
-                bondSymbol={usdcMeta.symbol}
-                bondDecimals={usdcMeta.decimals}
-                quoteAmount={amount ?? account.minQuoteAmount}
-                quoteSymbol={quoteMeta.symbol}
-                quoteDecimals={quoteMeta.decimals}
-                takerFeeBps={account.takerFeeBps}
-                facilitatorFeeBps={config?.facilitatorFeeBps ?? 0}
-              />
-            )}
-
-            <div className="flex items-start gap-3 rounded-lg border border-blue-500/20 bg-blue-500/10 p-3 text-sm text-white/80">
-              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-blue-400" />
-              <span>
-                Committing signs a message, runs a funds check, and posts your bond. You'll reveal
-                the amount later — keep the reveal ticket.
-                {(() => {
-                  const now = Math.floor(Date.now() / 1000);
-                  const commitBy = commitDeadline(account);
-                  const revealBy = revealDeadline(account);
-                  if (commitBy === null || revealBy === null) return null;
-                  return (
-                    <>
-                      {" "}
-                      Commits close in {formatDuration(Math.max(0, commitBy - now))}; once
-                      committed, you'll need to reveal within {formatDuration(revealBy - commitBy)}{" "}
-                      after that.
-                    </>
-                  );
-                })()}
-              </span>
-            </div>
-
-            {error && (
-              <div className="flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
-
-            {ticket && (
-              <Button
-                variant="outline"
-                onClick={() => downloadTicket(ticket)}
-                className="w-full border-white/20 bg-white/5 text-white hover:bg-white/10"
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Download reveal ticket
-              </Button>
-            )}
-
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={busy}
-                className="flex-1 border-white/30 bg-white/10 text-white/90 hover:bg-white/15"
-              >
-                {ticket ? "Close" : "Cancel"}
-              </Button>
-              <Button
-                onClick={() => void handleCommit()}
-                disabled={busy || ticket !== null}
-                className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:from-cyan-600 hover:to-blue-600 disabled:opacity-60"
-              >
-                {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {phase === "attesting"
-                  ? "Attesting…"
-                  : phase === "submitting"
-                    ? "Committing…"
-                    : ticket
-                      ? "Committed"
-                      : "Commit quote"}
-              </Button>
-            </div>
+    <ResponsiveModal
+      open={open}
+      onOpenChange={(o) => !busy && onOpenChange(o)}
+      title={<span className="text-2xl font-bold">Commit a quote</span>}
+      description={
+        <>
+          {rfq.pair} · you deliver {rfq.baseAmount.toLocaleString()} {base}, quote in {quote}
+        </>
+      }
+      contentClassName="max-w-xl"
+    >
+      {!account ? (
+        <div className="py-8 text-center text-white/50">Loading RFQ…</div>
+      ) : (
+        <div className="mt-4 space-y-6">
+          <div className="space-y-2">
+            <label className="text-sm text-white/80">Your quote amount ({quote})</label>
+            <TokenAmountInput
+              mint={account.quoteMint.toBase58()}
+              value={amount}
+              onChange={setAmount}
+            />
+            <p className="text-xs text-white/40">
+              Minimum {account.minQuoteAmount.toString()} base units. Higher is more competitive.
+            </p>
           </div>
-        )}
-      </DialogContent>
-    </Dialog>
+
+          {quoteMeta && usdcMeta && (
+            <BondBreakdown
+              bondAmount={account.bondAmount}
+              bondSymbol={usdcMeta.symbol}
+              bondDecimals={usdcMeta.decimals}
+              quoteAmount={amount ?? account.minQuoteAmount}
+              quoteSymbol={quoteMeta.symbol}
+              quoteDecimals={quoteMeta.decimals}
+              takerFeeBps={account.takerFeeBps}
+              facilitatorFeeBps={config?.facilitatorFeeBps ?? 0}
+            />
+          )}
+
+          <div className="flex items-start gap-3 rounded-lg border border-blue-500/20 bg-blue-500/10 p-3 text-sm text-white/80">
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-blue-400" />
+            <span>
+              Committing signs a message, runs a funds check, and posts your bond. You'll reveal the
+              amount later — keep the reveal ticket.
+              {(() => {
+                const now = Math.floor(Date.now() / 1000);
+                const commitBy = commitDeadline(account);
+                const revealBy = revealDeadline(account);
+                if (commitBy === null || revealBy === null) return null;
+                return (
+                  <>
+                    {" "}
+                    Commits close in {formatDuration(Math.max(0, commitBy - now))}; once committed,
+                    you'll need to reveal within {formatDuration(revealBy - commitBy)} after that.
+                  </>
+                );
+              })()}
+            </span>
+          </div>
+
+          {error && (
+            <div className="flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {ticket && (
+            <Button
+              variant="outline"
+              onClick={() => downloadTicket(ticket)}
+              className="w-full border-white/20 bg-white/5 text-white hover:bg-white/10"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Download reveal ticket
+            </Button>
+          )}
+
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={busy}
+              className="flex-1 border-white/30 bg-white/10 text-white/90 hover:bg-white/15"
+            >
+              {ticket ? "Close" : "Cancel"}
+            </Button>
+            <Button
+              onClick={() => void handleCommit()}
+              disabled={busy || ticket !== null}
+              className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:from-cyan-600 hover:to-blue-600 disabled:opacity-60"
+            >
+              {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {phase === "attesting"
+                ? "Attesting…"
+                : phase === "submitting"
+                  ? "Committing…"
+                  : ticket
+                    ? "Committed"
+                    : "Commit quote"}
+            </Button>
+          </div>
+        </div>
+      )}
+    </ResponsiveModal>
   );
 }

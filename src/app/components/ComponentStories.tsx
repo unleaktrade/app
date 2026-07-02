@@ -14,6 +14,7 @@ import { EmptyState } from "@/app/components/EmptyState";
 import { SkeletonList } from "@/app/components/SkeletonList";
 import { ErrorRetry } from "@/app/components/ErrorRetry";
 import { RFQActionSheet } from "@/app/components/RFQActionSheet";
+import { ResponsiveModal } from "@/app/components/ResponsiveModal";
 import { AuthGate } from "@/app/components/AuthGate";
 import { Button } from "@/app/components/ui/button";
 
@@ -41,6 +42,7 @@ function Story({ title, children }: { title: string; children: React.ReactNode }
 export function ComponentStories() {
   const now = Math.floor(Date.now() / 1000);
   const [amount, setAmount] = useState<bigint | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-surface-page px-6 py-10">
@@ -111,6 +113,33 @@ export function ComponentStories() {
               Secondary action
             </Button>
           </RFQActionSheet>
+        </Story>
+
+        <Story title="ResponsiveModal — Dialog ≥ md, bottom sheet < md">
+          <Button
+            variant="outline"
+            className="border-white/20 bg-white/5 text-white"
+            onClick={() => setModalOpen(true)}
+          >
+            Open responsive modal
+          </Button>
+          <ResponsiveModal
+            open={modalOpen}
+            onOpenChange={setModalOpen}
+            title={<span className="text-2xl font-bold">Responsive modal</span>}
+            description="Resize the viewport across 768px — Dialog above, vaul drawer below."
+            contentClassName="max-w-xl"
+          >
+            <div className="space-y-3 py-4 text-sm text-white/70">
+              <p>The same children render in both shells; only the chrome changes.</p>
+              <Button
+                className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white"
+                onClick={() => setModalOpen(false)}
+              >
+                Close
+              </Button>
+            </div>
+          </ResponsiveModal>
         </Story>
 
         <Story title="AuthGate — restoring / signing (scaled frames)">
