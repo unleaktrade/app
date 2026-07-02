@@ -48,7 +48,7 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
       <motion.nav
         initial={{ y: -100 }}
         animate={{ y: 0 }}
-        className="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0f]/80 backdrop-blur-xl border-b border-white/10"
+        className="fixed top-0 left-0 right-0 z-50 bg-surface-page/80 backdrop-blur-xl border-b border-white/10"
       >
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
@@ -165,7 +165,7 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="fixed top-16 right-0 bottom-0 w-full max-w-sm bg-[#0a0a0f]/98 backdrop-blur-xl border-l border-white/10 z-40 lg:hidden overflow-y-auto"
+              className="fixed top-16 right-0 bottom-0 w-full max-w-sm bg-surface-page/98 backdrop-blur-xl border-l border-white/10 z-40 lg:hidden overflow-y-auto"
             >
               <div className="p-6 space-y-4">
                 <motion.div

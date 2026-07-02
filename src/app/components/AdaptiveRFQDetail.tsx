@@ -90,7 +90,7 @@ export function AdaptiveRFQDetail({
 
   if (pda === null || !rfqQuery.data) {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] pb-32 pt-16 flex items-center justify-center">
+      <div className="min-h-screen bg-surface-page pb-32 pt-16 flex items-center justify-center">
         <div className="text-white">RFQ not found</div>
       </div>
     );
@@ -115,7 +115,7 @@ export function AdaptiveRFQDetail({
   const usdcSymbol = "USDC";
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] pb-32 pt-16">
+    <div className="min-h-screen bg-surface-page pb-32 pt-16">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl" />
         <div className="absolute top-40 right-1/4 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl" />
@@ -200,7 +200,7 @@ export function AdaptiveRFQDetail({
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-[#0a0a0f] pb-32 pt-16">
+    <div className="min-h-screen bg-surface-page pb-32 pt-16">
       <div className="relative mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">{children}</div>
     </div>
   );

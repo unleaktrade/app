@@ -239,7 +239,7 @@ export function SettleQuote({
 
 function Shell({ children, onBack }: { children: React.ReactNode; onBack: () => void }) {
   return (
-    <div className="min-h-screen bg-[#0a0a0f] pb-32 pt-16">
+    <div className="min-h-screen bg-surface-page pb-32 pt-16">
       <div className="relative mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <Button
           variant="ghost"

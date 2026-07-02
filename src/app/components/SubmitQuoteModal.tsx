@@ -198,7 +198,7 @@ export function SubmitQuoteModal({ rfq, open, onOpenChange }: SubmitQuoteModalPr
 
   return (
     <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
-      <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto border-white/10 bg-[#0f0f1a] text-white">
+      <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto border-white/10 bg-surface-raised text-white">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold">Commit a quote</DialogTitle>
           <DialogDescription className="text-sm text-white/60">

@@ -321,7 +321,7 @@ export function RFQActionBar({
         open={confirm !== null && confirm !== "edit"}
         onOpenChange={(open) => !open && setConfirm(null)}
       >
-        <DialogContent className="border-white/10 bg-[#0a0a0f] text-white">
+        <DialogContent className="border-white/10 bg-surface-page text-white">
           <DialogHeader>
             <DialogTitle>{pending?.label ?? "Confirm"}</DialogTitle>
             <DialogDescription className="text-white/60">{pending?.description}</DialogDescription>

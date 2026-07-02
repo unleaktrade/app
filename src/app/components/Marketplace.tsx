@@ -243,7 +243,7 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
     .reduce((sum, rfq) => sum + rfq.baseAmount, 0);
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] pt-20 lg:pt-24 pb-16 sm:pb-32">
+    <div className="min-h-screen bg-surface-page pt-20 lg:pt-24 pb-16 sm:pb-32">
       {/* Background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl" />

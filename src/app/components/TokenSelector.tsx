@@ -109,7 +109,7 @@ export function TokenSelector({ value, onChange, label, excludeToken }: TokenSel
       </Button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="bg-[#0f0f1a] border-white/10 text-white max-w-md">
+        <DialogContent className="bg-surface-raised border-white/10 text-white max-w-md">
           <DialogHeader>
             <DialogTitle>{label}</DialogTitle>
             <DialogDescription>

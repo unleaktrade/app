@@ -247,7 +247,7 @@ export function CreateRFQModal({ open, onOpenChange }: CreateRFQModalProps) {
         onOpenChange(open);
       }}
     >
-      <DialogContent className="bg-[#0f0f1a] border-white/10 text-white max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="bg-surface-raised border-white/10 text-white max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text text-transparent">
             Create Request for Quote
@@ -350,7 +350,7 @@ export function CreateRFQModal({ open, onOpenChange }: CreateRFQModalProps) {
 
                   <div className="relative py-4">
                     <Separator className="bg-white/10" />
-                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#0f0f1a] px-3">
+                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-surface-raised px-3">
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500/20 to-cyan-500/20 flex items-center justify-center border border-white/10">
                         <ArrowDown className="h-4 w-4" />
                       </div>

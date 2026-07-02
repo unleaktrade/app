@@ -335,7 +335,7 @@ export function MyActivity() {
 
   if (isLoading || isError) {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] pt-20 lg:pt-24 pb-16 sm:pb-32">
+      <div className="min-h-screen bg-surface-page pt-20 lg:pt-24 pb-16 sm:pb-32">
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -359,7 +359,7 @@ export function MyActivity() {
 
   if (!hasAnyActivity) {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] pt-20 lg:pt-24 pb-16 sm:pb-32">
+      <div className="min-h-screen bg-surface-page pt-20 lg:pt-24 pb-16 sm:pb-32">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-20 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl" />
           <div className="absolute top-60 right-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl" />
@@ -379,7 +379,7 @@ export function MyActivity() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] pt-20 lg:pt-24 pb-16 sm:pb-32">
+    <div className="min-h-screen bg-surface-page pt-20 lg:pt-24 pb-16 sm:pb-32">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl" />
         <div className="absolute top-60 right-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl" />
@@ -527,7 +527,7 @@ function PinnedSummary({
   onClaim,
 }: PinnedSummaryProps) {
   return (
-    <div className="sticky top-16 z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 bg-[#0a0a0f]/80 backdrop-blur-xl border-y border-white/10 py-3 sm:py-4 mb-4">
+    <div className="sticky top-16 z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 bg-surface-page/80 backdrop-blur-xl border-y border-white/10 py-3 sm:py-4 mb-4">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 items-stretch">
         <RewardsTile count={unclaimedCount} claiming={claiming} onClaim={onClaim} />
         <StatTile label="Active RFQs" value={activeRFQs} tone="cyan" />

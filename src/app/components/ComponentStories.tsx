@@ -43,7 +43,7 @@ export function ComponentStories() {
   const [amount, setAmount] = useState<bigint | null>(null);
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] px-6 py-10">
+    <div className="min-h-screen bg-surface-page px-6 py-10">
       <div className="mx-auto max-w-4xl space-y-6">
         <h1 className="text-lg font-bold text-white">
           Phase 2 primitives <span className="text-white/40">(dev only)</span>
