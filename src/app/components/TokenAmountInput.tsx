@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Input } from "@/app/components/ui/input";
 import { useClusterState } from "@/chain/cluster";
 import { useTokenMeta, useUsdPrice } from "@/app/lib/jupiter";
@@ -46,6 +46,20 @@ export function TokenAmountInput({
     value === null ? "" : formatTokenAmount(value, decimals),
   );
   const [invalid, setInvalid] = useState(false);
+
+  // Metadata resolves async: if the user typed while the fallback decimals
+  // were in effect, the emitted bigint was parsed at the wrong scale. Re-parse
+  // the typed text whenever the resolved decimals change, so the base-unit
+  // value always matches what's on screen.
+  const lastDecimals = useRef(decimals);
+  useEffect(() => {
+    if (lastDecimals.current === decimals) return;
+    lastDecimals.current = decimals;
+    if (text.trim() === "") return;
+    const parsed = parseTokenAmount(text.replace(/,/g, ""), decimals);
+    setInvalid(parsed === null);
+    onChange(parsed);
+  }, [decimals, text, onChange]);
 
   const usd = useUsdPrice(mint, cluster, showUsdEstimate);
   const usdHint =

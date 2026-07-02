@@ -5,7 +5,7 @@
 
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import type { Cluster } from "@/chain/env";
-import { findTokenByMint, type Token } from "./tokens";
+import { findTokenByMint, seededTokenMeta, type Token } from "./tokens";
 
 const TOKEN_API = "https://lite-api.jup.ag/tokens/v2/search?query=";
 const PRICE_API = "https://lite-api.jup.ag/price/v3?ids=";
@@ -26,6 +26,18 @@ export interface TokenMeta {
 }
 
 function staticMeta(mint: string): TokenMeta | null {
+  // Seeded devnet mints first (they're not in the mainnet catalog): getting
+  // the decimals wrong here mis-parses every typed amount, so this must never
+  // fall through to a generic fallback for a mint the manifest knows.
+  const seeded = seededTokenMeta(mint);
+  if (seeded) {
+    return {
+      symbol: seeded.symbol,
+      name: seeded.symbol,
+      decimals: seeded.decimals,
+      ...(seeded.logoURI !== undefined ? { logoURI: seeded.logoURI } : {}),
+    };
+  }
   const token: Token | undefined = findTokenByMint(mint);
   if (!token) return null;
   return {

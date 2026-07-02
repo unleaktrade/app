@@ -275,6 +275,13 @@ function shortMint(mint: string): string {
   return mint.length <= 9 ? mint : `${mint.slice(0, 4)}…${mint.slice(-4)}`;
 }
 
+/** Seed-manifest entry for a mint (sBASE/sALT/devnet USDC), if any. Exposed
+ * so useTokenMeta's static fallback resolves seeded mints with the correct
+ * decimals instead of TokenAmountInput's generic 9-decimals fallback. */
+export function seededTokenMeta(mint: string): ResolvedToken | undefined {
+  return SEED_MANIFEST[mint];
+}
+
 /**
  * Resolve a mint to its display symbol + decimals synchronously. Falls back to
  * a truncated address with 0 decimals for mints not in the manifest or catalog
