@@ -5,22 +5,28 @@ import { PublicKey } from "@solana/web3.js";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import type { FacilitatorReward, Quote, RFQ, RFQState } from "@/types/rfq";
+import type { Quote, RFQ, RFQState } from "@/types/rfq";
 import {
   useRfqAccounts,
   useQuoteAccountsByTaker,
   useFacilitatorRewardTrackersByFacilitator,
 } from "@/chain/accounts/lists";
+import { useQuoteAccountsByKeys, useSettlementAccountsByKeys } from "@/chain/accounts/byKeys";
 import { useConfigAccount } from "@/chain/accounts/config";
 import { useSettlementProgram } from "@/chain/program";
 import { buildOpenRfqTx, buildWithdrawRewardTx } from "@/chain/instructions/maker";
 import { submitRfqTx } from "@/chain/instructions/shared";
-import {
-  toRfqViewModel,
-  toQuoteViewModel,
-  toFacilitatorRewardViewModel,
-} from "@/app/lib/rfq-view-model";
+import { toRfqViewModel, toQuoteViewModel } from "@/app/lib/rfq-view-model";
 import { resolveTokenMeta } from "@/app/lib/tokens";
+import { formatTokenAmount } from "@/app/lib/format";
+import {
+  derivePendingRewards,
+  groupByMint,
+  toClaimedRewards,
+  type MintRewardTotals,
+  type PendingReward,
+} from "@/app/lib/rewards";
+import { RewardsSection } from "@/app/components/RewardsSection";
 import { Button } from "@/app/components/ui/button";
 import { PageShell } from "@/app/components/PageShell";
 import { StatusBadge } from "@/app/components/StatusBadge";
@@ -47,12 +53,6 @@ import {
 } from "lucide-react";
 
 const TERMINAL_STATES = new Set<RFQState>(["Settled", "Expired", "Ignored", "Incomplete"]);
-
-function quoteSymbol(rfq: RFQ | undefined): string {
-  if (!rfq) return "";
-  const parts = rfq.pair.split("/");
-  return parts[1] ?? "";
-}
 
 interface Attention {
   id: string;
@@ -86,6 +86,7 @@ export function MyActivity() {
   const configQuery = useConfigAccount();
 
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [batch, setBatch] = useState<{ done: number; total: number } | null>(null);
 
   const nowSecs = Math.floor(Date.now() / 1000);
 
@@ -113,28 +114,61 @@ export function MyActivity() {
     [quoteQuery.data, rfqByKey],
   );
 
-  const myRewards = useMemo(
-    () => (rewardQuery.data ?? []).map((row) => toFacilitatorRewardViewModel(row)),
-    [rewardQuery.data],
-  );
-
-  // Reward trackers exist only post-claim, so "Rewards history" is all claimed.
-  // Claimable = Settled RFQs I facilitated, non-zero share, with no tracker yet.
-  // The precise amount + claim action arrive in #15 (instruction wiring).
-  const claimedRfqKeys = useMemo(() => new Set(myRewards.map((r) => r.rfq)), [myRewards]);
-  const claimableRFQs = useMemo(
+  // Rewards (Phase 5 #15). Candidates are Settled RFQs where I'm the recorded
+  // facilitator; their settlement + winning-quote accounts are bulk-fetched and
+  // joined in derivePendingRewards, which mirrors withdraw_reward's on-chain
+  // guards (settlement completed, quote facilitator matches, share > 0 from the
+  // RFQ's facilitatorFeeBps snapshot). Trackers exist only post-claim.
+  const rewardCandidates = useMemo(
     () =>
       meStr === null
         ? []
-        : allRFQs.filter(
-            (r) =>
-              r.state === "Settled" &&
-              r.facilitator === meStr &&
-              r.feeAmount > 0 &&
-              !claimedRfqKeys.has(r.publicKey),
+        : (rfqQuery.data ?? []).filter(
+            (row) =>
+              row.account.state === "Settled" && row.account.facilitator?.toBase58() === meStr,
           ),
-    [allRFQs, meStr, claimedRfqKeys],
+    [rfqQuery.data, meStr],
   );
+  const settlementKeys = useMemo(
+    () =>
+      rewardCandidates.flatMap((row) => (row.account.settlement ? [row.account.settlement] : [])),
+    [rewardCandidates],
+  );
+  const winningQuoteKeys = useMemo(
+    () =>
+      rewardCandidates.flatMap((row) =>
+        row.account.selectedQuote ? [row.account.selectedQuote] : [],
+      ),
+    [rewardCandidates],
+  );
+  const settlementsQuery = useSettlementAccountsByKeys(settlementKeys);
+  const winningQuotesQuery = useQuoteAccountsByKeys(winningQuoteKeys);
+
+  const pendingRewards = useMemo(
+    () =>
+      meStr === null
+        ? []
+        : derivePendingRewards({
+            rfqRows: rfqQuery.data ?? [],
+            settlements: settlementsQuery.data ?? new Map(),
+            quotes: winningQuotesQuery.data ?? new Map(),
+            trackers: rewardQuery.data ?? [],
+            me: meStr,
+          }),
+    [meStr, rfqQuery.data, settlementsQuery.data, winningQuotesQuery.data, rewardQuery.data],
+  );
+  const claimedRewards = useMemo(
+    () => toClaimedRewards(rewardQuery.data ?? [], rfqQuery.data),
+    [rewardQuery.data, rfqQuery.data],
+  );
+  const pendingMintGroups: MintRewardTotals[] = useMemo(
+    () => groupByMint(pendingRewards, []),
+    [pendingRewards],
+  );
+  // busyId is shared with openDraft; only report it as a claim when it names a
+  // pending reward's RFQ.
+  const claimingRfq =
+    busyId !== null && pendingRewards.some((r) => r.rfq === busyId) ? busyId : null;
 
   const isLoading = rfqQuery.isLoading || quoteQuery.isLoading || rewardQuery.isLoading;
   const isError = rfqQuery.isError || quoteQuery.isError || rewardQuery.isError;
@@ -200,44 +234,62 @@ export function MyActivity() {
     }
   };
 
-  // Claim a facilitator reward (withdraw_reward) inline. The winning quote PDA is
-  // rfq.selectedQuote; the reward is denominated in the quote mint.
-  const claimReward = async (rfq: RFQ) => {
+  // Claim a reward (withdraw_reward). The PendingReward already carries the
+  // winning quote PDA + quote mint, so nothing is re-derived from view models.
+  // sendClaim is the shared submit path; claimReward wraps it with per-row busy
+  // state, claimAllRewards loops it sequentially and keeps going on failures.
+  const sendClaim = async (reward: PendingReward) => {
     if (!program || !me) {
       toast.error("Connect a wallet to claim");
-      return;
+      throw new Error("wallet not ready");
     }
-    if (!rfq.selectedQuote) {
-      toast.error("No selected quote to claim against");
-      return;
-    }
-    let pda: PublicKey;
-    let quote: PublicKey;
-    let quoteMint: PublicKey;
+    const rfq = new PublicKey(reward.rfq);
+    await submitRfqTx({
+      connection,
+      wallet,
+      queryClient,
+      rfq,
+      build: () =>
+        buildWithdrawRewardTx({
+          program,
+          facilitator: me,
+          rfq,
+          quote: new PublicKey(reward.quote),
+          quoteMint: new PublicKey(reward.quoteMint),
+        }),
+      pendingMessage: "Claiming reward…",
+      successMessage: "Reward claimed to your wallet",
+    });
+  };
+
+  const claimReward = async (reward: PendingReward) => {
+    setBusyId(reward.rfq);
     try {
-      pda = new PublicKey(rfq.publicKey);
-      quote = new PublicKey(rfq.selectedQuote);
-      quoteMint = new PublicKey(rfq.quoteMint);
-    } catch {
-      return;
-    }
-    setBusyId(rfq.publicKey);
-    try {
-      await submitRfqTx({
-        connection,
-        wallet,
-        queryClient,
-        rfq: pda,
-        build: () =>
-          buildWithdrawRewardTx({ program, facilitator: me, rfq: pda, quote, quoteMint }),
-        pendingMessage: "Claiming reward…",
-        successMessage: "Reward claimed to your wallet",
-      });
+      await sendClaim(reward);
     } catch {
       // toast already surfaced
     } finally {
       setBusyId(null);
     }
+  };
+
+  const claimAllRewards = async () => {
+    const rewards = pendingRewards;
+    if (!program || !me || rewards.length === 0 || batch !== null) return;
+    setBatch({ done: 0, total: rewards.length });
+    let succeeded = 0;
+    for (const [index, reward] of rewards.entries()) {
+      try {
+        await sendClaim(reward);
+        succeeded += 1;
+      } catch {
+        // per-tx toast already surfaced — keep claiming the rest
+      }
+      setBatch({ done: index + 1, total: rewards.length });
+    }
+    setBatch(null);
+    toast.success(`Claimed ${succeeded} of ${rewards.length} rewards`);
+    void rewardQuery.refetch();
   };
 
   const attention: Attention[] = useMemo(() => {
@@ -301,16 +353,16 @@ export function MyActivity() {
           });
         }
       });
-    // Claimable rewards (Settled RFQs I facilitated, not yet withdrawn)
-    claimableRFQs.forEach((rfq) => {
+    // Pending rewards (Settled RFQs I facilitated, not yet withdrawn)
+    pendingRewards.forEach((reward) => {
       items.push({
-        id: `claim:${rfq.publicKey}`,
+        id: `claim:${reward.rfq}`,
         kind: "claim",
-        label: `Claim reward — ${rfq.pair}`,
-        sublabel: "Facilitator share ready to withdraw",
+        label: `Claim reward — ${reward.pair}`,
+        sublabel: `${formatTokenAmount(reward.amount, reward.decimals)} ${reward.symbol} ready`,
         cta: "Claim",
         tone: "reward",
-        onClick: () => viewRFQ(rfq.publicKey),
+        onClick: () => void claimReward(reward),
       });
     });
     // Urgent first, then everything else; within each, time-based first
@@ -323,10 +375,13 @@ export function MyActivity() {
       if (!a.expiresIn && b.expiresIn) return 1;
       return 0;
     });
-  }, [myRFQs, myQuotes, claimableRFQs, rfqByKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [myRFQs, myQuotes, pendingRewards, rfqByKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hasAnyActivity =
-    myRFQs.length > 0 || myQuotes.length > 0 || myRewards.length > 0 || claimableRFQs.length > 0;
+    myRFQs.length > 0 ||
+    myQuotes.length > 0 ||
+    claimedRewards.length > 0 ||
+    pendingRewards.length > 0;
 
   const scrollToRewards = () => {
     document
@@ -382,14 +437,15 @@ export function MyActivity() {
       </motion.div>
 
       <PinnedSummary
-        unclaimedCount={claimableRFQs.length}
+        pendingRewards={pendingRewards}
+        pendingMintGroups={pendingMintGroups}
         activeRFQs={activeRFQs.length}
         activeQuotes={activeQuotes.length}
         settled={settledRFQs.length}
-        claiming={busyId !== null && claimableRFQs.some((r) => r.publicKey === busyId)}
+        claiming={claimingRfq !== null || batch !== null}
         onClaim={() => {
-          const first = claimableRFQs[0];
-          if (first) void claimReward(first);
+          const only = pendingRewards.length === 1 ? pendingRewards[0] : undefined;
+          if (only) void claimReward(only);
           else scrollToRewards();
         }}
       />
@@ -466,25 +522,24 @@ export function MyActivity() {
           </CollapsibleSection>
         )}
 
-        {myRewards.length > 0 && (
+        {pendingRewards.length + claimedRewards.length > 0 && (
           <CollapsibleSection
             id="rewards-section"
-            title="Rewards history"
-            count={myRewards.length}
-            needsAttentionCount={0}
+            title="Rewards"
+            count={pendingRewards.length + claimedRewards.length}
+            needsAttentionCount={pendingRewards.length}
             icon={HandCoins}
-            defaultOpen={false}
+            defaultOpen={pendingRewards.length > 0}
           >
-            <div className="space-y-3">
-              {myRewards.map((reward) => (
-                <RewardRow
-                  key={reward.publicKey}
-                  reward={reward}
-                  rfq={rfqByKey.get(reward.rfq)}
-                  onView={() => viewRFQ(reward.rfq)}
-                />
-              ))}
-            </div>
+            <RewardsSection
+              pending={pendingRewards}
+              claimed={claimedRewards}
+              claimingRfq={claimingRfq}
+              batch={batch}
+              onClaim={(reward) => void claimReward(reward)}
+              onClaimAll={() => void claimAllRewards()}
+              onView={viewRFQ}
+            />
           </CollapsibleSection>
         )}
       </div>
@@ -493,7 +548,8 @@ export function MyActivity() {
 }
 
 interface PinnedSummaryProps {
-  unclaimedCount: number;
+  pendingRewards: PendingReward[];
+  pendingMintGroups: MintRewardTotals[];
   activeRFQs: number;
   activeQuotes: number;
   settled: number;
@@ -502,7 +558,8 @@ interface PinnedSummaryProps {
 }
 
 function PinnedSummary({
-  unclaimedCount,
+  pendingRewards,
+  pendingMintGroups,
   activeRFQs,
   activeQuotes,
   settled,
@@ -512,7 +569,12 @@ function PinnedSummary({
   return (
     <div className="sticky top-(--nav-h) z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 bg-surface-page/80 backdrop-blur-xl border-y border-white/10 py-3 sm:py-4 mb-4">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 items-stretch">
-        <RewardsTile count={unclaimedCount} claiming={claiming} onClaim={onClaim} />
+        <RewardsTile
+          pending={pendingRewards}
+          groups={pendingMintGroups}
+          claiming={claiming}
+          onClaim={onClaim}
+        />
         <StatTile label="Active RFQs" value={activeRFQs} tone="cyan" />
         <StatTile label="Active quotes" value={activeQuotes} tone="blue" />
         <StatTile label="Settled" value={settled} tone="teal" />
@@ -522,15 +584,23 @@ function PinnedSummary({
 }
 
 function RewardsTile({
-  count,
+  pending,
+  groups,
   claiming,
   onClaim,
 }: {
-  count: number;
+  pending: PendingReward[];
+  groups: MintRewardTotals[];
   claiming: boolean;
   onClaim: () => void;
 }) {
-  const hasUnclaimed = count > 0;
+  const hasUnclaimed = pending.length > 0;
+  // One mint pending → the exact amount; several mints → a count, with the
+  // per-mint amounts in a title tooltip (never summed across mints).
+  const singleMint = groups.length === 1 ? groups[0] : undefined;
+  const perMintTooltip = groups
+    .map((g) => `${formatTokenAmount(g.pendingTotal, g.decimals)} ${g.symbol}`)
+    .join(", ");
   return (
     <div
       className={`col-span-2 sm:col-span-1 flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 sm:px-4 sm:py-3 ${
@@ -543,14 +613,28 @@ function RewardsTile({
         <div className="text-[0.65rem] sm:text-xs uppercase tracking-wider text-white/50">
           Rewards
         </div>
-        <div className="flex items-baseline gap-1.5">
-          <span
-            className={`text-xl sm:text-2xl font-bold ${hasUnclaimed ? "text-green-400" : "text-white/70"}`}
+        {hasUnclaimed && singleMint ? (
+          <div className="flex items-baseline gap-1.5 min-w-0">
+            <span className="text-xl sm:text-2xl font-bold text-green-400 truncate">
+              {formatTokenAmount(singleMint.pendingTotal, singleMint.decimals)}
+            </span>
+            <span className="text-xs sm:text-sm text-white/60 whitespace-nowrap">
+              {singleMint.symbol} to claim
+            </span>
+          </div>
+        ) : (
+          <div
+            className="flex items-baseline gap-1.5"
+            title={hasUnclaimed ? perMintTooltip : undefined}
           >
-            {count}
-          </span>
-          <span className="text-xs sm:text-sm text-white/60">to claim</span>
-        </div>
+            <span
+              className={`text-xl sm:text-2xl font-bold ${hasUnclaimed ? "text-green-400" : "text-white/70"}`}
+            >
+              {pending.length}
+            </span>
+            <span className="text-xs sm:text-sm text-white/60">to claim</span>
+          </div>
+        )}
       </div>
       {hasUnclaimed ? (
         <Button
@@ -977,58 +1061,6 @@ function SubmittedQuoteCard({
           Settle
         </Button>
       )}
-    </div>
-  );
-}
-
-function RewardRow({
-  reward,
-  rfq,
-  onView,
-}: {
-  reward: FacilitatorReward;
-  rfq: RFQ | undefined;
-  onView: () => void;
-}) {
-  const isClaimed = reward.claimedAt !== null;
-  const symbol = quoteSymbol(rfq);
-
-  return (
-    <div className="bg-white/5 border border-white/10 rounded-lg p-4 hover:border-white/20 transition-all flex items-center justify-between gap-3">
-      <div className="flex items-center gap-4 flex-1 min-w-0">
-        <div className={`p-3 rounded-lg ${isClaimed ? "bg-teal-500/20" : "bg-green-500/20"}`}>
-          {isClaimed ? (
-            <CheckCircle2 className="h-5 w-5 text-teal-400" />
-          ) : (
-            <HandCoins className="h-5 w-5 text-green-400" />
-          )}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1 text-sm">
-            <span className="text-white/50">From</span>
-            <button onClick={onView} className="text-cyan-400 hover:text-cyan-300 truncate">
-              {rfq ? rfq.pair : reward.rfq.substring(0, 12)}
-            </button>
-          </div>
-          {isClaimed && reward.claimedAt !== null && (
-            <div className="flex items-center gap-2 text-xs text-white/40">
-              <Clock className="h-3 w-3" />
-              <span>Claimed {new Date(reward.claimedAt * 1000).toLocaleDateString()}</span>
-            </div>
-          )}
-          {!isClaimed && <div className="text-xs text-green-400">Unclaimed — tap to view</div>}
-        </div>
-      </div>
-
-      <div className="text-right flex-shrink-0">
-        <div
-          className={`text-lg sm:text-xl font-bold ${isClaimed ? "text-white/60" : "text-green-400"}`}
-        >
-          {reward.amount.toLocaleString()}
-        </div>
-        <div className="text-xs text-white/40">{symbol}</div>
-      </div>
     </div>
   );
 }
