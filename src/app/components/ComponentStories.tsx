@@ -15,8 +15,11 @@ import { SkeletonList } from "@/app/components/SkeletonList";
 import { ErrorRetry } from "@/app/components/ErrorRetry";
 import { RFQActionSheet } from "@/app/components/RFQActionSheet";
 import { ResponsiveModal } from "@/app/components/ResponsiveModal";
+import { RewardsSection } from "@/app/components/RewardsSection";
+import { RFQForm } from "@/app/components/RFQForm";
 import { AuthGate } from "@/app/components/AuthGate";
 import { Button } from "@/app/components/ui/button";
+import type { ClaimedReward, PendingReward } from "@/app/lib/rewards";
 
 const ALL_STATES: RFQState[] = [
   "Draft",
@@ -28,6 +31,54 @@ const ALL_STATES: RFQState[] = [
   "Ignored",
   "Expired",
   "Incomplete",
+];
+
+// Fixture rewards spanning two mints so the per-mint tiles and both charts
+// render; timestamps are fixed so the story is deterministic.
+const STORY_PENDING_REWARDS: PendingReward[] = [
+  {
+    rfq: "RfqPending111111111111111111111111111111111",
+    quote: "QuotePending11111111111111111111111111111111",
+    quoteMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    symbol: "USDC",
+    decimals: 6,
+    amount: 12_500_000n,
+    settledAt: 1_750_000_000,
+    pair: "wSOL/USDC",
+  },
+];
+
+const STORY_CLAIMED_REWARDS: ClaimedReward[] = [
+  {
+    tracker: "Tracker1111111111111111111111111111111111111",
+    rfq: "RfqClaimed111111111111111111111111111111111",
+    quoteMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    symbol: "USDC",
+    decimals: 6,
+    amount: 4_200_000n,
+    claimedAt: 1_749_000_000,
+    pair: "JUP/USDC",
+  },
+  {
+    tracker: "Tracker2222222222222222222222222222222222222",
+    rfq: "RfqClaimed222222222222222222222222222222222",
+    quoteMint: "So11111111111111111111111111111111111111112",
+    symbol: "wSOL",
+    decimals: 9,
+    amount: 1_500_000_000n,
+    claimedAt: 1_749_500_000,
+    pair: "USDC/wSOL",
+  },
+  {
+    tracker: "Tracker3333333333333333333333333333333333333",
+    rfq: "RfqClaimed333333333333333333333333333333333",
+    quoteMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    symbol: "USDC",
+    decimals: 6,
+    amount: 9_100_000n,
+    claimedAt: 1_749_900_000,
+    pair: "BONK/USDC",
+  },
 ];
 
 function Story({ title, children }: { title: string; children: React.ReactNode }) {
@@ -151,6 +202,27 @@ export function ComponentStories() {
               <AuthGate variant="signing" />
             </div>
           </div>
+        </Story>
+
+        <Story title="RewardsSection — 2 mints, pending + claimed (fixtures)">
+          <RewardsSection
+            pending={STORY_PENDING_REWARDS}
+            claimed={STORY_CLAIMED_REWARDS}
+            claimingRfq={null}
+            batch={null}
+            onClaim={() => undefined}
+            onClaimAll={() => undefined}
+            onView={() => undefined}
+          />
+        </Story>
+
+        <Story title="RFQForm — the shared create/update wizard (no-op submit)">
+          <RFQForm
+            mode="create"
+            submitting={false}
+            submitLabel="Create RFQ"
+            onSubmit={() => undefined}
+          />
         </Story>
 
         <Story title="EmptyState / ErrorRetry / SkeletonList">

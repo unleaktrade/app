@@ -165,11 +165,7 @@ export function RFQForm({
     }
     const bps = Number(takerFeeBps);
     if (!Number.isInteger(bps) || bps < 0 || bps > 10_000) {
-      toast.error(
-        mode === "create"
-          ? "Taker fee must be between 0 and 10000 bps"
-          : "Protocol fee must be between 0 and 10000 bps",
-      );
+      toast.error("Protocol fee must be between 0 and 10000 bps");
       return false;
     }
     return true;
@@ -273,11 +269,11 @@ export function RFQForm({
           className="mt-4 space-y-3"
         >
           <Label htmlFor="facilitator" className="text-white/90">
-            Facilitator Address (Optional)
+            Reward Recipient (Optional)
           </Label>
           <Input
             id="facilitator"
-            placeholder="Enter facilitator wallet address..."
+            placeholder="Wallet address that earns the fee share..."
             value={facilitatorAddress}
             onChange={(e) => set("facilitatorAddress", e.target.value)}
             disabled={isLocked("facilitatorAddress")}
@@ -493,8 +489,7 @@ export function RFQForm({
                           Bond Amount (USDC) <span className="text-red-400">*</span>
                         </Label>
                         <p className="text-sm text-white/50 mt-1 mb-3">
-                          Collateral that both Maker and Taker must lock to commit (skin in the
-                          game)
+                          Collateral that both parties must lock to commit (skin in the game)
                         </p>
                         <Input
                           id="bondAmount"
@@ -545,15 +540,15 @@ export function RFQForm({
                       <div className="text-sm text-white/70">
                         <p className="font-semibold mb-1">How Bonds & Fees Work</p>
                         <p className="mb-2">
-                          <strong>Bonds:</strong> Both Maker and Taker lock the same bond amount to
-                          ensure commitment. If the trade completes successfully, bonds are
-                          returned. If either party misbehaves or fails to fulfill their
-                          obligations, their bond is sent to the protocol treasury as a penalty.
+                          <strong>Bonds:</strong> Both parties lock the same bond amount to ensure
+                          commitment. If the trade completes successfully, bonds are returned. If
+                          either party misbehaves or fails to fulfill their obligations, their bond
+                          is sent to the protocol treasury as a penalty.
                         </p>
                         <p>
-                          <strong>Fees:</strong> Only the Taker pays the fee upon successful
-                          settlement. If a Facilitator is specified, the fee is shared between the
-                          protocol and the Facilitator.
+                          <strong>Fees:</strong> Only the quoting side pays the fee upon successful
+                          settlement. If a reward recipient is specified, the fee is shared between
+                          the protocol and that address.
                         </p>
                       </div>
                     </div>
@@ -569,9 +564,9 @@ export function RFQForm({
                           Bonds Apply to Both Parties
                         </p>
                         <p className="text-xs text-white/50">
-                          Both Maker and Taker must post bonds to ensure commitment. Bonds are
-                          returned upon successful completion or slashed if a party fails to fulfill
-                          their obligations.
+                          Both parties must post bonds to ensure commitment. Bonds are returned upon
+                          successful completion or slashed if a party fails to fulfill their
+                          obligations.
                         </p>
                       </div>
                     </div>
@@ -597,7 +592,7 @@ export function RFQForm({
                           USDC
                         </span>
                       </div>
-                      <p className="text-xs text-white/40">Required from both Maker and Taker</p>
+                      <p className="text-xs text-white/40">Required from both parties</p>
                     </div>
 
                     <div className="space-y-2">
@@ -875,7 +870,7 @@ export function RFQForm({
                 {facilitatorAddress && (
                   <div className="p-6 rounded-lg bg-white/5 border border-white/10">
                     <div className="text-sm text-white/50 uppercase tracking-wider mb-2">
-                      Facilitator
+                      Reward recipient
                     </div>
                     <div className="font-mono text-sm text-white/70 break-all">
                       {facilitatorAddress}

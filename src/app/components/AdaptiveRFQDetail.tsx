@@ -137,7 +137,7 @@ export function AdaptiveRFQDetail({
               <span className="text-2xl font-bold text-white">{rfq.pair}</span>
             </div>
             <div className="flex items-center gap-1.5 text-xs text-white/40">
-              <span>Maker</span>
+              <span>Posted by</span>
               <AddressDisplay address={account.maker.toBase58()} />
             </div>
           </div>
@@ -237,7 +237,7 @@ function StatePanel({
         <Panel
           icon={<Shield className="h-6 w-6 text-purple-400" />}
           title="Draft"
-          subtitle={`Not visible to takers yet. Parameters are still editable. Opening will post the bond shown above and start a ${Math.round(rfq.commitTtlSecs / 3600)}h commit window.`}
+          subtitle={`Not publicly listed yet. Parameters are still editable. Opening will post the bond shown above and start a ${Math.round(rfq.commitTtlSecs / 3600)}h commit window.`}
           tone="purple"
         />
       );
