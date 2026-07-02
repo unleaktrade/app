@@ -19,9 +19,15 @@ export default defineConfig({
   timeout: 120_000,
   use: {
     baseURL: "http://localhost:3000",
-    trace: "retain-on-failure",
-    screenshot: "only-on-failure",
-    video: "retain-on-failure",
+    // No traces/screenshots/videos in CI: they record the dev server's
+    // traffic — including the DEVNET_RPC_URL secret (API key in the URL) and
+    // the dev-wallet keypairs baked into the served JS — and CI uploads the
+    // report as a downloadable artifact on failure. Text output + the
+    // error-context a11y snapshots remain, which is what failures are
+    // diagnosed from anyway.
+    trace: process.env.CI ? "off" : "retain-on-failure",
+    screenshot: process.env.CI ? "off" : "only-on-failure",
+    video: process.env.CI ? "off" : "retain-on-failure",
   },
   // Cheap-vs-expensive split via title tags:
   //   desktop — read-only specs, safe on every PR (ci.yml e2e-readonly job)
