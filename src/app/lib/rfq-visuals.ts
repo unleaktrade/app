@@ -121,6 +121,115 @@ const CARD_GLOWS: Record<RFQState, string> = {
   Incomplete: "from-red-500/0 to-red-600/0 group-hover:from-red-500/5 group-hover:to-red-600/10",
 };
 
+// Per-state styling for the Marketplace grouped/swimlane section headers.
+const SECTION_GRADIENTS: Record<RFQState, string> = {
+  Draft: "from-slate-500/10 to-slate-600/5",
+  Open: "from-cyan-500/10 to-cyan-600/5",
+  Committed: "from-purple-500/10 to-purple-600/5",
+  Revealed: "from-indigo-500/10 to-indigo-600/5",
+  Selected: "from-blue-500/10 to-blue-600/5",
+  Settled: "from-teal-500/10 to-teal-600/5",
+  Expired: "from-orange-500/10 to-orange-600/5",
+  Ignored: "from-gray-500/10 to-gray-600/5",
+  Incomplete: "from-red-500/10 to-red-600/5",
+};
+
+const STATE_TITLE_COLORS: Record<RFQState, string> = {
+  Draft: "text-slate-400",
+  Open: "text-cyan-400",
+  Committed: "text-purple-400",
+  Revealed: "text-indigo-400",
+  Selected: "text-blue-400",
+  Settled: "text-teal-400",
+  Expired: "text-orange-400",
+  Ignored: "text-gray-400",
+  Incomplete: "text-red-400",
+};
+
+const STATE_SUBTITLES: Record<RFQState, string> = {
+  Draft: "Complete and open these RFQs",
+  Open: "Ready to quote",
+  Committed: "Awaiting reveals",
+  Revealed: "Review quotes",
+  Selected: "Waiting for settlement",
+  Settled: "Completed trades",
+  Expired: "Time expired",
+  Ignored: "Not pursued",
+  Incomplete: "Missing information",
+};
+
+export function getStateSectionGradient(state: RFQState): string {
+  return SECTION_GRADIENTS[state];
+}
+
+export function getStateTitleColor(state: RFQState): string {
+  return STATE_TITLE_COLORS[state];
+}
+
+export function getStateSubtitle(state: RFQState): string {
+  return STATE_SUBTITLES[state];
+}
+
+export interface OwnedHighlight {
+  border: string;
+  badge: string;
+  triangle: string;
+}
+
+// Highlight styling ("MY RFQ" ribbon + border) for RFQs owned by the
+// connected wallet, keyed by state.
+const OWNED_HIGHLIGHTS: Record<RFQState, OwnedHighlight> = {
+  Draft: {
+    border: "border-slate-500/70 shadow-lg shadow-slate-500/25",
+    badge: "bg-gradient-to-r from-slate-500 via-slate-500 to-slate-600 border-slate-400/30",
+    triangle: "border-t-slate-900",
+  },
+  Open: {
+    border: "border-cyan-500/70 shadow-lg shadow-cyan-500/25",
+    badge: "bg-gradient-to-r from-cyan-500 via-cyan-500 to-cyan-600 border-cyan-400/30",
+    triangle: "border-t-cyan-900",
+  },
+  Committed: {
+    border: "border-purple-500/70 shadow-lg shadow-purple-500/25",
+    badge: "bg-gradient-to-r from-purple-500 via-purple-500 to-purple-600 border-purple-400/30",
+    triangle: "border-t-purple-900",
+  },
+  Revealed: {
+    border: "border-indigo-500/70 shadow-lg shadow-indigo-500/25",
+    badge: "bg-gradient-to-r from-indigo-500 via-indigo-500 to-indigo-600 border-indigo-400/30",
+    triangle: "border-t-indigo-900",
+  },
+  Selected: {
+    border: "border-blue-500/70 shadow-lg shadow-blue-500/25",
+    badge: "bg-gradient-to-r from-blue-500 via-blue-500 to-blue-600 border-blue-400/30",
+    triangle: "border-t-blue-900",
+  },
+  Settled: {
+    border: "border-teal-500/70 shadow-lg shadow-teal-500/25",
+    badge: "bg-gradient-to-r from-teal-500 via-teal-500 to-teal-600 border-teal-400/30",
+    triangle: "border-t-teal-900",
+  },
+  Expired: {
+    border: "border-orange-500/70 shadow-lg shadow-orange-500/25",
+    badge: "bg-gradient-to-r from-orange-500 via-orange-500 to-orange-600 border-orange-400/30",
+    triangle: "border-t-orange-900",
+  },
+  Ignored: {
+    border: "border-gray-500/70 shadow-lg shadow-gray-500/25",
+    badge: "bg-gradient-to-r from-gray-500 via-gray-500 to-gray-600 border-gray-400/30",
+    triangle: "border-t-gray-900",
+  },
+  Incomplete: {
+    border: "border-red-500/70 shadow-lg shadow-red-500/25",
+    badge: "bg-gradient-to-r from-red-500 via-red-500 to-red-600 border-red-400/30",
+    triangle: "border-t-red-900",
+  },
+};
+
+export function getOwnedHighlight(state: RFQState): OwnedHighlight {
+  return OWNED_HIGHLIGHTS[state];
+}
+
 export function getCardGradient(status: RFQState): string {
   return CARD_GRADIENTS[status];
 }

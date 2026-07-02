@@ -62,13 +62,18 @@ export function HealthPill() {
     return parts.join(" · ");
   })();
 
+  const stateText =
+    state === "ok" ? "ok" : state === "mismatch" ? "drift" : state === "down" ? "down" : "…";
+
   return (
     <span
+      role="status"
+      aria-label={title}
       title={title}
       className="hidden md:inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider text-white/60"
     >
       <span className={`inline-block h-1.5 w-1.5 rounded-full ${dotClass}`} />
-      lg
+      lg · <span className="text-white/50 normal-case">{stateText}</span>
     </span>
   );
 }
