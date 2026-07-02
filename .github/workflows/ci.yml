@@ -29,3 +29,56 @@ jobs:
 
       - name: Unit tests
         run: npm test
+
+  # Read-only Playwright specs (desktop + mobile projects) against live
+  # devnet — no transactions, no liquidity-guard writes. Runs by default on
+  # every PR/push; bypass with a `[skip-e2e]` commit message (or PR title).
+  # Internal PRs only: fork PRs have no access to the wallet secrets (#33).
+  e2e-readonly:
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: >-
+      !contains(github.event.head_commit.message, '[skip-e2e]') &&
+      !contains(github.event.pull_request.title, '[skip-e2e]') &&
+      (github.event_name == 'push' ||
+       github.event.pull_request.head.repo.full_name == github.repository)
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Write dev wallet keypairs
+        env:
+          MAKER_KEYPAIR: ${{ secrets.DEV_WALLET_MAKER_KEYPAIR }}
+          TAKER1_KEYPAIR: ${{ secrets.DEV_WALLET_TAKER1_KEYPAIR }}
+          TAKER2_KEYPAIR: ${{ secrets.DEV_WALLET_TAKER2_KEYPAIR }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/dev-wallets"
+          printf '%s' "$MAKER_KEYPAIR" > "$RUNNER_TEMP/dev-wallets/maker.json"
+          printf '%s' "$TAKER1_KEYPAIR" > "$RUNNER_TEMP/dev-wallets/taker1.json"
+          printf '%s' "$TAKER2_KEYPAIR" > "$RUNNER_TEMP/dev-wallets/taker2.json"
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run read-only E2E projects
+        run: npx playwright test --project=desktop --project=mobile
+        env:
+          DEV_WALLET_KEYPAIR_DIR: ${{ runner.temp }}/dev-wallets
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-readonly
+          path: playwright-report/
+          retention-days: 14
