@@ -22,6 +22,7 @@ import { toRfqViewModel } from "@/app/lib/rfq-view-model";
 import { findQuoteByPda } from "@/app/lib/quote-lookup";
 import { resolveTokenMeta } from "@/app/lib/tokens";
 import { formatTokenAmount, truncateAddress } from "@/app/lib/format";
+import { useNowSecs } from "@/app/hooks/useNowSecs";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -65,7 +66,7 @@ export function AdaptiveRFQDetail({
   const rfqQuery = useRfqAccount(pda);
   const quotesQuery = useQuoteAccountsForRfq(pda);
   const { publicKey } = useWallet();
-  const nowSecs = Math.floor(Date.now() / 1000);
+  const nowSecs = useNowSecs();
 
   if (rfqQuery.isLoading) {
     return (

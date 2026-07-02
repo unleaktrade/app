@@ -51,6 +51,7 @@ import { Label } from "@/app/components/ui/label";
 import { RFQActionSheet } from "@/app/components/RFQActionSheet";
 import { BondBreakdown } from "@/app/components/BondBreakdown";
 import { cn } from "@/app/components/ui/utils";
+import { useNowSecs } from "@/app/hooks/useNowSecs";
 
 interface RFQActionBarProps {
   rfqPda: PublicKey;
@@ -93,7 +94,7 @@ export function RFQActionBar({
 
   const connected = wallet.publicKey?.toBase58() ?? null;
   // Recompute per render so the countdown-driven guards flip exactly on deadline.
-  const now = Math.floor(Date.now() / 1000);
+  const now = useNowSecs();
 
   const selectedQuoteFacilitator = useMemo(() => {
     const winning = findQuoteByPda(quotes, rfq.selectedQuote?.toBase58() ?? null);
