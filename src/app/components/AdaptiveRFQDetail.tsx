@@ -4,6 +4,7 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { RFQ } from "@/types/rfq";
 import { Button } from "@/app/components/ui/button";
+import { PageShell } from "@/app/components/PageShell";
 import { StatusBadge } from "@/app/components/StatusBadge";
 import { SkeletonList } from "@/app/components/SkeletonList";
 import { ErrorRetry } from "@/app/components/ErrorRetry";
@@ -115,94 +116,83 @@ export function AdaptiveRFQDetail({
   const usdcSymbol = "USDC";
 
   return (
-    <div className="min-h-screen bg-surface-page pb-32 pt-16">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl" />
-        <div className="absolute top-40 right-1/4 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl" />
-      </div>
+    <PageShell variant="detail" orbs="purple" containerClassName="max-w-5xl py-6 sm:py-8">
+      <Button
+        variant="ghost"
+        onClick={onBack}
+        className="mb-6 text-white/60 hover:text-white hover:bg-white/5"
+      >
+        <ArrowLeft className="mr-2 h-4 w-4" />
+        Back
+      </Button>
 
-      <div className="relative mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        <Button
-          variant="ghost"
-          onClick={onBack}
-          className="mb-6 text-white/60 hover:text-white hover:bg-white/5"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
-        </Button>
-
-        {/* Header */}
-        <div className="bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-sm border border-white/10 rounded-xl p-6 mb-6">
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <div className="text-xs text-white/40 font-mono mb-1">RFQ</div>
-              <div className="mb-3">
-                <AddressDisplay address={rfq.publicKey} />
-              </div>
-              <div className="flex items-center gap-3 mb-2">
-                <Coins className="h-5 w-5 text-cyan-400" />
-                <span className="text-2xl font-bold text-white">{rfq.pair}</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-white/40">
-                <span>Maker</span>
-                <AddressDisplay address={account.maker.toBase58()} />
-              </div>
+      {/* Header */}
+      <div className="bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-sm border border-white/10 rounded-xl p-6 mb-6">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <div className="text-xs text-white/40 font-mono mb-1">RFQ</div>
+            <div className="mb-3">
+              <AddressDisplay address={rfq.publicKey} />
             </div>
-            <StatusBadge status={rfq.state} />
+            <div className="flex items-center gap-3 mb-2">
+              <Coins className="h-5 w-5 text-cyan-400" />
+              <span className="text-2xl font-bold text-white">{rfq.pair}</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-white/40">
+              <span>Maker</span>
+              <AddressDisplay address={account.maker.toBase58()} />
+            </div>
           </div>
-
-          <RFQStatePipeline state={rfq.state} className="mb-4" />
-
-          <div className="grid grid-cols-2 gap-6 pt-4 border-t border-white/10 sm:grid-cols-4">
-            <Metric label="Base amount" value={rfq.baseAmount.toLocaleString()} unit={base} />
-            <Metric label="Target quote" value={rfq.minQuoteAmount.toLocaleString()} unit={quote} />
-            <Metric
-              label="Bond per side"
-              value={rfq.bondAmount.toLocaleString()}
-              unit={usdcSymbol}
-            />
-            <Metric
-              label={rfq.expiresIn ? "Expires in" : "Status"}
-              value={rfq.expiresIn ?? rfq.state}
-              unit={rfq.facilitator ? `fac ${truncateAddress(rfq.facilitator)}` : "no facilitator"}
-            />
-          </div>
+          <StatusBadge status={rfq.state} />
         </div>
 
-        {/* State-specific informational panel (role-neutral) */}
-        <StatePanel
-          rfq={rfq}
-          account={account}
-          relation={relation}
-          quoteRows={quoteRows}
-          quoteSymbol={quoteMeta.symbol}
-          quoteDecimals={quoteMeta.decimals}
-          nowSecs={nowSecs}
-          rfqPda={pda}
-        />
+        <RFQStatePipeline state={rfq.state} className="mb-4" />
 
-        {/* The single action bar — legal maker/facilitator CTAs for this state */}
-        <div className="mt-6">
-          <RFQActionBar
-            rfqPda={pda}
-            rfq={account}
-            quotes={quoteRows}
-            config={configQuery.data ?? null}
-            onEdit={() => onEditRFQ?.(rfq)}
-            onCommit={() => onQuoteRFQ?.(rfq)}
-            onClosed={onBack}
+        <div className="grid grid-cols-2 gap-6 pt-4 border-t border-white/10 sm:grid-cols-4">
+          <Metric label="Base amount" value={rfq.baseAmount.toLocaleString()} unit={base} />
+          <Metric label="Target quote" value={rfq.minQuoteAmount.toLocaleString()} unit={quote} />
+          <Metric label="Bond per side" value={rfq.bondAmount.toLocaleString()} unit={usdcSymbol} />
+          <Metric
+            label={rfq.expiresIn ? "Expires in" : "Status"}
+            value={rfq.expiresIn ?? rfq.state}
+            unit={rfq.facilitator ? `fac ${truncateAddress(rfq.facilitator)}` : "no facilitator"}
           />
         </div>
       </div>
-    </div>
+
+      {/* State-specific informational panel (role-neutral) */}
+      <StatePanel
+        rfq={rfq}
+        account={account}
+        relation={relation}
+        quoteRows={quoteRows}
+        quoteSymbol={quoteMeta.symbol}
+        quoteDecimals={quoteMeta.decimals}
+        nowSecs={nowSecs}
+        rfqPda={pda}
+      />
+
+      {/* The single action bar — legal maker/facilitator CTAs for this state */}
+      <div className="mt-6">
+        <RFQActionBar
+          rfqPda={pda}
+          rfq={account}
+          quotes={quoteRows}
+          config={configQuery.data ?? null}
+          onEdit={() => onEditRFQ?.(rfq)}
+          onCommit={() => onQuoteRFQ?.(rfq)}
+          onClosed={onBack}
+        />
+      </div>
+    </PageShell>
   );
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-surface-page pb-32 pt-16">
-      <div className="relative mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">{children}</div>
-    </div>
+    <PageShell variant="detail" orbs="purple" containerClassName="max-w-5xl py-6 sm:py-8">
+      {children}
+    </PageShell>
   );
 }
 

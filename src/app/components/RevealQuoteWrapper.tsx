@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router";
 import { PublicKey } from "@solana/web3.js";
 import { useQuoteAccount } from "@/chain/accounts/quote";
 import { useRfqAccount } from "@/chain/accounts/rfq";
+import { PageShell } from "@/app/components/PageShell";
 import { SkeletonList } from "@/app/components/SkeletonList";
 import { ErrorRetry } from "@/app/components/ErrorRetry";
 import { RevealQuote } from "@/app/components/RevealQuote";
@@ -75,8 +76,8 @@ export function RevealQuoteWrapper() {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-surface-page pb-32 pt-16">
-      <div className="relative mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">{children}</div>
-    </div>
+    <PageShell variant="detail" orbs={false} containerClassName="max-w-3xl py-6 sm:py-8">
+      {children}
+    </PageShell>
   );
 }

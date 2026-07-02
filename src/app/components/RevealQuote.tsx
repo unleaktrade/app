@@ -23,6 +23,7 @@ import { buildRevealQuoteTx } from "@/chain/instructions/taker";
 import { submitRfqTx } from "@/chain/instructions/shared";
 import { resolveTokenMeta } from "@/app/lib/tokens";
 import { hexToBytes, bytesToHex, loadTicket, parseTicket } from "@/app/lib/reveal-ticket";
+import { PageShell } from "@/app/components/PageShell";
 import { TokenAmountInput } from "@/app/components/TokenAmountInput";
 import { DeadlineRing } from "@/app/components/DeadlineRing";
 import { AddressDisplay } from "@/app/components/AddressDisplay";
@@ -165,114 +166,112 @@ export function RevealQuote({ quote, rfqPda, rfq, onDone, onBack }: RevealQuoteP
   const revealBy = revealDeadline(rfq);
 
   return (
-    <div className="min-h-screen bg-surface-page pb-32 pt-16">
-      <div className="relative mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        <Button
-          variant="ghost"
-          onClick={onBack}
-          className="mb-6 text-white/60 hover:bg-white/5 hover:text-white"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
-        </Button>
+    <PageShell variant="detail" orbs={false} containerClassName="max-w-3xl py-6 sm:py-8">
+      <Button
+        variant="ghost"
+        onClick={onBack}
+        className="mb-6 text-white/60 hover:bg-white/5 hover:text-white"
+      >
+        <ArrowLeft className="mr-2 h-4 w-4" />
+        Back
+      </Button>
 
-        <div className="rounded-xl border border-white/10 bg-gradient-to-br from-white/5 to-white/[0.02] p-6">
-          <div className="mb-4 flex items-start justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-white">Reveal your quote</h1>
-              <p className="text-white/60">
-                You committed a sealed {quoteMeta.symbol} quote on{" "}
-                <AddressDisplay address={rfqPda.toBase58()} /> — disclose the amount before the
-                reveal deadline or it can't be considered and your bond is forfeited.
-              </p>
-            </div>
-            {revealBy !== null && (
-              <DeadlineRing deadlineSec={revealBy} totalSec={rfq.revealTtlSecs} />
-            )}
+      <div className="rounded-xl border border-white/10 bg-gradient-to-br from-white/5 to-white/[0.02] p-6">
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-white">Reveal your quote</h1>
+            <p className="text-white/60">
+              You committed a sealed {quoteMeta.symbol} quote on{" "}
+              <AddressDisplay address={rfqPda.toBase58()} /> — disclose the amount before the reveal
+              deadline or it can't be considered and your bond is forfeited.
+            </p>
           </div>
-
-          {!isOwner ? (
-            <Note tone="red">This quote belongs to another wallet — you can't reveal it.</Note>
-          ) : (
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-sm text-white/80">Quote amount ({quoteMeta.symbol})</label>
-                <TokenAmountInput
-                  mint={rfq.quoteMint.toBase58()}
-                  value={amount}
-                  onChange={setAmount}
-                />
-              </div>
-
-              {/* Recovery controls */}
-              <div className="flex flex-wrap gap-3">
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="application/json"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) void importTicket(f);
-                    e.target.value = "";
-                  }}
-                />
-                <Button
-                  variant="outline"
-                  onClick={() => fileRef.current?.click()}
-                  className="border-white/20 bg-white/5 text-white hover:bg-white/10"
-                >
-                  <Upload className="mr-2 h-4 w-4" />
-                  Import reveal ticket
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => void resign()}
-                  className="border-white/20 bg-white/5 text-white hover:bg-white/10"
-                >
-                  <PenLine className="mr-2 h-4 w-4" />
-                  Re-derive salt
-                </Button>
-              </div>
-
-              {/* Commit-hash diff */}
-              <div className="space-y-2 rounded-lg border border-white/10 bg-black/20 p-4">
-                <div className="text-xs uppercase tracking-wider text-white/40">Commit hash</div>
-                <HashRow label="On-chain" hex={onchainHashHex} />
-                <HashRow label="Derived" hex={localHashHex ?? "—"} />
-                {localHashHex !== null &&
-                  (matches ? (
-                    <div className="flex items-center gap-2 text-sm text-green-400">
-                      <CheckCircle2 className="h-4 w-4" /> Match — safe to reveal
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 text-sm text-red-400">
-                      <XCircle className="h-4 w-4" /> Mismatch — wrong salt or amount
-                    </div>
-                  ))}
-              </div>
-
-              {!inWindow && (
-                <Note tone="amber">
-                  The reveal window isn't open right now (it opens after commits close and ends at
-                  the reveal deadline). If the deadline has already passed, this quote can no longer
-                  be revealed and its bond is forfeited.
-                </Note>
-              )}
-
-              <Button
-                onClick={() => void reveal()}
-                disabled={busy || !matches || !inWindow || salt === null || amount === null}
-                className="w-full bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600 disabled:opacity-50"
-              >
-                {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Reveal quote
-              </Button>
-            </div>
+          {revealBy !== null && (
+            <DeadlineRing deadlineSec={revealBy} totalSec={rfq.revealTtlSecs} />
           )}
         </div>
+
+        {!isOwner ? (
+          <Note tone="red">This quote belongs to another wallet — you can't reveal it.</Note>
+        ) : (
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-sm text-white/80">Quote amount ({quoteMeta.symbol})</label>
+              <TokenAmountInput
+                mint={rfq.quoteMint.toBase58()}
+                value={amount}
+                onChange={setAmount}
+              />
+            </div>
+
+            {/* Recovery controls */}
+            <div className="flex flex-wrap gap-3">
+              <input
+                ref={fileRef}
+                type="file"
+                accept="application/json"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void importTicket(f);
+                  e.target.value = "";
+                }}
+              />
+              <Button
+                variant="outline"
+                onClick={() => fileRef.current?.click()}
+                className="border-white/20 bg-white/5 text-white hover:bg-white/10"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                Import reveal ticket
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => void resign()}
+                className="border-white/20 bg-white/5 text-white hover:bg-white/10"
+              >
+                <PenLine className="mr-2 h-4 w-4" />
+                Re-derive salt
+              </Button>
+            </div>
+
+            {/* Commit-hash diff */}
+            <div className="space-y-2 rounded-lg border border-white/10 bg-black/20 p-4">
+              <div className="text-xs uppercase tracking-wider text-white/40">Commit hash</div>
+              <HashRow label="On-chain" hex={onchainHashHex} />
+              <HashRow label="Derived" hex={localHashHex ?? "—"} />
+              {localHashHex !== null &&
+                (matches ? (
+                  <div className="flex items-center gap-2 text-sm text-green-400">
+                    <CheckCircle2 className="h-4 w-4" /> Match — safe to reveal
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-sm text-red-400">
+                    <XCircle className="h-4 w-4" /> Mismatch — wrong salt or amount
+                  </div>
+                ))}
+            </div>
+
+            {!inWindow && (
+              <Note tone="amber">
+                The reveal window isn't open right now (it opens after commits close and ends at the
+                reveal deadline). If the deadline has already passed, this quote can no longer be
+                revealed and its bond is forfeited.
+              </Note>
+            )}
+
+            <Button
+              onClick={() => void reveal()}
+              disabled={busy || !matches || !inWindow || salt === null || amount === null}
+              className="w-full bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600 disabled:opacity-50"
+            >
+              {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Reveal quote
+            </Button>
+          </div>
+        )}
       </div>
-    </div>
+    </PageShell>
   );
 }
 

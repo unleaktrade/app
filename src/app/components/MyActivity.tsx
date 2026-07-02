@@ -22,6 +22,7 @@ import {
 } from "@/app/lib/rfq-view-model";
 import { resolveTokenMeta } from "@/app/lib/tokens";
 import { Button } from "@/app/components/ui/button";
+import { PageShell } from "@/app/components/PageShell";
 import { StatusBadge } from "@/app/components/StatusBadge";
 import { SkeletonList } from "@/app/components/SkeletonList";
 import { ErrorRetry } from "@/app/components/ErrorRetry";
@@ -335,177 +336,159 @@ export function MyActivity() {
 
   if (isLoading || isError) {
     return (
-      <div className="min-h-screen bg-surface-page pt-20 lg:pt-24 pb-16 sm:pb-32">
-        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6 sm:mb-8"
-          >
-            <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">My Activity</h1>
-          </motion.div>
-          {isError ? (
-            <ErrorRetry
-              message="Couldn't load your activity from the chain."
-              onRetry={refetchAll}
-            />
-          ) : (
-            <SkeletonList count={4} />
-          )}
-        </div>
-      </div>
+      <PageShell orbs={false}>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6 sm:mb-8"
+        >
+          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">My Activity</h1>
+        </motion.div>
+        {isError ? (
+          <ErrorRetry message="Couldn't load your activity from the chain." onRetry={refetchAll} />
+        ) : (
+          <SkeletonList count={4} />
+        )}
+      </PageShell>
     );
   }
 
   if (!hasAnyActivity) {
     return (
-      <div className="min-h-screen bg-surface-page pt-20 lg:pt-24 pb-16 sm:pb-32">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-20 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl" />
-          <div className="absolute top-60 right-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl" />
-        </div>
-        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6 sm:mb-8"
-          >
-            <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">My Activity</h1>
-          </motion.div>
-          <EmptyState onCreateRFQ={() => setIsCreateModalOpen(true)} />
-        </div>
-      </div>
+      <PageShell>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6 sm:mb-8"
+        >
+          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">My Activity</h1>
+        </motion.div>
+        <EmptyState onCreateRFQ={() => setIsCreateModalOpen(true)} />
+      </PageShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-surface-page pt-20 lg:pt-24 pb-16 sm:pb-32">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl" />
-        <div className="absolute top-60 right-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl" />
-      </div>
+    <PageShell>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-4 sm:mb-6"
+      >
+        <h1 className="text-3xl sm:text-4xl font-bold text-white mb-1">My Activity</h1>
+        <p className="text-sm sm:text-base text-white/60">
+          Your cockpit — what needs your attention, and everything you've done.
+        </p>
+      </motion.div>
 
-      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-4 sm:mb-6"
+      <PinnedSummary
+        unclaimedCount={claimableRFQs.length}
+        activeRFQs={activeRFQs.length}
+        activeQuotes={activeQuotes.length}
+        settled={settledRFQs.length}
+        claiming={busyId !== null && claimableRFQs.some((r) => r.publicKey === busyId)}
+        onClaim={() => {
+          const first = claimableRFQs[0];
+          if (first) void claimReward(first);
+          else scrollToRewards();
+        }}
+      />
+
+      {attention.length > 0 && <AttentionRibbon items={attention} />}
+
+      <div className="space-y-4 sm:space-y-6 mt-6 sm:mt-8">
+        <CollapsibleSection
+          id="rfqs-section"
+          title="RFQs I posted"
+          count={myRFQs.length}
+          needsAttentionCount={rfqsNeedAction}
+          icon={FileText}
+          defaultOpen={rfqsNeedAction > 0}
+          action={
+            <Button
+              onClick={() => setIsCreateModalOpen(true)}
+              size="sm"
+              className="bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 hover:from-purple-600 hover:via-purple-700 hover:to-purple-800 text-white shadow-lg shadow-purple-500/30"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              New RFQ
+            </Button>
+          }
         >
-          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-1">My Activity</h1>
-          <p className="text-sm sm:text-base text-white/60">
-            Your cockpit — what needs your attention, and everything you've done.
-          </p>
-        </motion.div>
+          <HorizontalStrip>
+            {myRFQs.map((rfq) => (
+              <PostedRFQCard
+                key={rfq.publicKey}
+                rfq={rfq}
+                busy={busyId === rfq.publicKey}
+                onView={() => viewRFQ(rfq.publicKey)}
+                onEdit={rfq.state === "Draft" ? () => editRFQ(rfq) : undefined}
+                onOpen={rfq.state === "Draft" ? () => void openDraft(rfq) : undefined}
+              />
+            ))}
+          </HorizontalStrip>
+        </CollapsibleSection>
 
-        <PinnedSummary
-          unclaimedCount={claimableRFQs.length}
-          activeRFQs={activeRFQs.length}
-          activeQuotes={activeQuotes.length}
-          settled={settledRFQs.length}
-          claiming={busyId !== null && claimableRFQs.some((r) => r.publicKey === busyId)}
-          onClaim={() => {
-            const first = claimableRFQs[0];
-            if (first) void claimReward(first);
-            else scrollToRewards();
-          }}
-        />
-
-        {attention.length > 0 && <AttentionRibbon items={attention} />}
-
-        <div className="space-y-4 sm:space-y-6 mt-6 sm:mt-8">
+        {myQuotes.length > 0 && (
           <CollapsibleSection
-            id="rfqs-section"
-            title="RFQs I posted"
-            count={myRFQs.length}
-            needsAttentionCount={rfqsNeedAction}
-            icon={FileText}
-            defaultOpen={rfqsNeedAction > 0}
-            action={
-              <Button
-                onClick={() => setIsCreateModalOpen(true)}
-                size="sm"
-                className="bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 hover:from-purple-600 hover:via-purple-700 hover:to-purple-800 text-white shadow-lg shadow-purple-500/30"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                New RFQ
-              </Button>
-            }
+            id="quotes-section"
+            title="Quotes I submitted"
+            count={myQuotes.length}
+            needsAttentionCount={quotesNeedAction}
+            icon={MousePointerClick}
+            defaultOpen={quotesNeedAction > 0}
           >
             <HorizontalStrip>
-              {myRFQs.map((rfq) => (
-                <PostedRFQCard
-                  key={rfq.publicKey}
-                  rfq={rfq}
-                  busy={busyId === rfq.publicKey}
-                  onView={() => viewRFQ(rfq.publicKey)}
-                  onEdit={rfq.state === "Draft" ? () => editRFQ(rfq) : undefined}
-                  onOpen={rfq.state === "Draft" ? () => void openDraft(rfq) : undefined}
-                />
-              ))}
+              {myQuotes.map((quote) => {
+                const parent = rfqByKey.get(quote.rfq);
+                const canReveal = parent?.state === "Committed" && !quote.revealedAt;
+                const canSettle = quote.selected && parent?.state === "Selected";
+                return (
+                  <SubmittedQuoteCard
+                    key={quote.publicKey}
+                    quote={quote}
+                    rfq={parent}
+                    onView={() => viewRFQ(quote.rfq)}
+                    onReveal={
+                      canReveal
+                        ? () => navigate(`/dashboard/quote/${quote.publicKey}/reveal`)
+                        : undefined
+                    }
+                    onSettle={
+                      canSettle
+                        ? () => navigate(`/dashboard/quote/${quote.publicKey}/settle`)
+                        : undefined
+                    }
+                  />
+                );
+              })}
             </HorizontalStrip>
           </CollapsibleSection>
+        )}
 
-          {myQuotes.length > 0 && (
-            <CollapsibleSection
-              id="quotes-section"
-              title="Quotes I submitted"
-              count={myQuotes.length}
-              needsAttentionCount={quotesNeedAction}
-              icon={MousePointerClick}
-              defaultOpen={quotesNeedAction > 0}
-            >
-              <HorizontalStrip>
-                {myQuotes.map((quote) => {
-                  const parent = rfqByKey.get(quote.rfq);
-                  const canReveal = parent?.state === "Committed" && !quote.revealedAt;
-                  const canSettle = quote.selected && parent?.state === "Selected";
-                  return (
-                    <SubmittedQuoteCard
-                      key={quote.publicKey}
-                      quote={quote}
-                      rfq={parent}
-                      onView={() => viewRFQ(quote.rfq)}
-                      onReveal={
-                        canReveal
-                          ? () => navigate(`/dashboard/quote/${quote.publicKey}/reveal`)
-                          : undefined
-                      }
-                      onSettle={
-                        canSettle
-                          ? () => navigate(`/dashboard/quote/${quote.publicKey}/settle`)
-                          : undefined
-                      }
-                    />
-                  );
-                })}
-              </HorizontalStrip>
-            </CollapsibleSection>
-          )}
-
-          {myRewards.length > 0 && (
-            <CollapsibleSection
-              id="rewards-section"
-              title="Rewards history"
-              count={myRewards.length}
-              needsAttentionCount={0}
-              icon={HandCoins}
-              defaultOpen={false}
-            >
-              <div className="space-y-3">
-                {myRewards.map((reward) => (
-                  <RewardRow
-                    key={reward.publicKey}
-                    reward={reward}
-                    rfq={rfqByKey.get(reward.rfq)}
-                    onView={() => viewRFQ(reward.rfq)}
-                  />
-                ))}
-              </div>
-            </CollapsibleSection>
-          )}
-        </div>
+        {myRewards.length > 0 && (
+          <CollapsibleSection
+            id="rewards-section"
+            title="Rewards history"
+            count={myRewards.length}
+            needsAttentionCount={0}
+            icon={HandCoins}
+            defaultOpen={false}
+          >
+            <div className="space-y-3">
+              {myRewards.map((reward) => (
+                <RewardRow
+                  key={reward.publicKey}
+                  reward={reward}
+                  rfq={rfqByKey.get(reward.rfq)}
+                  onView={() => viewRFQ(reward.rfq)}
+                />
+              ))}
+            </div>
+          </CollapsibleSection>
+        )}
       </div>
-    </div>
+    </PageShell>
   );
 }
 
@@ -527,7 +510,7 @@ function PinnedSummary({
   onClaim,
 }: PinnedSummaryProps) {
   return (
-    <div className="sticky top-16 z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 bg-surface-page/80 backdrop-blur-xl border-y border-white/10 py-3 sm:py-4 mb-4">
+    <div className="sticky top-(--nav-h) z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 bg-surface-page/80 backdrop-blur-xl border-y border-white/10 py-3 sm:py-4 mb-4">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 items-stretch">
         <RewardsTile count={unclaimedCount} claiming={claiming} onClaim={onClaim} />
         <StatTile label="Active RFQs" value={activeRFQs} tone="cyan" />

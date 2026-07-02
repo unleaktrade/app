@@ -19,6 +19,7 @@ import { buildCompleteSettlementTx } from "@/chain/instructions/taker";
 import { submitRfqTx } from "@/chain/instructions/shared";
 import { resolveTokenMeta } from "@/app/lib/tokens";
 import { formatTokenAmount } from "@/app/lib/format";
+import { PageShell } from "@/app/components/PageShell";
 import { BondBreakdown } from "@/app/components/BondBreakdown";
 import { DeadlineRing } from "@/app/components/DeadlineRing";
 import { AddressDisplay } from "@/app/components/AddressDisplay";
@@ -239,19 +240,17 @@ export function SettleQuote({
 
 function Shell({ children, onBack }: { children: React.ReactNode; onBack: () => void }) {
   return (
-    <div className="min-h-screen bg-surface-page pb-32 pt-16">
-      <div className="relative mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        <Button
-          variant="ghost"
-          onClick={onBack}
-          className="mb-6 text-white/60 hover:bg-white/5 hover:text-white"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
-        </Button>
-        {children}
-      </div>
-    </div>
+    <PageShell variant="detail" orbs={false} containerClassName="max-w-3xl py-6 sm:py-8">
+      <Button
+        variant="ghost"
+        onClick={onBack}
+        className="mb-6 text-white/60 hover:bg-white/5 hover:text-white"
+      >
+        <ArrowLeft className="mr-2 h-4 w-4" />
+        Back
+      </Button>
+      {children}
+    </PageShell>
   );
 }
 

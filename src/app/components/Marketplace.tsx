@@ -4,7 +4,15 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import type { RFQ } from "@/types/rfq";
 import { useRfqAccounts } from "@/chain/accounts/lists";
 import { toRfqViewModel } from "@/app/lib/rfq-view-model";
-import { getCardGradient, getCardBorder } from "@/app/lib/rfq-visuals";
+import {
+  getCardGradient,
+  getCardBorder,
+  getStateSectionGradient,
+  getStateTitleColor,
+  getStateSubtitle,
+  getOwnedHighlight,
+} from "@/app/lib/rfq-visuals";
+import { PageShell } from "@/app/components/PageShell";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { StatusBadge } from "@/app/components/StatusBadge";
@@ -157,82 +165,6 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
     Incomplete: sortByOwnership(sortedRFQs.filter((r) => r.state === "Incomplete")),
   };
 
-  // State background gradients
-  const getStateBgGradient = (state: string) => {
-    switch (state) {
-      case "Draft":
-        return "from-slate-500/10 to-slate-600/5";
-      case "Open":
-        return "from-cyan-500/10 to-cyan-600/5";
-      case "Committed":
-        return "from-purple-500/10 to-purple-600/5";
-      case "Revealed":
-        return "from-indigo-500/10 to-indigo-600/5";
-      case "Selected":
-        return "from-blue-500/10 to-blue-600/5";
-      case "Settled":
-        return "from-teal-500/10 to-teal-600/5";
-      case "Expired":
-        return "from-orange-500/10 to-orange-600/5";
-      case "Ignored":
-        return "from-gray-500/10 to-gray-600/5";
-      case "Incomplete":
-        return "from-red-500/10 to-red-600/5";
-      default:
-        return "from-white/5 to-white/2";
-    }
-  };
-
-  const getStateTitleColor = (state: string) => {
-    switch (state) {
-      case "Draft":
-        return "text-slate-400";
-      case "Open":
-        return "text-cyan-400";
-      case "Committed":
-        return "text-purple-400";
-      case "Revealed":
-        return "text-indigo-400";
-      case "Selected":
-        return "text-blue-400";
-      case "Settled":
-        return "text-teal-400";
-      case "Expired":
-        return "text-orange-400";
-      case "Ignored":
-        return "text-gray-400";
-      case "Incomplete":
-        return "text-red-400";
-      default:
-        return "text-white";
-    }
-  };
-
-  const getStateSubtitle = (state: string) => {
-    switch (state) {
-      case "Draft":
-        return "Complete and open these RFQs";
-      case "Open":
-        return "Ready to quote";
-      case "Committed":
-        return "Awaiting reveals";
-      case "Revealed":
-        return "Review quotes";
-      case "Selected":
-        return "Waiting for settlement";
-      case "Settled":
-        return "Completed trades";
-      case "Expired":
-        return "Time expired";
-      case "Ignored":
-        return "Not pursued";
-      case "Incomplete":
-        return "Missing information";
-      default:
-        return "";
-    }
-  };
-
   // Stats
   const openCount = allRFQs.filter((r) => r.state === "Open" && r.maker !== currentUser).length;
   const committedCount = allRFQs.filter(
@@ -243,339 +175,329 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
     .reduce((sum, rfq) => sum + rfq.baseAmount, 0);
 
   return (
-    <div className="min-h-screen bg-surface-page pt-20 lg:pt-24 pb-16 sm:pb-32">
-      {/* Background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl" />
-        <div className="absolute top-60 right-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl" />
+    <PageShell>
+      {/* Hero Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-6 sm:mb-8"
+      >
+        <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">RFQ Marketplace</h1>
+        <p className="text-base sm:text-lg text-white/60">{sortedRFQs.length} RFQs available</p>
+      </motion.div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+        <StatCard
+          label="Open RFQs"
+          value={openCount.toString()}
+          subtext="Ready to quote"
+          icon={Activity}
+          gradient="from-green-500 to-emerald-500"
+        />
+        <StatCard
+          label="Committed"
+          value={committedCount.toString()}
+          subtext="Awaiting reveals"
+          icon={Clock}
+          gradient="from-blue-500 to-cyan-500"
+        />
+        <StatCard
+          label="24h Volume"
+          value={`${(totalVolume / 1000000).toFixed(1)}M`}
+          subtext="Total traded"
+          icon={TrendingUp}
+          gradient="from-cyan-500 to-blue-500"
+        />
+        <StatCard
+          label="Avg Bond"
+          value="4.2K"
+          subtext="USDC required"
+          icon={Shield}
+          gradient="from-purple-500 to-indigo-500"
+        />
       </div>
 
-      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        {/* Hero Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6 sm:mb-8"
-        >
-          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">RFQ Marketplace</h1>
-          <p className="text-base sm:text-lg text-white/60">{sortedRFQs.length} RFQs available</p>
-        </motion.div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
-          <StatCard
-            label="Open RFQs"
-            value={openCount.toString()}
-            subtext="Ready to quote"
-            icon={Activity}
-            gradient="from-green-500 to-emerald-500"
-          />
-          <StatCard
-            label="Committed"
-            value={committedCount.toString()}
-            subtext="Awaiting reveals"
-            icon={Clock}
-            gradient="from-blue-500 to-cyan-500"
-          />
-          <StatCard
-            label="24h Volume"
-            value={`${(totalVolume / 1000000).toFixed(1)}M`}
-            subtext="Total traded"
-            icon={TrendingUp}
-            gradient="from-cyan-500 to-blue-500"
-          />
-          <StatCard
-            label="Avg Bond"
-            value="4.2K"
-            subtext="USDC required"
-            icon={Shield}
-            gradient="from-purple-500 to-indigo-500"
-          />
+      {/* Analytics Section */}
+      <div className="grid lg:grid-cols-[320px_1fr] gap-4 sm:gap-6 mb-6 sm:mb-8">
+        {/* Liquidity by Token - Compact */}
+        <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 sm:p-5">
+          <h3 className="text-base font-semibold text-white mb-4">Liquidity by Token</h3>
+          <LiquidityChart />
         </div>
 
-        {/* Analytics Section */}
-        <div className="grid lg:grid-cols-[320px_1fr] gap-4 sm:gap-6 mb-6 sm:mb-8">
-          {/* Liquidity by Token - Compact */}
-          <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 sm:p-5">
-            <h3 className="text-base font-semibold text-white mb-4">Liquidity by Token</h3>
-            <LiquidityChart />
+        {/* Market Overview - Wider */}
+        <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 sm:p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-semibold text-white">Market Overview</h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-cyan-400 hover:text-cyan-300 hover:bg-white/5 text-xs font-semibold"
+            >
+              Browse All <ArrowRight className="ml-1 h-3 w-3" />
+            </Button>
           </div>
-
-          {/* Market Overview - Wider */}
-          <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 sm:p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-white">Market Overview</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-cyan-400 hover:text-cyan-300 hover:bg-white/5 text-xs font-semibold"
-              >
-                Browse All <ArrowRight className="ml-1 h-3 w-3" />
-              </Button>
-            </div>
-            <MarketOverview />
-          </div>
+          <MarketOverview />
         </div>
+      </div>
 
-        {/* Main RFQ Container - Everything in ONE CARD */}
-        <div className="bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-sm border border-white/10 rounded-2xl p-4 sm:p-6">
-          {/* Search Bar + All States Dropdown + Grid/List Toggle */}
-          <div className="flex flex-col lg:flex-row gap-3 mb-6 items-stretch">
-            {/* Search */}
-            <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/40" />
-              <Input
-                placeholder="Search by ID, pair, or owner..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-12 h-12 bg-white/5 border-white/10 text-white placeholder:text-white/40 text-base rounded-xl"
-              />
-            </div>
-
-            {/* All States Dropdown */}
-            <div className="relative flex-shrink-0">
-              <select
-                value={stateFilter}
-                onChange={(e) => setStateFilter(e.target.value as typeof stateFilter)}
-                className="w-full lg:w-auto h-12 appearance-none bg-white/5 border border-white/10 text-white rounded-xl px-4 pr-10 text-sm cursor-pointer hover:bg-white/10 transition-colors font-semibold"
-              >
-                <option value="all">All States</option>
-                <option value="draft">Draft</option>
-                <option value="open">Open</option>
-                <option value="committed">Committed</option>
-                <option value="revealed">Revealed</option>
-                <option value="selected">Selected</option>
-                <option value="settled">Settled</option>
-                <option value="expired">Expired</option>
-                <option value="ignored">Ignored</option>
-                <option value="incomplete">Incomplete</option>
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40 pointer-events-none" />
-            </div>
-
-            {/* View Mode Toggle */}
-            <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-lg p-1 flex-shrink-0">
-              <Button
-                onClick={() => setViewMode("horizontal")}
-                variant="ghost"
-                size="sm"
-                className={`p-2.5 ${
-                  viewMode === "horizontal"
-                    ? "bg-white/20 text-white"
-                    : "text-white/40 hover:text-white hover:bg-white/10"
-                }`}
-              >
-                <Rows3 className="h-4 w-4" />
-              </Button>
-              <Button
-                onClick={() => setViewMode("card")}
-                variant="ghost"
-                size="sm"
-                className={`p-2.5 ${
-                  viewMode === "card"
-                    ? "bg-white/20 text-white"
-                    : "text-white/40 hover:text-white hover:bg-white/10"
-                }`}
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-              <Button
-                onClick={() => setViewMode("list")}
-                variant="ghost"
-                size="sm"
-                className={`p-2.5 ${
-                  viewMode === "list"
-                    ? "bg-white/20 text-white"
-                    : "text-white/40 hover:text-white hover:bg-white/10"
-                }`}
-              >
-                <List className="h-4 w-4" />
-              </Button>
-              <Button
-                onClick={() => setViewMode("swimlane")}
-                variant="ghost"
-                size="sm"
-                className={`p-2.5 ${
-                  viewMode === "swimlane"
-                    ? "bg-white/20 text-white"
-                    : "text-white/40 hover:text-white hover:bg-white/10"
-                }`}
-              >
-                <Columns3 className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Results Count */}
-          <div className="mb-4">
-            <p className="text-sm text-white/50">
-              Showing {sortedRFQs.length} RFQ{sortedRFQs.length !== 1 ? "s" : ""}
-            </p>
-          </div>
-
-          {/* RFQ Grid */}
-          {isLoading ? (
-            <SkeletonList count={6} />
-          ) : isError ? (
-            <ErrorRetry
-              message="Couldn't load RFQs from the chain."
-              onRetry={() => void refetch()}
-              retrying={isFetching}
+      {/* Main RFQ Container - Everything in ONE CARD */}
+      <div className="bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-sm border border-white/10 rounded-2xl p-4 sm:p-6">
+        {/* Search Bar + All States Dropdown + Grid/List Toggle */}
+        <div className="flex flex-col lg:flex-row gap-3 mb-6 items-stretch">
+          {/* Search */}
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/40" />
+            <Input
+              placeholder="Search by ID, pair, or owner..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-12 h-12 bg-white/5 border-white/10 text-white placeholder:text-white/40 text-base rounded-xl"
             />
-          ) : sortedRFQs.length > 0 ? (
-            viewMode === "card" ? (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {sortedRFQs.map((rfq) => (
-                  <RFQMarketplaceCard
-                    key={rfq.publicKey}
-                    rfq={rfq}
-                    currentUser={currentUser}
-                    onQuote={() => onQuoteRFQ(rfq)}
-                    onView={() => onViewRFQ(rfq.publicKey)}
-                    onEdit={onEditRFQ ? () => onEditRFQ(rfq) : undefined}
-                  />
-                ))}
-              </div>
-            ) : viewMode === "list" ? (
-              <div className="space-y-3">
-                {sortedRFQs.map((rfq) => (
-                  <RFQMarketplaceListItem
-                    key={rfq.publicKey}
-                    rfq={rfq}
-                    currentUser={currentUser}
-                    onQuote={() => onQuoteRFQ(rfq)}
-                    onView={() => onViewRFQ(rfq.publicKey)}
-                    onEdit={onEditRFQ ? () => onEditRFQ(rfq) : undefined}
-                  />
-                ))}
-              </div>
-            ) : viewMode === "horizontal" ? (
-              <div className="space-y-6">
+          </div>
+
+          {/* All States Dropdown */}
+          <div className="relative flex-shrink-0">
+            <select
+              value={stateFilter}
+              onChange={(e) => setStateFilter(e.target.value as typeof stateFilter)}
+              className="w-full lg:w-auto h-12 appearance-none bg-white/5 border border-white/10 text-white rounded-xl px-4 pr-10 text-sm cursor-pointer hover:bg-white/10 transition-colors font-semibold"
+            >
+              <option value="all">All States</option>
+              <option value="draft">Draft</option>
+              <option value="open">Open</option>
+              <option value="committed">Committed</option>
+              <option value="revealed">Revealed</option>
+              <option value="selected">Selected</option>
+              <option value="settled">Settled</option>
+              <option value="expired">Expired</option>
+              <option value="ignored">Ignored</option>
+              <option value="incomplete">Incomplete</option>
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40 pointer-events-none" />
+          </div>
+
+          {/* View Mode Toggle */}
+          <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-lg p-1 flex-shrink-0">
+            <Button
+              onClick={() => setViewMode("horizontal")}
+              variant="ghost"
+              size="sm"
+              className={`p-2.5 ${
+                viewMode === "horizontal"
+                  ? "bg-white/20 text-white"
+                  : "text-white/40 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <Rows3 className="h-4 w-4" />
+            </Button>
+            <Button
+              onClick={() => setViewMode("card")}
+              variant="ghost"
+              size="sm"
+              className={`p-2.5 ${
+                viewMode === "card"
+                  ? "bg-white/20 text-white"
+                  : "text-white/40 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button
+              onClick={() => setViewMode("list")}
+              variant="ghost"
+              size="sm"
+              className={`p-2.5 ${
+                viewMode === "list"
+                  ? "bg-white/20 text-white"
+                  : "text-white/40 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+            <Button
+              onClick={() => setViewMode("swimlane")}
+              variant="ghost"
+              size="sm"
+              className={`p-2.5 ${
+                viewMode === "swimlane"
+                  ? "bg-white/20 text-white"
+                  : "text-white/40 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <Columns3 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Results Count */}
+        <div className="mb-4">
+          <p className="text-sm text-white/50">
+            Showing {sortedRFQs.length} RFQ{sortedRFQs.length !== 1 ? "s" : ""}
+          </p>
+        </div>
+
+        {/* RFQ Grid */}
+        {isLoading ? (
+          <SkeletonList count={6} />
+        ) : isError ? (
+          <ErrorRetry
+            message="Couldn't load RFQs from the chain."
+            onRetry={() => void refetch()}
+            retrying={isFetching}
+          />
+        ) : sortedRFQs.length > 0 ? (
+          viewMode === "card" ? (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {sortedRFQs.map((rfq) => (
+                <RFQMarketplaceCard
+                  key={rfq.publicKey}
+                  rfq={rfq}
+                  currentUser={currentUser}
+                  onQuote={() => onQuoteRFQ(rfq)}
+                  onView={() => onViewRFQ(rfq.publicKey)}
+                  onEdit={onEditRFQ ? () => onEditRFQ(rfq) : undefined}
+                />
+              ))}
+            </div>
+          ) : viewMode === "list" ? (
+            <div className="space-y-3">
+              {sortedRFQs.map((rfq) => (
+                <RFQMarketplaceListItem
+                  key={rfq.publicKey}
+                  rfq={rfq}
+                  currentUser={currentUser}
+                  onQuote={() => onQuoteRFQ(rfq)}
+                  onView={() => onViewRFQ(rfq.publicKey)}
+                  onEdit={onEditRFQ ? () => onEditRFQ(rfq) : undefined}
+                />
+              ))}
+            </div>
+          ) : viewMode === "horizontal" ? (
+            <div className="space-y-6">
+              {allStates.map((state) => {
+                const stateRFQs = rfqsByState[state];
+                const stateCount = stateRFQs.length;
+
+                // Skip empty states in horizontal view
+                if (stateCount === 0) return null;
+
+                return (
+                  <motion.div
+                    key={state}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`bg-gradient-to-br ${getStateSectionGradient(state)} backdrop-blur-sm border border-white/10 rounded-xl overflow-hidden`}
+                  >
+                    {/* Section Header - Clickable */}
+                    <button
+                      onClick={() => toggleStateExpansion(state)}
+                      className="w-full p-5 flex items-center justify-between transition-all group/header border-b border-white/5"
+                    >
+                      <div>
+                        <h3
+                          className={`text-lg font-semibold ${getStateTitleColor(state)} mb-1 text-left group-hover/header:text-opacity-80 transition-all`}
+                        >
+                          {state} ({stateCount})
+                        </h3>
+                        <p className="text-sm text-white/50 text-left">{getStateSubtitle(state)}</p>
+                      </div>
+                      <div className="flex-shrink-0 ml-4">
+                        {expandedStates.has(state) ? (
+                          <ChevronUp className="h-5 w-5 text-white/60 group-hover/header:text-white/80 transition-colors" />
+                        ) : (
+                          <ChevronDown className="h-5 w-5 text-white/60 group-hover/header:text-white/80 transition-colors" />
+                        )}
+                      </div>
+                    </button>
+
+                    {/* Horizontal scrolling cards - Collapsible */}
+                    {expandedStates.has(state) && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="overflow-x-auto px-5 pb-5 pt-4">
+                          <div className="flex gap-3 pb-2">
+                            {stateRFQs.map((rfq) => (
+                              <div key={rfq.publicKey} className="flex-shrink-0 w-80">
+                                <RFQMarketplaceCard
+                                  rfq={rfq}
+                                  currentUser={currentUser}
+                                  onQuote={() => onQuoteRFQ(rfq)}
+                                  onView={() => onViewRFQ(rfq.publicKey)}
+                                  onEdit={onEditRFQ ? () => onEditRFQ(rfq) : undefined}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="overflow-x-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
+              <div className="flex gap-4 pb-4 min-w-max">
                 {allStates.map((state) => {
                   const stateRFQs = rfqsByState[state];
                   const stateCount = stateRFQs.length;
 
-                  // Skip empty states in horizontal view
+                  // Skip empty states in swimlane view
                   if (stateCount === 0) return null;
 
                   return (
                     <motion.div
                       key={state}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`bg-gradient-to-br ${getStateBgGradient(state)} backdrop-blur-sm border border-white/10 rounded-xl overflow-hidden`}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="flex-shrink-0 w-80"
                     >
-                      {/* Section Header - Clickable */}
-                      <button
-                        onClick={() => toggleStateExpansion(state)}
-                        className="w-full p-5 flex items-center justify-between transition-all group/header border-b border-white/5"
+                      {/* Column Header */}
+                      <div
+                        className={`${getCardGradient(state)} border ${getCardBorder(state)} rounded-t-xl p-4 backdrop-blur-sm`}
                       >
-                        <div>
-                          <h3
-                            className={`text-lg font-semibold ${getStateTitleColor(state)} mb-1 text-left group-hover/header:text-opacity-80 transition-all`}
-                          >
-                            {state} ({stateCount})
-                          </h3>
-                          <p className="text-sm text-white/50 text-left">
-                            {getStateSubtitle(state)}
-                          </p>
+                        <div className="flex items-center justify-between mb-1">
+                          <h3 className="font-semibold text-white">{state}</h3>
+                          <span className="text-sm text-white/60">{stateCount}</span>
                         </div>
-                        <div className="flex-shrink-0 ml-4">
-                          {expandedStates.has(state) ? (
-                            <ChevronUp className="h-5 w-5 text-white/60 group-hover/header:text-white/80 transition-colors" />
-                          ) : (
-                            <ChevronDown className="h-5 w-5 text-white/60 group-hover/header:text-white/80 transition-colors" />
-                          )}
-                        </div>
-                      </button>
+                        <StatusBadge status={state} />
+                      </div>
 
-                      {/* Horizontal scrolling cards - Collapsible */}
-                      {expandedStates.has(state) && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: "auto", opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.2 }}
-                          className="overflow-hidden"
-                        >
-                          <div className="overflow-x-auto px-5 pb-5 pt-4">
-                            <div className="flex gap-3 pb-2">
-                              {stateRFQs.map((rfq) => (
-                                <div key={rfq.publicKey} className="flex-shrink-0 w-80">
-                                  <RFQMarketplaceCard
-                                    rfq={rfq}
-                                    currentUser={currentUser}
-                                    onQuote={() => onQuoteRFQ(rfq)}
-                                    onView={() => onViewRFQ(rfq.publicKey)}
-                                    onEdit={onEditRFQ ? () => onEditRFQ(rfq) : undefined}
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </motion.div>
-                      )}
+                      {/* Column Content */}
+                      <div className="bg-white/5 border-x border-b border-white/10 rounded-b-xl p-3 space-y-3 max-h-[600px] overflow-y-auto">
+                        {stateRFQs.map((rfq) => (
+                          <RFQMarketplaceCard
+                            key={rfq.publicKey}
+                            rfq={rfq}
+                            currentUser={currentUser}
+                            onQuote={() => onQuoteRFQ(rfq)}
+                            onView={() => onViewRFQ(rfq.publicKey)}
+                            onEdit={onEditRFQ ? () => onEditRFQ(rfq) : undefined}
+                          />
+                        ))}
+                      </div>
                     </motion.div>
                   );
                 })}
               </div>
-            ) : (
-              <div className="overflow-x-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
-                <div className="flex gap-4 pb-4 min-w-max">
-                  {allStates.map((state) => {
-                    const stateRFQs = rfqsByState[state];
-                    const stateCount = stateRFQs.length;
-
-                    // Skip empty states in swimlane view
-                    if (stateCount === 0) return null;
-
-                    return (
-                      <motion.div
-                        key={state}
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className="flex-shrink-0 w-80"
-                      >
-                        {/* Column Header */}
-                        <div
-                          className={`${getCardGradient(state)} border ${getCardBorder(state)} rounded-t-xl p-4 backdrop-blur-sm`}
-                        >
-                          <div className="flex items-center justify-between mb-1">
-                            <h3 className="font-semibold text-white">{state}</h3>
-                            <span className="text-sm text-white/60">{stateCount}</span>
-                          </div>
-                          <StatusBadge status={state} />
-                        </div>
-
-                        {/* Column Content */}
-                        <div className="bg-white/5 border-x border-b border-white/10 rounded-b-xl p-3 space-y-3 max-h-[600px] overflow-y-auto">
-                          {stateRFQs.map((rfq) => (
-                            <RFQMarketplaceCard
-                              key={rfq.publicKey}
-                              rfq={rfq}
-                              currentUser={currentUser}
-                              onQuote={() => onQuoteRFQ(rfq)}
-                              onView={() => onViewRFQ(rfq.publicKey)}
-                              onEdit={onEditRFQ ? () => onEditRFQ(rfq) : undefined}
-                            />
-                          ))}
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-              </div>
-            )
-          ) : (
-            <EmptyState
-              icon={Filter}
-              title="No RFQs Found"
-              hint="Try adjusting your filters or search query"
-            />
-          )}
-        </div>
+            </div>
+          )
+        ) : (
+          <EmptyState
+            icon={Filter}
+            title="No RFQs Found"
+            hint="Try adjusting your filters or search query"
+          />
+        )}
       </div>
-    </div>
+    </PageShell>
   );
 }
 
@@ -634,75 +556,7 @@ function RFQMarketplaceCard({
   const cardBorder = getCardBorder(rfq.state);
 
   // Get state color classes for MY RFQ badge and border
-  const getMyRFQStyles = () => {
-    switch (rfq.state) {
-      case "Draft":
-        return {
-          border: "border-slate-500/70 shadow-lg shadow-slate-500/25",
-          badge: "bg-gradient-to-r from-slate-500 via-slate-500 to-slate-600 border-slate-400/30",
-          triangle: "border-t-slate-900",
-        };
-      case "Open":
-        return {
-          border: "border-cyan-500/70 shadow-lg shadow-cyan-500/25",
-          badge: "bg-gradient-to-r from-cyan-500 via-cyan-500 to-cyan-600 border-cyan-400/30",
-          triangle: "border-t-cyan-900",
-        };
-      case "Committed":
-        return {
-          border: "border-purple-500/70 shadow-lg shadow-purple-500/25",
-          badge:
-            "bg-gradient-to-r from-purple-500 via-purple-500 to-purple-600 border-purple-400/30",
-          triangle: "border-t-purple-900",
-        };
-      case "Revealed":
-        return {
-          border: "border-indigo-500/70 shadow-lg shadow-indigo-500/25",
-          badge:
-            "bg-gradient-to-r from-indigo-500 via-indigo-500 to-indigo-600 border-indigo-400/30",
-          triangle: "border-t-indigo-900",
-        };
-      case "Selected":
-        return {
-          border: "border-blue-500/70 shadow-lg shadow-blue-500/25",
-          badge: "bg-gradient-to-r from-blue-500 via-blue-500 to-blue-600 border-blue-400/30",
-          triangle: "border-t-blue-900",
-        };
-      case "Settled":
-        return {
-          border: "border-teal-500/70 shadow-lg shadow-teal-500/25",
-          badge: "bg-gradient-to-r from-teal-500 via-teal-500 to-teal-600 border-teal-400/30",
-          triangle: "border-t-teal-900",
-        };
-      case "Expired":
-        return {
-          border: "border-orange-500/70 shadow-lg shadow-orange-500/25",
-          badge:
-            "bg-gradient-to-r from-orange-500 via-orange-500 to-orange-600 border-orange-400/30",
-          triangle: "border-t-orange-900",
-        };
-      case "Ignored":
-        return {
-          border: "border-gray-500/70 shadow-lg shadow-gray-500/25",
-          badge: "bg-gradient-to-r from-gray-500 via-gray-500 to-gray-600 border-gray-400/30",
-          triangle: "border-t-gray-900",
-        };
-      case "Incomplete":
-        return {
-          border: "border-red-500/70 shadow-lg shadow-red-500/25",
-          badge: "bg-gradient-to-r from-red-500 via-red-500 to-red-600 border-red-400/30",
-          triangle: "border-t-red-900",
-        };
-      default:
-        return {
-          border: "border-cyan-500/70 shadow-lg shadow-cyan-500/25",
-          badge: "bg-gradient-to-r from-cyan-500 via-cyan-500 to-cyan-600 border-cyan-400/30",
-          triangle: "border-t-cyan-900",
-        };
-    }
-  };
-
-  const myRFQStyles = getMyRFQStyles();
+  const myRFQStyles = getOwnedHighlight(rfq.state);
 
   return (
     <motion.div
@@ -850,75 +704,7 @@ function RFQMarketplaceListItem({
   const cardBorder = getCardBorder(rfq.state);
 
   // Get state color classes for MY RFQ badge and border
-  const getMyRFQStyles = () => {
-    switch (rfq.state) {
-      case "Draft":
-        return {
-          border: "border-slate-500/70 shadow-lg shadow-slate-500/25",
-          badge: "bg-gradient-to-r from-slate-500 via-slate-500 to-slate-600 border-slate-400/30",
-          triangle: "border-t-slate-900",
-        };
-      case "Open":
-        return {
-          border: "border-cyan-500/70 shadow-lg shadow-cyan-500/25",
-          badge: "bg-gradient-to-r from-cyan-500 via-cyan-500 to-cyan-600 border-cyan-400/30",
-          triangle: "border-t-cyan-900",
-        };
-      case "Committed":
-        return {
-          border: "border-purple-500/70 shadow-lg shadow-purple-500/25",
-          badge:
-            "bg-gradient-to-r from-purple-500 via-purple-500 to-purple-600 border-purple-400/30",
-          triangle: "border-t-purple-900",
-        };
-      case "Revealed":
-        return {
-          border: "border-indigo-500/70 shadow-lg shadow-indigo-500/25",
-          badge:
-            "bg-gradient-to-r from-indigo-500 via-indigo-500 to-indigo-600 border-indigo-400/30",
-          triangle: "border-t-indigo-900",
-        };
-      case "Selected":
-        return {
-          border: "border-blue-500/70 shadow-lg shadow-blue-500/25",
-          badge: "bg-gradient-to-r from-blue-500 via-blue-500 to-blue-600 border-blue-400/30",
-          triangle: "border-t-blue-900",
-        };
-      case "Settled":
-        return {
-          border: "border-teal-500/70 shadow-lg shadow-teal-500/25",
-          badge: "bg-gradient-to-r from-teal-500 via-teal-500 to-teal-600 border-teal-400/30",
-          triangle: "border-t-teal-900",
-        };
-      case "Expired":
-        return {
-          border: "border-orange-500/70 shadow-lg shadow-orange-500/25",
-          badge:
-            "bg-gradient-to-r from-orange-500 via-orange-500 to-orange-600 border-orange-400/30",
-          triangle: "border-t-orange-900",
-        };
-      case "Ignored":
-        return {
-          border: "border-gray-500/70 shadow-lg shadow-gray-500/25",
-          badge: "bg-gradient-to-r from-gray-500 via-gray-500 to-gray-600 border-gray-400/30",
-          triangle: "border-t-gray-900",
-        };
-      case "Incomplete":
-        return {
-          border: "border-red-500/70 shadow-lg shadow-red-500/25",
-          badge: "bg-gradient-to-r from-red-500 via-red-500 to-red-600 border-red-400/30",
-          triangle: "border-t-red-900",
-        };
-      default:
-        return {
-          border: "border-cyan-500/70 shadow-lg shadow-cyan-500/25",
-          badge: "bg-gradient-to-r from-cyan-500 via-cyan-500 to-cyan-600 border-cyan-400/30",
-          triangle: "border-t-cyan-900",
-        };
-    }
-  };
-
-  const myRFQStyles = getMyRFQStyles();
+  const myRFQStyles = getOwnedHighlight(rfq.state);
 
   return (
     <motion.div
@@ -1025,216 +811,6 @@ function RFQMarketplaceListItem({
             </Button>
           )}
         </div>
-      </div>
-    </motion.div>
-  );
-}
-
-interface RFQMarketplaceSwimlaneCardProps {
-  rfq: RFQ;
-  onQuote: () => void;
-  onView: () => void;
-}
-
-function _RFQMarketplaceSwimlaneCard({ rfq, onQuote, onView }: RFQMarketplaceSwimlaneCardProps) {
-  const [base, quote] = rfq.pair.split("/");
-  const isCommitted = rfq.state === "Committed";
-  const canQuote = rfq.state === "Open" || rfq.state === "Committed";
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg p-3 transition-all cursor-pointer group"
-      onClick={onView}
-    >
-      {/* Pair */}
-      <div className="flex items-center gap-2 mb-3">
-        <Coins className="h-4 w-4 text-cyan-400 flex-shrink-0" />
-        <span className="font-semibold text-sm text-white">{rfq.pair}</span>
-      </div>
-
-      {/* Amounts */}
-      <div className="space-y-2 mb-3">
-        <div className="text-xs">
-          <div className="text-white/50 mb-0.5">Base Amount</div>
-          <div className="font-semibold text-white">
-            {rfq.baseAmount.toLocaleString()} {base}
-          </div>
-        </div>
-        <div className="text-xs">
-          <div className="text-white/50 mb-0.5">Min Quote</div>
-          <div className="font-semibold text-white">
-            {rfq.minQuoteAmount.toLocaleString()} {quote}
-          </div>
-        </div>
-      </div>
-
-      {/* Bond */}
-      <div className="bg-white/5 rounded p-2 mb-3">
-        <div className="flex items-center justify-between text-xs">
-          <div className="flex items-center gap-1.5 text-white/50">
-            <Shield className="h-3 w-3 text-cyan-400" />
-            <span>Bond</span>
-          </div>
-          <span className="font-semibold text-white">{rfq.bondAmount.toLocaleString()}</span>
-        </div>
-      </div>
-
-      {/* Expiry or Commitments */}
-      {rfq.expiresIn && (
-        <div className="bg-orange-500/10 border border-orange-500/20 rounded p-2 mb-3">
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-1.5 text-orange-400">
-              <Clock className="h-3 w-3" />
-              <span>Expires</span>
-            </div>
-            <span className="font-semibold text-orange-400">{rfq.expiresIn}</span>
-          </div>
-        </div>
-      )}
-
-      {isCommitted && (
-        <div className="bg-blue-500/10 border border-blue-500/20 rounded p-2 mb-3">
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-1.5 text-blue-400">
-              <Activity className="h-3 w-3" />
-              <span>Commits</span>
-            </div>
-            <span className="font-semibold text-blue-400">{rfq.committedCount}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Actions */}
-      <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-        <Button
-          onClick={onView}
-          variant="outline"
-          size="sm"
-          className="flex-1 bg-white/5 border-white/20 text-white hover:bg-white/10 hover:border-white/30 text-xs"
-        >
-          <Eye className="h-3 w-3" />
-        </Button>
-        {canQuote && (
-          <Button
-            onClick={(e) => {
-              e.stopPropagation();
-              onQuote();
-            }}
-            size="sm"
-            className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold shadow-lg shadow-blue-500/20 text-xs"
-          >
-            <MousePointerClick className="h-3 w-3" />
-          </Button>
-        )}
-      </div>
-    </motion.div>
-  );
-}
-
-interface RFQMarketplaceHorizontalCardProps {
-  rfq: RFQ;
-  onQuote: () => void;
-  onView: () => void;
-}
-
-function _RFQMarketplaceHorizontalCard({
-  rfq,
-  onQuote,
-  onView,
-}: RFQMarketplaceHorizontalCardProps) {
-  const [base, quote] = rfq.pair.split("/");
-  const isCommitted = rfq.state === "Committed";
-  const canQuote = rfq.state === "Open" || rfq.state === "Committed";
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="flex-shrink-0 w-72 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg p-3 transition-all cursor-pointer group"
-      onClick={onView}
-    >
-      {/* Pair */}
-      <div className="flex items-center gap-2 mb-3">
-        <Coins className="h-4 w-4 text-cyan-400 flex-shrink-0" />
-        <span className="font-semibold text-sm text-white">{rfq.pair}</span>
-      </div>
-
-      {/* Amounts */}
-      <div className="space-y-2 mb-3">
-        <div className="text-xs">
-          <div className="text-white/50 mb-0.5">Base Amount</div>
-          <div className="font-semibold text-white">
-            {rfq.baseAmount.toLocaleString()} {base}
-          </div>
-        </div>
-        <div className="text-xs">
-          <div className="text-white/50 mb-0.5">Min Quote</div>
-          <div className="font-semibold text-white">
-            {rfq.minQuoteAmount.toLocaleString()} {quote}
-          </div>
-        </div>
-      </div>
-
-      {/* Bond */}
-      <div className="bg-white/5 rounded p-2 mb-3">
-        <div className="flex items-center justify-between text-xs">
-          <div className="flex items-center gap-1.5 text-white/50">
-            <Shield className="h-3 w-3 text-cyan-400" />
-            <span>Bond</span>
-          </div>
-          <span className="font-semibold text-white">{rfq.bondAmount.toLocaleString()}</span>
-        </div>
-      </div>
-
-      {/* Expiry or Commitments */}
-      {rfq.expiresIn && (
-        <div className="bg-orange-500/10 border border-orange-500/20 rounded p-2 mb-3">
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-1.5 text-orange-400">
-              <Clock className="h-3 w-3" />
-              <span>Expires</span>
-            </div>
-            <span className="font-semibold text-orange-400">{rfq.expiresIn}</span>
-          </div>
-        </div>
-      )}
-
-      {isCommitted && (
-        <div className="bg-blue-500/10 border border-blue-500/20 rounded p-2 mb-3">
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-1.5 text-blue-400">
-              <Activity className="h-3 w-3" />
-              <span>Commits</span>
-            </div>
-            <span className="font-semibold text-blue-400">{rfq.committedCount}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Actions */}
-      <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-        <Button
-          onClick={onView}
-          variant="outline"
-          size="sm"
-          className="flex-1 bg-white/5 border-white/20 text-white hover:bg-white/10 hover:border-white/30 text-xs"
-        >
-          <Eye className="h-3 w-3" />
-        </Button>
-        {canQuote && (
-          <Button
-            onClick={(e) => {
-              e.stopPropagation();
-              onQuote();
-            }}
-            size="sm"
-            className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold shadow-lg shadow-blue-500/20 text-xs"
-          >
-            <MousePointerClick className="h-3 w-3" />
-          </Button>
-        )}
       </div>
     </motion.div>
   );

@@ -165,7 +165,7 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="fixed top-16 right-0 bottom-0 w-full max-w-sm bg-surface-page/98 backdrop-blur-xl border-l border-white/10 z-40 lg:hidden overflow-y-auto"
+              className="fixed top-(--nav-h) right-0 bottom-0 w-full max-w-sm bg-surface-page/98 backdrop-blur-xl border-l border-white/10 z-40 lg:hidden overflow-y-auto"
             >
               <div className="p-6 space-y-4">
                 <motion.div
