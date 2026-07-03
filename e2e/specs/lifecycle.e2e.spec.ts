@@ -21,8 +21,8 @@ test.describe("Full RFQ lifecycle @tx", () => {
     taker1Page,
     taker2Page,
   }) => {
-    // Deadline windows alone are ~4 minutes; give the flow generous headroom
-    // (devnet RPC and the liquidity-guard both rate-limit under load).
+    // Flow is ~8 min (deadline windows + tx confirmations); the budget is
+    // generous headroom for devnet/liquidity-guard latency under load.
     test.setTimeout(1_200_000);
 
     // Distinctive fractional amounts make this run's fixture uniquely
@@ -47,9 +47,11 @@ test.describe("Full RFQ lifecycle @tx", () => {
       baseAmount,
       minQuoteAmount,
       bondAmount: "1", // well under the dev wallets' USDC; the 5000 default would fail
-      // Short enough to cross windows in-test, long enough to act within them
-      // (commit gets extra headroom for liquidity-guard retries).
-      ttls: ["300", "120", "300", "600"],
+      // Deadline windows kept short so the whole flow finishes in ~8 min: the
+      // reveal can't happen until the commit window closes, so a long commit
+      // TTL directly inflates the test. 120s is enough for commit + a couple
+      // of liquidity-guard retries; fund stays long (settle happens right away).
+      ttls: ["150", "60", "120", "600"],
       facilitator: facilitatorAddress,
     });
 
@@ -70,7 +72,7 @@ test.describe("Full RFQ lifecycle @tx", () => {
       await expect(taker1Page.getByText("Save your reveal ticket")).toBeVisible({
         timeout: 60_000,
       });
-    }).toPass({ timeout: 260_000, intervals: [8_000] });
+    }).toPass({ timeout: 120_000, intervals: [8_000] });
     // Two "Close" buttons exist here: the ticket panel's explicit button and
     // the dialog's X — either works, take the first.
     await taker1Page.getByRole("button", { name: "Close" }).first().click();
@@ -88,9 +90,8 @@ test.describe("Full RFQ lifecycle @tx", () => {
     });
 
     // --- Taker1: reveal (after the commit window closes) -------------------
-    // The reveal window opens only after the 300s commit TTL lapses, so the
-    // poll must outlast it (default 180s would give up first).
-    await waitForActionWindow(taker1Page, "Reveal quote", 360_000);
+    // Reveal opens only after the commit TTL (120s) lapses.
+    await waitForActionWindow(taker1Page, "Reveal quote", 210_000);
     await taker1Page.getByRole("button", { name: "Reveal quote" }).click();
     await expect(taker1Page.getByText("Match — safe to reveal")).toBeVisible({
       timeout: 30_000,
@@ -102,7 +103,7 @@ test.describe("Full RFQ lifecycle @tx", () => {
     // --- Maker: select the (only) revealed quote ---------------------------
     await makerPage.goto(rfqUrl);
     // Selection opens after the reveal TTL lapses (opened + commit + reveal).
-    await waitForActionWindow(makerPage, /^Select$/, 300_000);
+    await waitForActionWindow(makerPage, /^Select$/, 150_000);
     await makerPage.getByRole("button", { name: "Select", exact: true }).click();
     await expect(makerPage.getByText("Selected", { exact: true }).first()).toBeVisible({
       timeout: 60_000,

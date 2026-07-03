@@ -72,6 +72,9 @@ export default defineConfig({
       name: "tx",
       use: { ...devices["Desktop Chrome"] },
       grep: /@tx/,
+      // No CI retry: the lifecycle is ~8 min of real deadline windows, so a
+      // retry after a timeout would blow the job cap. One honest attempt.
+      retries: 0,
     },
   ],
   webServer: {
