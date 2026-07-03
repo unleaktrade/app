@@ -1,15 +1,17 @@
 import { defineConfig, devices } from "@playwright/test";
 import { devWalletKeypairDir } from "./e2e/helpers/env";
 
-// This suite drives real devnet + a rate-limited liquidity-guard (~0.5 req/s
-// sustained, burst 5 — actix-governor seconds_per_request(2)). Single worker,
-// no retries locally, one retry in CI — parallel specs would compound
-// rate-limit risk and cross-pollinate shared marketplace state
-// (scripts/seed.ts is append-only, not resettable). See e2e/README.md.
-//
-// The dev-only Wallet Standard wallets (src/dev/devWallet.ts) are plain page
-// JS registered via the standard window handshake — no browser extension or
-// persistent context needed, so a stock chromium project is sufficient.
+// Two modes (see e2e/README.md):
+//   - Read-only (desktop/mobile): HERMETIC. RPC is served from a committed
+//     cassette (helpers/rpc-replay.ts) and personas are ephemeral unfunded
+//     wallets — no live devnet, no secrets. Driven by REPLAY_RPC (replay) or
+//     RECORD_RPC (capture). This is the per-PR gate.
+//   - tx: real devnet + a rate-limited liquidity-guard (~0.5 req/s sustained,
+//     burst 5). On-demand only (e2e.yml). Needs funded dev wallets + a real RPC.
+// Single worker, one retry in CI. The dev-only Wallet Standard wallets
+// (src/dev/devWallet.ts) register via the standard window handshake, so a stock
+// chromium project suffices.
+const HERMETIC = Boolean(process.env.REPLAY_RPC);
 export default defineConfig({
   testDir: "./e2e/specs",
   fullyParallel: false,
@@ -63,12 +65,15 @@ export default defineConfig({
     timeout: 60_000,
     env: {
       DEV_WALLET_KEYPAIR_DIR: devWalletKeypairDir() ?? "",
-      // Public devnet RPC throttles getProgramAccounts from datacenter IPs,
-      // so CI must supply a dedicated endpoint (secret DEVNET_RPC_URL →
-      // VITE_RPC_URL_DEVNET). Locally the baked-in default is fine.
-      ...(process.env.VITE_RPC_URL_DEVNET
-        ? { VITE_RPC_URL_DEVNET: process.env.VITE_RPC_URL_DEVNET }
-        : {}),
+      // Replay: pin a dummy origin so the app's RPC target is deterministic and
+      // no real network is ever reached even on a cassette miss (page.route
+      // intercepts these requests). Record/tx: use the real endpoint the caller
+      // supplied (VITE_RPC_URL_DEVNET), else the baked-in public default.
+      ...(HERMETIC
+        ? { VITE_RPC_URL_DEVNET: "https://rpc.replay.test" }
+        : process.env.VITE_RPC_URL_DEVNET
+          ? { VITE_RPC_URL_DEVNET: process.env.VITE_RPC_URL_DEVNET }
+          : {}),
     },
   },
 });

@@ -31,44 +31,6 @@ export async function openFirstRfqInGroup(page: Page, group: RfqStateGroupLabel)
   await page.waitForURL(/\/dashboard\/rfq\//, { timeout: 10_000 });
 }
 
-/**
- * Like openFirstRfqInGroup, but hunts for a fixture whose action bar shows a
- * given CTA for the connected wallet, trying up to `maxCards` cards in the
- * group. Returns false when none qualifies.
- *
- * Needed because seeded devnet fixtures decay: an RFQ stays "Open" on-chain
- * after its commit window lapses (state only advances via close_expired), so
- * "first Open RFQ" stops offering "Commit quote" a few hours after seeding.
- * Callers should test.skip() on false — the @tx lifecycle spec creates its
- * own fresh fixture and remains the authoritative coverage.
- */
-export async function openFirstRfqWithCta(
-  page: Page,
-  group: RfqStateGroupLabel,
-  ctaName: string | RegExp,
-  maxCards = 5,
-): Promise<boolean> {
-  for (let i = 0; i < maxCards; i++) {
-    await page.goto("/dashboard");
-    const header = page.getByRole("button", { name: new RegExp(`^${group} \\(`) });
-    await expect(header).toBeVisible({ timeout: 15_000 });
-    await header.click();
-    const viewButton = header.locator(
-      `xpath=following::button[normalize-space(text())='View'][${i + 1}]`,
-    );
-    if ((await viewButton.count()) === 0) return false;
-    try {
-      await viewButton.click({ timeout: 5_000 });
-    } catch {
-      return false;
-    }
-    await page.waitForURL(/\/dashboard\/rfq\//, { timeout: 10_000 });
-    const cta = page.getByRole("button", { name: ctaName });
-    if (await cta.isVisible({ timeout: 5_000 }).catch(() => false)) return true;
-  }
-  return false;
-}
-
 export interface TokenSpec {
   mint: string;
   symbol: string;

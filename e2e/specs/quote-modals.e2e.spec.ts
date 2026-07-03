@@ -1,21 +1,16 @@
 // SubmitQuoteModal validation/pre-fill assertions that don't require a
-// confirmed on-chain transaction — kept fast and outside the devnet
-// rate-limit/confirmation-time budget that the full lifecycle spec pays.
-//
-// The "Commit quote" CTA only exists on an Open RFQ whose commit window is
-// still live, and seeded fixtures decay (the window lapses while the state
-// stays Open). openFirstRfqWithCta hunts across the group; when devnet has
-// no live-window fixture these tests skip — the @tx lifecycle spec creates
-// its own fresh fixture and drives the same modal end to end.
+// confirmed on-chain transaction. Hermetic: served from the RPC cassette with
+// the clock pinned to capture time, so the seeded Open RFQ's commit window is
+// live and the "Commit quote" CTA is deterministically present. taker2 is an
+// ephemeral, uninvolved wallet, so it can legally bid.
 import { test, expect } from "../fixtures";
-import { openFirstRfqWithCta } from "../helpers/rfq";
+import { OPEN_RFQ_WITH_COMMIT_WINDOW } from "../fixtures/known-rfqs";
 
 test.describe("SubmitQuoteModal", () => {
   test("pre-fills the amount with the RFQ minimum and shows the bond breakdown", async ({
     taker2Page,
   }) => {
-    const found = await openFirstRfqWithCta(taker2Page, "Open", "Commit quote");
-    test.skip(!found, "No Open RFQ with a live commit window on devnet right now");
+    await taker2Page.goto(`/dashboard/rfq/${OPEN_RFQ_WITH_COMMIT_WINDOW}`);
     await taker2Page.getByRole("button", { name: "Commit quote" }).click();
     await expect(taker2Page.getByRole("heading", { name: "Commit a quote" })).toBeVisible();
     // BondBreakdown always renders a bond amount row once the RFQ account
@@ -26,8 +21,7 @@ test.describe("SubmitQuoteModal", () => {
   test("rejects an amount below the RFQ minimum before touching the chain", async ({
     taker2Page,
   }) => {
-    const found = await openFirstRfqWithCta(taker2Page, "Open", "Commit quote");
-    test.skip(!found, "No Open RFQ with a live commit window on devnet right now");
+    await taker2Page.goto(`/dashboard/rfq/${OPEN_RFQ_WITH_COMMIT_WINDOW}`);
     await taker2Page.getByRole("button", { name: "Commit quote" }).click();
     const dialog = taker2Page.getByRole("dialog");
     await dialog.getByRole("textbox").fill("0");
