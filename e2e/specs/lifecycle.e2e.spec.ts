@@ -110,7 +110,13 @@ test.describe("Full RFQ lifecycle @tx", () => {
     });
 
     // --- Taker1: settle -----------------------------------------------------
+    // The CTA needs fresh reads of BOTH the rfq (Selected) and the quote
+    // (selected flag): right after select_quote a lagging RPC node can serve
+    // stale bytes on the initial load, and guards only re-evaluate on render.
+    // Reload-poll like the reveal/select steps; 120s stays far inside the
+    // 600s funding window so a genuine failure still surfaces fast.
     await taker1Page.goto(rfqUrl);
+    await waitForActionWindow(taker1Page, "Settle now", 120_000);
     await taker1Page.getByRole("button", { name: "Settle now" }).click();
     // Same label pattern as reveal: the action bar navigates to the settle
     // cockpit, which hosts its own "Settle now" submit.
@@ -121,14 +127,20 @@ test.describe("Full RFQ lifecycle @tx", () => {
     });
 
     // --- Settled panel shows the REAL traded amount (regression) -----------
+    // Same read-propagation lag applies to the freshly settled state.
     await makerPage.goto(rfqUrl);
-    await expect(makerPage.getByRole("heading", { name: "Settlement complete" })).toBeVisible({
-      timeout: 30_000,
-    });
+    await expect(async () => {
+      await makerPage.reload();
+      await expect(makerPage.getByRole("heading", { name: "Settlement complete" })).toBeVisible({
+        timeout: 10_000,
+      });
+    }).toPass({ timeout: 120_000, intervals: [5_000] });
     await expect(makerPage.getByText(committedAmount, { exact: false })).toBeVisible();
 
     // --- Taker2 (reward recipient): claim the fee share --------------------
+    // The claim CTA hangs off settlement.completed_at — same lag, same poll.
     await taker2Page.goto(rfqUrl);
+    await waitForActionWindow(taker2Page, "Claim reward", 120_000);
     await taker2Page.getByRole("button", { name: "Claim reward" }).click();
     await taker2Page.getByRole("dialog").getByRole("button", { name: "Claim reward" }).click();
     await expect(taker2Page.getByText("Reward claimed to your wallet")).toBeVisible({
