@@ -30,6 +30,12 @@ jobs:
         run: npm ci
 
       - name: Build
+        # SECURITY: never add `env: VITE_RPC_URL_*` (or any keyed URL) here.
+        # Vite inlines VITE_* into the public client bundle, so a keyed RPC
+        # endpoint would ship its API key to everyone. Production reads the
+        # keyless public endpoint (env.ts falls back to clusterApiUrl); if a
+        # dedicated RPC is ever needed for prod, front it with a same-origin
+        # proxy that keeps the key server-side, never a VITE_* var.
         run: npm run build
 
       - name: Configure Pages

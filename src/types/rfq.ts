@@ -11,6 +11,13 @@ export type RFQState =
 
 export type UserRole = "maker" | "taker" | "facilitator";
 
+/**
+ * UI-level facilitator edit, mirroring the on-chain `FacilitatorUpdate` enum
+ * (`Clear` | `Set(Pubkey)`). `pubkey` is base58; the instruction builder parses
+ * it to a `PublicKey` (throwing on malformed input) via `toFacilitatorUpdateArg`.
+ */
+export type FacilitatorUpdate = { kind: "clear" } | { kind: "set"; pubkey: string };
+
 export interface RFQ {
   publicKey: string;
   maker: string;

@@ -1,207 +1,189 @@
-# UnleakTrade Frontend - OTC Dashboard
+# UnleakTrade — App
 
-A beautiful, fast, and responsive trading interface for **UnleakTrade** - Confidential OTC Trading on Solana.
+Frontend for **UnleakTrade**, a confidential OTC / RFQ trading d-app on Solana.
+This is the app at [app.unleak.trade](https://app.unleak.trade); the marketing
+site ([unleak.trade](https://unleak.trade)) lives in the sibling
+`landing-page` repo.
 
-![UnleakTrade Dashboard](https://unleak.trade)
+Trades follow a **commit–reveal RFQ protocol**: a poster publishes a request
+for quote, counterparties commit _sealed_ quotes (a SHA-256 commitment backed
+by a USDC bond and an ed25519 liquidity attestation), reveal them after the
+commit window closes, the poster selects a winner, and the winner funds the
+settlement. Quotes stay confidential until reveal — nobody can front-run a
+number they cannot see.
 
-## 🎯 Overview
+The frontend is a pure consumer of on-chain state: React reads/decodes program
+accounts over RPC + websocket subscriptions and submits the program's
+instructions from the connected wallet. There is no backend of our own; the
+only service dependency is the liquidity-guard attestation microservice.
 
-UnleakTrade is a decentralized OTC (Over-The-Counter) trading platform built on Solana that enables institutional-grade privacy and fairness for everyone. This frontend provides an intuitive interface for creating RFQs (Request for Quotes) and submitting competitive quotes.
+## Architecture
 
-## ✨ Features
+```mermaid
+flowchart LR
+    subgraph browser [Browser app]
+        UI[React 19 + Vite<br/>Tailwind v4 + motion]
+        CHAIN[src/chain<br/>decoders · PDAs · state machine<br/>instruction builders]
+        SWA[Solana Wallet Adapter<br/>Wallet Standard auto-discovery]
+    end
+    ENGINE[(settlement-engine<br/>Anchor program)]
+    GUARD[liquidity-guard<br/>ed25519 attestation REST service]
 
-### 🏠 Unified Dashboard
-
-- **Single view for all users** - No confusing role switchers
-- **Real-time statistics** - 24h/7d/30d volume, active traders
-- **Liquidity visualization** - Interactive donut chart showing token distribution
-- **Live RFQ marketplace** - Browse and filter available RFQs
-- **Two distinct CTAs**:
-  - 🟣 **Create Request for Quote** (FOR MAKERS) - Purple gradient
-  - 🔵 **Browse & Quote** (FOR TAKERS) - Cyan gradient
-
-### 💎 Beautiful Design
-
-- Dark theme (#0a0a0f background) matching UnleakTrade brand
-- Glassmorphism effects with backdrop blur
-- Purple/magenta gradient for Maker actions
-- Cyan/turquoise gradient for Taker actions
-- Smooth animations using Framer Motion
-- Mobile-first responsive design
-
-### 👥 Three User Roles
-
-Based on the Solana settlement-engine program:
-
-1. **Makers** - Create RFQs and select winning quotes
-2. **Takers** - Browse RFQs and submit competitive quotes
-3. **Facilitators** - Optional intermediaries who can claim fee shares
-
-### 🔐 Security Features
-
-- **Commit-Reveal Protocol** - Prevents quote manipulation
-- **Liquidity Guard** - Ed25519 signature verification
-- **Bond Collateral** - USDC bonds ensure commitment from both parties
-- **Phase-based lifecycle** - Commit → Reveal → Selection → Fund
-
-### 📊 RFQ Management
-
-**Create RFQ (Makers):**
-
-- Set base and quote token mint addresses
-- Define trade amounts and token accounts (ATAs)
-- Configure phase durations (commit, reveal, selection, fund)
-- Optional bond amount settings
-
-**Submit Quote (Takers):**
-
-- View detailed RFQ summary
-- See exchange rates and trade details
-- Provide token account addresses
-- Commit to exchange rate
-
-**RFQ States:**
-
-- 🟢 **Open** - Accepting quotes
-- 🟡 **Pending** - Quote selected, awaiting funding
-- 🔵 **Filled** - Trade matched, in progress
-- 🟢 **Settled** - Successfully completed
-- 🔴 **Expired** - Time limit exceeded
-- 🟠 **Canceled** - Manually canceled
-
-## 🛠 Tech Stack
-
-- **React 18** - UI framework with hooks
-- **TypeScript** - Type safety
-- **Tailwind CSS v4** - Utility-first styling
-- **Framer Motion** - Smooth animations
-- **Radix UI** - Accessible component primitives
-- **Sonner** - Toast notifications
-- **Lucide React** - Icon library
-
-## 🏗 Architecture
-
-### Based on Settlement Engine
-
-The frontend mirrors the Solana program structure:
-
-```rust
-// Key instructions from settlement-engine
-- init_rfq()       → Create RFQ modal
-- commit_quote()   → Submit Quote modal
-- reveal_quote()   → Automatic reveal phase
-- select_quote()   → Maker selection UI
-- complete_settlement() → Settlement tracking
-- withdraw_reward() → Facilitator rewards
+    UI --> CHAIN
+    CHAIN -->|RPC + websocket| ENGINE
+    CHAIN -->|"/liquidity-guard/(cluster)/check"| GUARD
+    SWA -->|signMessage · signTransaction| CHAIN
+    GUARD -.->|service_pubkey must match<br/>Config.liquidity_guard| ENGINE
 ```
 
-### Data Model
+- **`src/chain/`** — everything on-chain: zod-validated decoders for all 8
+  program accounts, PDA derivation, deadline math and instruction guards
+  ported 1:1 from the Rust (`state-machine.ts`), fee math (`math.ts`), one
+  transaction builder per instruction (`instructions/`), and the
+  liquidity-guard client. Reads go through TanStack Query with websocket
+  account subscriptions — no polling.
+- **`src/app/`** — the UI: routes, providers (cluster → connection → wallet →
+  query → auth), screens, and shared primitives.
+- **Program id** (devnet + localnet):
+  `7wrjbU1NbVtUCUGP1obi3aiT6QrjXZnH5XJDXMsKtkPG`.
+- **Commit-hash preimage** (178 bytes:
+  `salt[64] ‖ rfq[32] ‖ taker[32] ‖ quote_mint[32] ‖ quote_amount_LE[8] ‖ bond_amount_LE[8] ‖ taker_fee_bps_LE[2]`)
+  is byte-identical across three repos — the program verifies it, the
+  liquidity-guard signs it, and `src/chain/commitHash.ts` preflights it.
 
-```typescript
-interface RFQ {
-  id: string;
-  pair: string;
-  baseMint: string;
-  quoteMint: string;
-  baseAmount: number;
-  quoteAmount: number;
-  price: number;
-  status: RFQState;
-  expires: string | null;
-  maker: string;
-  taker?: string;
-  facilitator?: string; // Optional fee recipient
-  bondAmount: number;
-  takerFee: number;
-  commitTtl: number;
-  revealTtl: number;
-  selectionTtl: number;
-  fundTtl: number;
-}
+## RFQ lifecycle (9 states)
+
+```mermaid
+stateDiagram-v2
+    [*] --> Draft: init_rfq
+    Draft --> Open: open_rfq
+    Draft --> [*]: cancel_rfq (account closed)
+    Open --> Committed: commit_quote
+    Committed --> Revealed: reveal_quote
+    Revealed --> Selected: select_quote
+    Selected --> Settled: complete_settlement
+    Open --> Expired: close_expired
+    Committed --> Expired: close_expired
+    Revealed --> Ignored: refund_quote_bonds (none selected)
+    Selected --> Incomplete: close_incomplete (never funded)
+    Settled --> [*]
+    Expired --> [*]
+    Ignored --> [*]
+    Incomplete --> [*]
 ```
 
-## 🎨 Design System
+The Rust in `../settlement-engine` is the authoritative spec; the frontend
+mirrors every state guard in `src/chain/state-machine.ts`, with unit tests
+asserting decoder ↔ IDL parity.
 
-### Color Palette
+## Quickstart — devnet (default)
 
-- **Background**: `#0a0a0f` (deep dark)
-- **Cards**: `#0f0f1a` (slightly lighter)
-- **Borders**: `rgba(255, 255, 255, 0.1)` (subtle white)
-- **Maker Actions**: Purple → Pink gradient (`from-purple-500 to-pink-500`)
-- **Taker Actions**: Cyan → Blue gradient (`from-cyan-500 to-blue-500`)
+Requires Node ≥ 22.
 
-### Status Colors
-
-- Open: Green (`text-green-400`)
-- Pending: Yellow (`text-yellow-400`)
-- Filled: Cyan (`text-cyan-400`)
-- Expired: Red (`text-red-400`)
-- Canceled: Orange (`text-orange-400`)
-- Settled: Emerald (`text-emerald-400`)
-
-## 📱 Mobile Responsive
-
-Fully responsive with breakpoints:
-
-- **Mobile**: `< 640px` - Stacked layouts, compact stats
-- **Tablet**: `640px - 1024px` - 2-column grids
-- **Desktop**: `> 1024px` - Full 3-column layouts, side-by-side CTAs
-
-## 🚀 Getting Started
-
-This is a mockup interface - no web3 provider required yet. All data is mocked for demonstration.
-
-### Key Components
-
-```
-/src/app/
-├── App.tsx                   # Main app with routing
-├── components/
-│   ├── DashboardHome.tsx     # Main dashboard with stats & RFQ list
-│   ├── BrowseRFQs.tsx        # Grid view of available RFQs
-│   ├── CreateRFQModal.tsx    # Modal for makers to create RFQs
-│   ├── SubmitQuoteModal.tsx  # Modal for takers to submit quotes
-│   ├── RFQDetailsView.tsx    # Detailed RFQ view
-│   └── Navigation.tsx        # Top nav with action buttons
-└── data/
-    └── mockRFQs.ts          # Mock RFQ data
+```bash
+git clone <this repo> && cd app
+npm install
+npm run dev        # → http://localhost:3000
 ```
 
-## 🔮 Future Enhancements
+That's it — zero configuration. The committed IDL supplies the program id,
+devnet USDC is the default mint, and the dev proxy routes
+`/liquidity-guard/devnet/*` to the hosted attestation service. Connect any
+Wallet Standard wallet (Phantom, Solflare, Backpack, …) and sign the
+`signMessage` challenge.
 
-### Phase 1 - Web3 Integration
+## Quickstart — localnet
 
-- [ ] Phantom & Solflare wallet connection
-- [ ] Real Solana program interaction
-- [ ] Transaction signing and confirmation
-- [ ] Live blockchain data fetching
+Needs the sibling repos checked out next to this one (`../settlement-engine`,
+`../liquidity-guard`).
 
-### Phase 2 - Advanced Features
+```bash
+bash scripts/dev-localnet.sh    # anchor localnet + program deploy
+npm run copy-idl                # refresh src/chain/idl/ after anchor build
+# run liquidity-guard on :8080 (see its README)
+npm run seed                    # seed RFQs in every lifecycle state
+npm run dev                     # switch the navbar cluster picker to Localnet
+```
 
-- [ ] Real-time quote updates via WebSocket
-- [ ] Historical trade analytics
-- [ ] Portfolio tracking
-- [ ] Notification system
-- [ ] Multi-language support
+## Environment variables
 
-### Phase 3 - Facilitator Dashboard
+All optional — `.env.example` documents every knob. Values fall back to
+baked-in defaults unless overridden.
 
-- [ ] Facilitator-specific views
-- [ ] Fee tracking and claims
-- [ ] Liquidity proof management
-- [ ] Advanced filtering and search
+| Variable                                 | Purpose                                                                                                          |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `VITE_SOLANA_CLUSTER`                    | Default cluster (`devnet`)                                                                                       |
+| `VITE_RPC_URL_{DEVNET,MAINNET,LOCALNET}` | RPC endpoint overrides                                                                                           |
+| `VITE_SETTLEMENT_PROGRAM_ID`             | Override the committed IDL's program id                                                                          |
+| `VITE_LG_URL_{LOCALNET,DEVNET,MAINNET}`  | liquidity-guard upstreams, consumed **only** by the Vite dev proxy                                               |
+| `DEV_WALLET_KEYPAIR_DIR`                 | Dev-only: folder of Solana CLI keypairs registered as in-browser test wallets (dev server only, never in builds) |
 
-## 🤝 Contributing
+Note: the attestation service's ed25519 pubkey is deliberately **not** an env
+var — the on-chain `Config.liquidity_guard` field is the source of truth, and
+the dev-only `HealthPill` surfaces any drift.
 
-Based on:
+## Scripts
 
-- [UnleakTrade Landing Page](https://github.com/unleaktrade/landing-page)
-- [Settlement Engine](https://github.com/unleaktrade/settlement-engine)
+| Command                                    | What it does                                                                            |
+| ------------------------------------------ | --------------------------------------------------------------------------------------- |
+| `npm run dev`                              | Vite dev server on :3000                                                                |
+| `npm run build`                            | Production build → `build/` (transpile only — **does not type-check**)                  |
+| `npm run typecheck`                        | `tsc --noEmit` — the real type signal                                                   |
+| `npm run lint` / `format` / `format:check` | ESLint (flat config) / Prettier                                                         |
+| `npm test` / `test:watch`                  | Vitest — decoders, state-machine guards, fee/deadline math, PDAs, market stats, rewards |
+| `npm run test:e2e` / `test:e2e:report`     | Playwright end-to-end suite / open the last report                                      |
+| `npm run copy-idl`                         | Refresh `src/chain/idl/` from `../settlement-engine/target`                             |
+| `npm run seed`                             | Append devnet/localnet fixtures across all 9 states                                     |
 
-## 📄 License
+## Testing
 
-This is a demonstration interface for UnleakTrade.
+- **Unit** (`src/chain/__tests__/`, `src/app/lib/__tests__/`): pure-logic
+  suites; fixtures round-trip through the committed IDL's Borsh coder, so
+  decoder ↔ IDL parity is proven without a validator.
+- **End-to-end** (`e2e/`): Playwright drives the real app against live devnet
+  using **dev-only keypair-backed wallets** (`src/dev/devWallet.ts`) — no
+  browser extension needed. Three projects: `desktop` + `mobile` (read-only,
+  run on every PR) and `tx` (the full lifecycle including the reward claim —
+  runs on `workflow_dispatch` or a `[full-e2e]` commit). `[skip-e2e]` in a
+  commit message bypasses the PR job. See [`e2e/README.md`](e2e/README.md).
 
----
+## Dev tooling
 
-Built with ❤️ for crypto traders and whales who demand privacy, fairness, and speed.
+- **`/dev/stories`** — component gallery (no auth required): state pipeline,
+  deadline ring, bond breakdown, responsive modal, rewards section, the RFQ
+  wizard, and more.
+- **`/dashboard?debug=1`** — decoded on-chain `Config` panel.
+- **`HealthPill`** — liquidity-guard health + pubkey-drift indicator (dev
+  builds only).
+- **Dev wallets** — point `DEV_WALLET_KEYPAIR_DIR` at a folder of _devnet_
+  keypairs and each appears in the wallet picker as `Dev: <name>`, signing
+  locally. Never point this at mainnet keys.
+
+## Design
+
+The UI is **role-free**: the words maker/taker/facilitator never appear in
+user-facing copy. A wallet's relation to an RFQ (posted it? owns a quote on
+it? is its reward recipient?) is derived from on-chain state and used only to
+decide which actions are legal — one action bar, one activity view, no role
+switchers. Rewards and fees are always denominated in the RFQ's quote token,
+never aggregated into USD.
+
+Visual source of truth: the
+[Figma design file](https://www.figma.com/design/vmyQPE8WnUX4a5JEl6C2BA)
+(issue #21).
+
+## Companion repositories
+
+| Repo                   | Role                                                                                                |
+| ---------------------- | --------------------------------------------------------------------------------------------------- |
+| `../settlement-engine` | Anchor program — account layouts, instruction guards, fee math. **The Rust wins on any ambiguity.** |
+| `../liquidity-guard`   | ed25519 attestation microservice gating `commit_quote` (`/health`, `/check`)                        |
+
+## Deployment
+
+- **Production** — GitHub Pages via `.github/workflows/deploy.yml` on push to
+  `main` (SPA fallback + CNAME for `app.unleak.trade`).
+- **PR previews** — Vercel via `.github/workflows/preview.yml` (internal PRs
+  only).
+- **CI** — typecheck + lint + unit tests + read-only e2e on every PR
+  (`ci.yml`); full transaction e2e on demand (`e2e.yml`).

@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+  # Read-only Playwright specs (desktop + mobile projects), fully HERMETIC:
+  # RPC is served from the committed cassette (e2e/fixtures/rpc-cassette.json)
+  # and the wallets are ephemeral + unfunded. No live devnet, no secrets, no
+  # external network — so it runs on every PR/push including forks, and there
+  # is nothing sensitive to leak into the uploaded report on failure.
+  e2e-readonly:
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run read-only E2E (replay cassette)
+        # Hermetic: playwright.config.ts generates fresh ephemeral wallets for
+        # the replay run itself — no keys, no secrets, no network.
+        run: npx playwright test --project=desktop --project=mobile
+        env:
+          REPLAY_RPC: "1"
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-readonly
+          path: playwright-report/
+          retention-days: 14

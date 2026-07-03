@@ -1,4 +1,5 @@
 import { RouterProvider } from "react-router";
+import { MotionConfig } from "motion/react";
 import { router } from "@/app/routes";
 import { WalletProviders } from "@/app/providers/WalletProviders";
 import { AppShell } from "@/app/AppShell";
@@ -8,9 +9,11 @@ function App() {
   return (
     <ErrorBoundary>
       <AppShell>
-        <WalletProviders>
-          <RouterProvider router={router} />
-        </WalletProviders>
+        <MotionConfig reducedMotion="user">
+          <WalletProviders>
+            <RouterProvider router={router} />
+          </WalletProviders>
+        </MotionConfig>
       </AppShell>
     </ErrorBoundary>
   );

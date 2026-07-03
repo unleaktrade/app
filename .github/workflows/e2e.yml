@@ -1,0 +1,70 @@
+name: E2E (devnet, @tx lifecycle)
+
+# The full @tx lifecycle spec — real devnet transactions across three funded
+# wallets, waiting out on-chain deadline windows. Runs on demand
+# (workflow_dispatch) or when a pushed commit message contains `[full-e2e]`.
+# The hermetic read-only projects run separately on every PR via ci.yml (no
+# secrets); this workflow is the ONLY place the funded-key + RPC secrets are
+# used. No scheduled runs.
+on:
+  workflow_dispatch:
+  push:
+    branches: ["**"]
+
+concurrency:
+  group: e2e-devnet
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.head_commit.message, '[full-e2e]')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Write dev wallet keypairs
+        env:
+          MAKER_KEYPAIR: ${{ secrets.DEV_WALLET_MAKER_KEYPAIR }}
+          TAKER1_KEYPAIR: ${{ secrets.DEV_WALLET_TAKER1_KEYPAIR }}
+          TAKER2_KEYPAIR: ${{ secrets.DEV_WALLET_TAKER2_KEYPAIR }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/dev-wallets"
+          printf '%s' "$MAKER_KEYPAIR" > "$RUNNER_TEMP/dev-wallets/maker.json"
+          printf '%s' "$TAKER1_KEYPAIR" > "$RUNNER_TEMP/dev-wallets/taker1.json"
+          printf '%s' "$TAKER2_KEYPAIR" > "$RUNNER_TEMP/dev-wallets/taker2.json"
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run @tx lifecycle (real devnet)
+        # test:e2e:tx = `playwright test --project=tx` (NOT REPLAY_RPC — this
+        # is the live-chain project). Read-only is covered hermetically in
+        # ci.yml; running it here with funded wallets would wrongly trip the
+        # "uninvolved wallet" assertions.
+        run: npm run test:e2e:tx
+        env:
+          DEV_WALLET_KEYPAIR_DIR: ${{ runner.temp }}/dev-wallets
+          # Public devnet RPC throttles getProgramAccounts from datacenter
+          # IPs — a dedicated endpoint is required for the runner (see #34).
+          VITE_RPC_URL_DEVNET: ${{ secrets.DEVNET_RPC_URL }}
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14

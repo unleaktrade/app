@@ -164,6 +164,26 @@ function pda(programId: PublicKeyT, seeds: (Buffer | Uint8Array)[]): PublicKeyT 
   return PublicKey.findProgramAddressSync(seeds, programId)[0];
 }
 
+/** The sBASE/sALT mints already committed in the manifest, or null if absent.
+ * Reused across seed runs so token addresses stay stable for funded wallets. */
+function readManifestMints(path: string): { sBase: PublicKeyT; sAlt: PublicKeyT } | null {
+  let raw: string;
+  try {
+    raw = readFileSync(path, "utf8");
+  } catch {
+    return null;
+  }
+  const entries = JSON.parse(raw) as Record<string, { symbol: string; decimals: number }>;
+  let sBase: string | undefined;
+  let sAlt: string | undefined;
+  for (const [mint, meta] of Object.entries(entries)) {
+    if (meta.symbol === "sBASE") sBase = mint;
+    if (meta.symbol === "sALT") sAlt = mint;
+  }
+  if (!sBase || !sAlt) return null;
+  return { sBase: new PublicKey(sBase), sAlt: new PublicKey(sAlt) };
+}
+
 const seed = (s: string) => Buffer.from(s);
 
 // ---------------------------------------------------------------------------
@@ -349,18 +369,37 @@ async function main() {
   console.log(`   ✓ USDC (bond) mint ${usdcMint.toBase58()}\n`);
 
   // --- Test mints + manifest ----------------------------------------------
-  console.log("Creating test mints (sBASE 9dp, sALT 6dp)…");
-  const sBase = await createMint(connection, payer, payer.publicKey, null, 9);
-  const sAlt = await createMint(connection, payer, payer.publicKey, null, 6);
-  const manifest: Record<string, { symbol: string; decimals: number }> = {
-    [usdcMint.toBase58()]: { symbol: "USDC", decimals: 6 },
-    [sBase.toBase58()]: { symbol: "sBASE", decimals: 9 },
-    [sAlt.toBase58()]: { symbol: "sALT", decimals: 6 },
-  };
-  writeFileSync(resolve(LIB_DIR, cfg.manifest), `${JSON.stringify(manifest, null, 2)}\n`);
-  console.log(`   sBASE ${sBase.toBase58()}`);
-  console.log(`   sALT  ${sAlt.toBase58()}`);
-  console.log(`   wrote src/app/lib/${cfg.manifest}\n`);
+  // STABLE BY DEFAULT: reuse the sBASE/sALT mints already in the committed
+  // manifest so re-seeding never rotates the token addresses out from under
+  // funded wallets (the CI @tx secret keypairs hold *these* mints). Pass
+  // `--fresh-mints` only for a first-ever seed or a deliberate reset — then
+  // every wallet must be re-funded with the new mints. Reuse requires the
+  // payer to be the mints' authority (it created them), so it can still mint
+  // to the seed-controlled takers below.
+  const manifestPath = resolve(LIB_DIR, cfg.manifest);
+  const existing = readManifestMints(manifestPath);
+  let sBase: PublicKeyT;
+  let sAlt: PublicKeyT;
+  if (existing && !("fresh-mints" in args)) {
+    sBase = existing.sBase;
+    sAlt = existing.sAlt;
+    console.log(`Reusing test mints from ${cfg.manifest} (pass --fresh-mints to rotate)`);
+    console.log(`   sBASE ${sBase.toBase58()}`);
+    console.log(`   sALT  ${sAlt.toBase58()}\n`);
+  } else {
+    console.log("Creating test mints (sBASE 9dp, sALT 6dp)…");
+    sBase = await createMint(connection, payer, payer.publicKey, null, 9);
+    sAlt = await createMint(connection, payer, payer.publicKey, null, 6);
+    const manifest: Record<string, { symbol: string; decimals: number }> = {
+      [usdcMint.toBase58()]: { symbol: "USDC", decimals: 6 },
+      [sBase.toBase58()]: { symbol: "sBASE", decimals: 9 },
+      [sAlt.toBase58()]: { symbol: "sALT", decimals: 6 },
+    };
+    writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    console.log(`   sBASE ${sBase.toBase58()}`);
+    console.log(`   sALT  ${sAlt.toBase58()}`);
+    console.log(`   wrote src/app/lib/${cfg.manifest} — re-fund all wallets with these mints\n`);
+  }
 
   // Economics — base = sBASE, quote = sALT (UI shows sBASE/sALT); bond = USDC.
   const BASE_MINT = sBase;

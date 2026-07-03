@@ -27,7 +27,7 @@ export function AuthGate({ variant }: { variant: AuthGateVariant }) {
   const { title, hint } = COPY[variant];
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white dark flex flex-col items-center justify-center gap-6 px-6 text-center">
+    <div className="min-h-screen bg-surface-page text-white dark flex flex-col items-center justify-center gap-6 px-6 text-center">
       <div className="relative flex items-center justify-center">
         <motion.span
           className="absolute h-24 w-24 rounded-full border-2 border-transparent border-t-cyan-400/80 border-r-purple-500/60"

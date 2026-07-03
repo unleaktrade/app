@@ -6,6 +6,8 @@ import { DashboardLayout } from "@/app/components/DashboardLayout";
 import { MarketplaceWrapper } from "@/app/components/MarketplaceWrapper";
 import { MyActivity } from "@/app/components/MyActivity";
 import { RFQDetailWrapper } from "@/app/components/RFQDetailWrapper";
+import { RevealQuoteWrapper } from "@/app/components/RevealQuoteWrapper";
+import { SettleQuoteWrapper } from "@/app/components/SettleQuoteWrapper";
 import { ComponentStories } from "@/app/components/ComponentStories";
 
 function RootRedirect() {
@@ -45,6 +47,15 @@ export const router = createBrowserRouter([
       {
         path: "rfq/:rfqId",
         Component: RFQDetailWrapper,
+      },
+      // Flat, role-free taker cockpits (the /my-quotes subtree is deleted per #10).
+      {
+        path: "quote/:quoteId/reveal",
+        Component: RevealQuoteWrapper,
+      },
+      {
+        path: "quote/:quoteId/settle",
+        Component: SettleQuoteWrapper,
       },
     ],
   },

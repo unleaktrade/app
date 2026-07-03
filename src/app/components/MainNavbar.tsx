@@ -3,6 +3,8 @@ import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { Button } from "@/app/components/ui/button";
 import { ClusterSwitcher } from "@/app/components/ClusterSwitcher";
 import { HealthPill } from "@/app/components/HealthPill";
+import { useRfqAccounts } from "@/chain/accounts/lists";
+import { LIVE_RFQ_STATES } from "@/app/lib/market-stats";
 import { Plus, Menu, X, TrendingUp, Activity, Store, ListChecks, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import logo from "figma:asset/6d73120824de2c8c6632c71cddef1ae782b1c254.png";
@@ -33,6 +35,11 @@ const NAV_ITEMS: Array<{
 export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Same list query Marketplace uses — react-query dedupes on the shared key.
+  const { data: rfqRows } = useRfqAccounts();
+  const openCount = rfqRows?.filter((row) => row.account.state === "Open").length;
+  const liveCount = rfqRows?.filter((row) => LIVE_RFQ_STATES.includes(row.account.state)).length;
+
   const handleNavigate = (view: DashboardView) => {
     onNavigate(view);
     setMobileMenuOpen(false);
@@ -48,7 +55,7 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
       <motion.nav
         initial={{ y: -100 }}
         animate={{ y: 0 }}
-        className="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0f]/80 backdrop-blur-xl border-b border-white/10"
+        className="fixed top-0 left-0 right-0 z-50 bg-surface-page/80 backdrop-blur-xl border-b border-white/10"
       >
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
@@ -165,7 +172,7 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="fixed top-16 right-0 bottom-0 w-full max-w-sm bg-[#0a0a0f]/98 backdrop-blur-xl border-l border-white/10 z-40 lg:hidden overflow-y-auto"
+              className="fixed top-(--nav-h) right-0 bottom-0 w-full max-w-sm bg-surface-page/98 backdrop-blur-xl border-l border-white/10 z-40 lg:hidden overflow-y-auto"
             >
               <div className="p-6 space-y-4">
                 <motion.div
@@ -279,9 +286,9 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
                         <div className="p-1.5 rounded-lg bg-green-500/20">
                           <Activity className="h-3.5 w-3.5 text-green-400" />
                         </div>
-                        <div className="text-xs text-white/50">Active</div>
+                        <div className="text-xs text-white/50">Open</div>
                       </div>
-                      <div className="text-2xl font-bold text-white">12</div>
+                      <div className="text-2xl font-bold text-white">{openCount ?? "—"}</div>
                       <div className="text-xs text-green-400 mt-0.5">RFQs</div>
                     </div>
 
@@ -290,10 +297,10 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
                         <div className="p-1.5 rounded-lg bg-cyan-500/20">
                           <TrendingUp className="h-3.5 w-3.5 text-cyan-400" />
                         </div>
-                        <div className="text-xs text-white/50">Volume</div>
+                        <div className="text-xs text-white/50">Live</div>
                       </div>
-                      <div className="text-2xl font-bold text-white">$4.7M</div>
-                      <div className="text-xs text-cyan-400 mt-0.5">24h</div>
+                      <div className="text-2xl font-bold text-white">{liveCount ?? "—"}</div>
+                      <div className="text-xs text-cyan-400 mt-0.5">RFQs</div>
                     </div>
                   </div>
                 </motion.div>

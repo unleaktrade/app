@@ -16,6 +16,10 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "REPLAY_RPC=1 playwright test --project=desktop --project=mobile",
+    "test:e2e:tx": "playwright test --project=tx",
+    "test:e2e:record": "RECORD_RPC=1 playwright test --project=desktop --project=mobile",
+    "test:e2e:report": "playwright show-report",
     "copy-idl": "bash scripts/copy-idl.sh",
     "seed": "tsx scripts/seed.ts",
     "prepare": "husky"
@@ -28,6 +32,7 @@
     "@radix-ui/react-separator": "1.1.8",
     "@radix-ui/react-slot": "1.2.4",
     "@radix-ui/react-tabs": "1.1.13",
+    "@solana/spl-token": "^0.4.14",
     "@solana/wallet-adapter-react": "^0.15.39",
     "@solana/wallet-adapter-react-ui": "^0.9.39",
     "@solana/web3.js": "^1.98.4",
@@ -54,7 +59,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",
-    "@solana/spl-token": "^0.4.14",
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/vite": "4.2.2",
     "@tanstack/react-query-devtools": "^5.99.2",
     "@types/node": "^22.10.0",

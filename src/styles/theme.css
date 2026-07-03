@@ -2,6 +2,11 @@
 
 :root {
   --font-size: 16px;
+  /* Fixed navbar height — sticky offsets and page padding derive from this. */
+  --nav-h: 4rem;
+  /* App surfaces (dark-only app; these don't flip with .dark). */
+  --surface-page: #0a0a0f;
+  --surface-raised: #0f0f1a;
   --background: #ffffff;
   --foreground: oklch(0.145 0 0);
   --card: #ffffff;
@@ -79,6 +84,8 @@
 }
 
 @theme inline {
+  --color-surface-page: var(--surface-page);
+  --color-surface-raised: var(--surface-raised);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -192,5 +199,16 @@
 
   .animate-pulse-glow {
     animation: pulse-glow 3s ease-in-out infinite;
+  }
+
+  :focus-visible {
+    outline: 2px solid oklch(0.72 0.13 215 / 0.8);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-pulse-glow {
+      animation: none;
+    }
   }
 }

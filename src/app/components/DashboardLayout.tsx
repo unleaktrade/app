@@ -49,7 +49,7 @@ export function DashboardLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white dark">
+    <div className="min-h-screen bg-surface-page text-white dark">
       <MainNavbar
         currentView={getCurrentView()}
         onNavigate={handleNavigate}
