@@ -1,5 +1,24 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { defineConfig, devices } from "@playwright/test";
+import { Keypair } from "@solana/web3.js";
 import { devWalletKeypairDir } from "./e2e/helpers/env";
+
+// Fresh, unfunded keypairs for the hermetic read-only run. Generated per run so
+// the personas are guaranteed uninvolved in any cassette fixture (which is what
+// the "connected but uninvolved wallet" assertions rely on) — never the funded
+// wallets, whose real on-chain relationships would trip those assertions.
+function ephemeralWalletDir(): string {
+  const dir = mkdtempSync(join(tmpdir(), "unleak-e2e-eph-"));
+  for (const label of ["maker", "taker1", "taker2"]) {
+    writeFileSync(
+      join(dir, `${label}.json`),
+      JSON.stringify(Array.from(Keypair.generate().secretKey)),
+    );
+  }
+  return dir;
+}
 
 // Two modes (see e2e/README.md):
 //   - Read-only (desktop/mobile): HERMETIC. RPC is served from a committed
@@ -64,7 +83,10 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
     env: {
-      DEV_WALLET_KEYPAIR_DIR: devWalletKeypairDir() ?? "",
+      // Replay always uses fresh ephemeral wallets (self-contained, matches CI
+      // exactly, never depends on funded keys). Record/tx use the real funded
+      // wallets from DEV_WALLET_KEYPAIR_DIR / .env.local.
+      DEV_WALLET_KEYPAIR_DIR: HERMETIC ? ephemeralWalletDir() : (devWalletKeypairDir() ?? ""),
       // Replay: pin a dummy origin so the app's RPC target is deterministic and
       // no real network is ever reached even on a cassette miss (page.route
       // intercepts these requests). Record/tx: use the real endpoint the caller

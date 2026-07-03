@@ -52,17 +52,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Generate ephemeral dev wallets
-        run: node scripts/gen-dev-wallets.mjs "$RUNNER_TEMP/dev-wallets"
-
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
       - name: Run read-only E2E (replay cassette)
+        # Hermetic: playwright.config.ts generates fresh ephemeral wallets for
+        # the replay run itself — no keys, no secrets, no network.
         run: npx playwright test --project=desktop --project=mobile
         env:
           REPLAY_RPC: "1"
-          DEV_WALLET_KEYPAIR_DIR: ${{ runner.temp }}/dev-wallets
 
       - name: Upload Playwright report
         if: failure()
