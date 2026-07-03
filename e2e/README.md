@@ -1,69 +1,97 @@
 # E2E suite
 
-Playwright specs driving the real app against **live devnet** and the
-rate-limited liquidity-guard. No mocks — the dev-only Wallet Standard wallets
-(`src/dev/devWallet.ts`) sign everything locally, so the whole wallet-gated
-app is drivable headlessly.
+Two very different modes:
+
+- **Read-only (`desktop` + `mobile`) — HERMETIC.** RPC is served from a
+  committed cassette (`e2e/fixtures/rpc-cassette.json`) via `page.route`, the
+  clock is pinned to capture time, and the wallets are **ephemeral + unfunded**.
+  No live devnet, no liquidity-guard, no secrets, no network. This is the
+  per-PR gate (`ci.yml`) and runs on forks too.
+- **`tx` — live devnet.** The full commit→reveal→select→settle→claim lifecycle
+  actually submits transactions, so it needs a real chain, funded wallets, and
+  a working RPC. On-demand only (`e2e.yml`: `workflow_dispatch` or a `[full-e2e]`
+  commit).
 
 ## Layout
 
 ```
 e2e/
-  fixtures.ts            # makerPage / taker1Page / taker2Page — one browser
-                         # context (own sessionStorage + signMessage session)
-                         # per persona; threads contextOptions so device
-                         # emulation from the project config applies
+  fixtures.ts            # makerPage / taker1Page / taker2Page personas. For the
+                         # hermetic projects it installs the RPC replay before
+                         # the first navigation (gated on REPLAY_RPC/RECORD_RPC).
+  fixtures/
+    rpc-cassette.json    # recorded Solana JSON-RPC responses (committed)
+    known-rfqs.ts        # stable RFQ pubkeys the specs navigate to directly
   helpers/
-    wallet.ts            # connectDevWallet() — SWA modal → "Dev: <label>" → Connect
-    keys.ts              # devWalletAddress() — base58 from the keypair files
-    rfq.ts               # openFirstRfqInGroup(), createRfq() (full 4-step
-                         # wizard), waitForActionWindow() (reload-poll until a
-                         # deadline window opens)
+    rpc-replay.ts        # installRpcReplay() — record (passive) / replay (route)
+    wallet.ts            # connectDevWallet()
+    keys.ts              # devWalletAddress() (tx legs)
+    rfq.ts               # openFirstRfqInGroup(), createRfq(), waitForActionWindow()
   specs/
     action-bar-empty-state.e2e.spec.ts   # read-only
     terminal-states.e2e.spec.ts          # read-only
     quote-modals.e2e.spec.ts             # read-only
-    responsive-mobile.e2e.spec.ts        # read-only, @mobile (iPhone viewport)
+    responsive-mobile.e2e.spec.ts        # read-only, @mobile
     lifecycle.e2e.spec.ts                # @tx — full round trip incl. reward claim
 ```
 
-## Projects & tags
+## Projects
 
-`playwright.config.ts` splits the suite into three projects:
-
-| Project   | Selector            | Cost                                           | When it runs                                                         |
-| --------- | ------------------- | ---------------------------------------------- | -------------------------------------------------------------------- |
-| `desktop` | not `@tx`/`@mobile` | read-only devnet RPC                           | every PR/push (`ci.yml`)                                             |
-| `mobile`  | `@mobile`           | read-only, iPhone 13 viewport                  | every PR/push (`ci.yml`)                                             |
-| `tx`      | `@tx`               | real transactions + ~3 min of deadline windows | `workflow_dispatch`, or a commit containing `[full-e2e]` (`e2e.yml`) |
-
-Commit-message flags:
-
-- **`[skip-e2e]`** — skips the read-only e2e job on that push/PR.
-- **`[full-e2e]`** — additionally triggers the complete suite (including `tx`).
-
-Everything runs with `workers: 1` — parallel specs would compound
-liquidity-guard rate-limit risk (~0.5 req/s sustained, burst 5) and
-cross-pollinate shared devnet state.
+| Project   | Selector            | Mode                    | When it runs                                              |
+| --------- | ------------------- | ----------------------- | --------------------------------------------------------- |
+| `desktop` | not `@tx`/`@mobile` | hermetic (cassette)     | every PR/push incl. forks (`ci.yml`)                      |
+| `mobile`  | `@mobile`           | hermetic, iPhone 13     | every PR/push incl. forks (`ci.yml`)                      |
+| `tx`      | `@tx`               | live devnet + real txns | `workflow_dispatch`, or a `[full-e2e]` commit (`e2e.yml`) |
 
 ## Running locally
 
 ```bash
-export DEV_WALLET_KEYPAIR_DIR=/absolute/path/to/devnet-keypairs  # maker.json, taker1.json, taker2.json
-npm run test:e2e                       # all three projects
-npx playwright test --project=desktop  # just the cheap read-only specs
-npx playwright test --project=tx      # the full lifecycle (several minutes)
-npm run test:e2e:report               # open the last HTML report
+# Hermetic read-only — no setup, no network, no keys:
+npm run test:e2e            # REPLAY_RPC=1, desktop + mobile
+npm run test:e2e:report     # open the last HTML report
+
+# Full lifecycle against your own devnet (needs funded wallets + a real RPC):
+export DEV_WALLET_KEYPAIR_DIR=/abs/path/to/devnet-keypairs  # maker/taker1/taker2.json
+export VITE_RPC_URL_DEVNET=https://your-devnet-rpc          # public devnet 429s from CI IPs
+npm run test:e2e:tx
 ```
 
-The keypair files are Solana CLI format. They must be **devnet-funded**
-(the lifecycle spec needs ≥ ~2 USDC per wallet for bonds plus SOL for rent —
-`scripts/seed.ts` funds them) and must **never** hold mainnet assets. CI gets
-them from repo secrets (`DEV_WALLET_{MAKER,TAKER1,TAKER2}_KEYPAIR`, issue #33).
+The `tx` keypairs must be **devnet-funded** (bonds + rent; `scripts/seed.ts`
+funds them) and must **never** hold mainnet assets. CI supplies them only to the
+on-demand `e2e.yml` run via `DEV_WALLET_{MAKER,TAKER1,TAKER2}_KEYPAIR` +
+`DEVNET_RPC_URL` — never to the per-PR gate.
+
+## Regenerating the cassette
+
+Re-record when the account layout / IDL changes (a stale cassette makes the
+read-only specs assert against old bytes; the `tx` run is the live parity
+guard). Recording passively observes real RPC traffic — it never intercepts —
+so the live run behaves normally:
+
+```bash
+# 1. Ensure a fresh Open RFQ with a long commit window exists, and note its
+#    pubkey into e2e/fixtures/known-rfqs.ts (OPEN_RFQ_WITH_COMMIT_WINDOW):
+npm run seed -- --cluster devnet --maker-keypair <maker.json> \
+  --facilitator <taker2-pubkey> --only open
+# 2. Record against a working devnet RPC (public works from a residential IP):
+DEV_WALLET_KEYPAIR_DIR=<funded-keys> npm run test:e2e:record
+# 3. Verify replay is green with ephemeral wallets (as CI runs it):
+node scripts/gen-dev-wallets.mjs /tmp/eph && \
+  DEV_WALLET_KEYPAIR_DIR=/tmp/eph npm run test:e2e
+```
+
+The cassette key is `method + stable-stringified params` (the varying `id` is
+excluded), so it matches whether the app points at real devnet (record) or the
+pinned dummy origin `https://rpc.replay.test` (replay). A `__capturedAt`
+timestamp is stored so replay can pin the clock and keep every deadline window
+exactly as captured. Unmatched requests get a benign empty result, and an
+ephemeral wallet's account queries legitimately return empty.
 
 ## Fixture philosophy
 
-`scripts/seed.ts` is **append-only and not resettable**: specs never assume a
-specific pubkey or count. Read-only specs search for "at least one fixture in
-state X"; the lifecycle spec creates its own RFQ with distinctive fractional
-amounts and finds it back by amount, not by position.
+`scripts/seed.ts` is append-only and not resettable. The hermetic read-only
+specs are deterministic against the cassette: terminal-state specs open the
+first fixture in each group (stable, since the marketplace order comes from the
+same cassette bytes), and the commit-modal / mobile specs navigate directly to
+a known Open RFQ (`known-rfqs.ts`). The `tx` spec creates its own RFQ with
+distinctive fractional amounts and finds it back by amount.

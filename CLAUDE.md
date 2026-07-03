@@ -68,7 +68,9 @@ npm run format        # prettier --write .
 npm run format:check  # prettier --check .
 npm test              # vitest run — decoders, state-machine guards, deadline + fee math, PDAs
 npm run test:watch    # vitest watch mode
-npm run test:e2e      # Playwright e2e (desktop/mobile/tx projects; needs DEV_WALLET_KEYPAIR_DIR — env or .env.local)
+npm run test:e2e      # HERMETIC read-only e2e (desktop+mobile, replays the RPC cassette; no devnet, no keys)
+npm run test:e2e:tx   # full lifecycle vs live devnet (needs funded DEV_WALLET_KEYPAIR_DIR + VITE_RPC_URL_DEVNET)
+npm run test:e2e:record # re-capture e2e/fixtures/rpc-cassette.json from a working devnet
 npm run test:e2e:report # open the last Playwright HTML report
 npm run seed          # append devnet/localnet fixtures across all 9 states (never resets)
 npm run copy-idl      # refresh src/chain/idl/ from ../settlement-engine/target (after `anchor build` there)
@@ -81,7 +83,12 @@ The IDL files in `src/chain/idl/` are **committed**, so fresh clones can `npm in
 
 ## E2E policy
 
-Playwright (`e2e/`, `playwright.config.ts`) runs against **live devnet** with the dev keypair wallets — see `e2e/README.md`. Three projects split by title tags: `desktop` + `mobile` are read-only (no transactions) and run on **every PR/push** via the `e2e-readonly` job in `ci.yml` (internal PRs only — needs the `DEV_WALLET_{MAKER,TAKER1,TAKER2}_KEYPAIR` secrets, #33); `tx` (the full lifecycle incl. the reward claim) runs via `workflow_dispatch` or a commit containing `[full-e2e]` (`e2e.yml`). A `[skip-e2e]` commit message (or PR title) bypasses the PR job. There is **no scheduled/nightly run**. Everything is `workers: 1` (liquidity-guard rate limit + shared devnet state). Seeded fixtures decay (an RFQ stays "Open" after its commit window lapses), so read-only specs that need a live-window fixture hunt via `openFirstRfqWithCta` and skip honestly when devnet has none; the `tx` spec creates its own fixture and is the authoritative flow coverage. The dev wallets must hold devnet USDC **and** the seeded sBASE/sALT mints (mint authority = the seed payer keypair) — the lifecycle spec moves real balances.
+Playwright (`e2e/`, `playwright.config.ts`) — see `e2e/README.md`. **Two modes, split by project:**
+
+- **Read-only (`desktop` + `mobile`) — HERMETIC**, and the per-PR gate (`ci.yml` `e2e-readonly`, runs on **every** PR/push including forks). RPC is served from a committed cassette (`e2e/fixtures/rpc-cassette.json`) via `page.route` in `e2e/helpers/rpc-replay.ts`, the clock is pinned to a stored `__capturedAt` (so deadline windows stay as captured), and the wallets are **ephemeral + unfunded** (`scripts/gen-dev-wallets.mjs`). **No live devnet, no liquidity-guard, no secrets, no network.** Run locally with `npm run test:e2e` (turnkey, `REPLAY_RPC=1`). Regenerate the cassette with `npm run test:e2e:record` against a working devnet (see `e2e/README.md`); the `tx` run is the live parity guard. The commit-modal / mobile specs navigate directly to a known Open RFQ pinned in `e2e/fixtures/known-rfqs.ts`.
+- **`tx` — live devnet.** The full commit→reveal→select→settle→claim lifecycle submits real transactions, so it needs funded wallets + a real RPC. **On-demand only** (`e2e.yml`: `workflow_dispatch` or a `[full-e2e]` commit). This is the **only** place the `DEV_WALLET_{MAKER,TAKER1,TAKER2}_KEYPAIR` + `DEVNET_RPC_URL` secrets are used — never the per-PR path, never forks. `npm run test:e2e:tx` locally (needs `DEV_WALLET_KEYPAIR_DIR` funded wallets + `VITE_RPC_URL_DEVNET`). Everything is `workers: 1`.
+
+**Security invariant:** `VITE_RPC_URL_*` is inlined into the client bundle by Vite — never set it to a keyed URL in a build/deploy workflow (`deploy.yml` passes nothing → production uses the keyless public RPC). Playwright trace/screenshot/video are `off` under CI (they'd capture served JS / request URLs into the uploaded report). The hermetic PR gate holds no secrets, so there is nothing sensitive to leak even if that guard regressed.
 
 ## Browser-testing policy
 
