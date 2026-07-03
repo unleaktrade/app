@@ -90,6 +90,32 @@ Playwright (`e2e/`, `playwright.config.ts`) — see `e2e/README.md`. **Two modes
 
 **Security invariant:** `VITE_RPC_URL_*` is inlined into the client bundle by Vite — never set it to a keyed URL in a build/deploy workflow (`deploy.yml` passes nothing → production uses the keyless public RPC). Playwright trace/screenshot/video are `off` under CI (they'd capture served JS / request URLs into the uploaded report). The hermetic PR gate holds no secrets, so there is nothing sensitive to leak even if that guard regressed.
 
+## Testing integrity, security & web3 constraints (non-negotiable)
+
+These are hard rules. Do not relax them to make CI green — fix the root cause instead.
+
+**Test integrity & consistency.**
+
+- **Never weaken a test to pass.** No `test.skip`/`.only`, no commented-out or softened assertions, no deleting a failing case, no widening a matcher until it stops catching the bug. A red test is a signal — diagnose it (`superpowers:systematic-debugging`), don't silence it. If a test is genuinely obsolete, remove it with a one-line justification, never to dodge a failure.
+- **Unit tests must stay on-chain-accurate.** The suites under `src/chain/__tests__/` and `src/app/lib/__tests__/` encode decoder↔IDL parity, PDA seeds, deadline math, and fee math (`computeTotalFee`/`computeFacilitatorShare`, floor + min-1) ported 1:1 from `../settlement-engine`. When the IDL, an account layout, a state guard, or the fee/reward math changes, update the Rust-mirroring code **and** its tests **and** the fixtures in the same change. The Rust wins on any ambiguity.
+- **Keep unit ↔ e2e ↔ cassette in lockstep.** Any change to a decoder, PDA, guard, fee/reward math, or a user-facing string a spec asserts on must update the unit tests, the affected e2e specs, and — if account bytes or reads change — the RPC cassette, together. A read-only hermetic pass against a **stale** cassette is a _false green_: the cassette froze old bytes. Regenerate it (`npm run test:e2e:record`, then re-verify replay with ephemeral wallets) whenever the account layout / IDL changes. The live `@tx` run is the parity guard — if a read-only spec is green but the same flow breaks under `@tx`, the cassette is stale; re-record, never paper over.
+- **Every UI-affecting change is still browser-tested** (see Browser-testing policy) and lands with `npm run typecheck && npm run lint && npm test` green (baselines in Commands). `npm run build` does not type-check.
+
+**Security — no leaks.**
+
+- **The per-PR CI gate stays hermetic and secret-free.** Never add `DEV_WALLET_*`, `DEVNET_RPC_URL`, or any `secrets.*` to `ci.yml` or the read-only e2e path. Funded keypairs + the keyed RPC live **only** in `e2e.yml` (on-demand `@tx`), never on the per-PR path, never on forks.
+- **Never commit a keypair** — not even an unfunded one. Read-only e2e generates ephemeral keys at runtime (`scripts/gen-dev-wallets.mjs`). `.env.local`, `DEV_WALLET_KEYPAIR_DIR` folders, and `*keypair*.json` stay gitignored.
+- **`VITE_*` ships to the public bundle.** Never put an API key / keyed RPC in a `VITE_` var consumed by a `vite build`. Production reads the keyless public endpoint; a dedicated prod RPC must be fronted by a same-origin proxy (like the liquidity-guard proxy), keeping the key server-side.
+- **Dev-wallet key injection is double-guarded** — `command === "serve"` in `vite.config.ts` **and** `import.meta.env.DEV` in `main.tsx`. Never loosen either; dev private keys must never reach a `vite build` or a `build/` artifact.
+- **Artifacts must carry nothing sensitive.** Keep Playwright trace/screenshot/video `off` under CI — they record served JS (which under `@tx` contains the dev-wallet keys) and request URLs (the keyed RPC). Uploaded reports are downloadable by anyone with repo read.
+
+**Web3 provider constraints.**
+
+- **The app is wallet-gated.** `useSettlementProgram` returns `null` with no wallet and every list query is `enabled: program !== null`, so nothing reads the chain until a wallet connects and clears the `signMessage` auth gate. Any e2e that asserts on chain data **must connect a wallet first** via the dev wallet. Read-only needs only an **ephemeral, unfunded** wallet (signMessage signs locally); real funds are for `@tx` only.
+- **Don't invent auth/wallet abstractions** (locked in Stack direction). The dev wallet is a standard `wallet-standard:register-wallet` handshake with zero changes to `WalletProviders.tsx`/`AuthProvider.tsx` — SWA auto-discovers it like Phantom.
+- **RPC read shape drives testability.** The marketplace list is Anchor `program.account.rfq.all()` → `getProgramAccounts` and opens **no** websocket; detail/Config use `getAccountInfo` + a non-blocking subscription (initial data is the HTTP query; `onAccountChange` errors are swallowed). Public `api.devnet.solana.com` throttles `getProgramAccounts` from datacenter/CI IPs — this is _why_ CI must not hit live devnet (hence the cassette) and why the `@tx` run needs `DEVNET_RPC_URL`.
+- **The two load-bearing on-chain rules still bind** (see "Three load-bearing on-chain rules"): the **178-byte commit-hash preimage** is byte-identical across the three repos, and the **liquidity-guard ed25519 pubkey lives on-chain in `Config.liquidity_guard`, not env**. Never re-introduce a `VITE_LIQUIDITY_GUARD_PUBKEY`.
+
 ## Browser-testing policy
 
 Any change that touches the running app (routes, wallet flow, modals, styling, anything rendered) **must be end-to-end tested by Claude itself via the `claude-in-chrome` MCP tools** before the task is reported complete. Do not hand a build back to the user with "go test it in your browser" — that wastes a round-trip when Claude has a browser driver available.
