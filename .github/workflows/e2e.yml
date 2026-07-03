@@ -1,10 +1,11 @@
-name: E2E (devnet, full suite incl. transactions)
+name: E2E (devnet, @tx lifecycle)
 
-# The complete suite — including the @tx lifecycle spec that submits real
-# devnet transactions and waits out deadline windows. Runs on demand
+# The full @tx lifecycle spec — real devnet transactions across three funded
+# wallets, waiting out on-chain deadline windows. Runs on demand
 # (workflow_dispatch) or when a pushed commit message contains `[full-e2e]`.
-# The cheap read-only projects also run on every PR via ci.yml; `[skip-e2e]`
-# bypasses those. No scheduled runs.
+# The hermetic read-only projects run separately on every PR via ci.yml (no
+# secrets); this workflow is the ONLY place the funded-key + RPC secrets are
+# used. No scheduled runs.
 on:
   workflow_dispatch:
   push:
@@ -48,8 +49,12 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Run full E2E suite (desktop + mobile + tx)
-        run: npm run test:e2e
+      - name: Run @tx lifecycle (real devnet)
+        # test:e2e:tx = `playwright test --project=tx` (NOT REPLAY_RPC — this
+        # is the live-chain project). Read-only is covered hermetically in
+        # ci.yml; running it here with funded wallets would wrongly trip the
+        # "uninvolved wallet" assertions.
+        run: npm run test:e2e:tx
         env:
           DEV_WALLET_KEYPAIR_DIR: ${{ runner.temp }}/dev-wallets
           # Public devnet RPC throttles getProgramAccounts from datacenter
