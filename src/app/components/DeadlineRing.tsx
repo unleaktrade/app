@@ -1,6 +1,7 @@
 import { motion } from "motion/react";
 import { useCountdown } from "@/app/hooks/useCountdown";
 import { formatDuration } from "@/app/lib/format";
+import { ringColor } from "@/app/lib/ring-color";
 import { cn } from "@/app/components/ui/utils";
 
 interface DeadlineRingProps {
@@ -11,15 +12,6 @@ interface DeadlineRingProps {
   size?: number;
   strokeWidth?: number;
   className?: string;
-}
-
-const GREEN = "#34d399"; // emerald-400
-const AMBER = "#fbbf24"; // amber-400
-const RED = "#f87171"; // red-400
-
-/** Pure threshold → color mapping (unit-tested): green → amber (≤ ⅓) → red (≤ ⅒). */
-export function ringColor(fraction: number): string {
-  return fraction <= 0.1 ? RED : fraction <= 1 / 3 ? AMBER : GREEN;
 }
 
 /** Circular countdown: green → amber (≤ ⅓ left) → red (≤ ⅒ left). */
