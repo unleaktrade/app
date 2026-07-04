@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { Button } from "@/app/components/ui/button";
 import { ClusterSwitcher } from "@/app/components/ClusterSwitcher";
+import { NotificationCenter } from "@/app/components/NotificationCenter";
 import { HealthPill } from "@/app/components/HealthPill";
 import { useRfqAccounts } from "@/chain/accounts/lists";
 import { LIVE_RFQ_STATES } from "@/app/lib/market-stats";
@@ -128,6 +129,8 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
               </Button>
 
               {import.meta.env.DEV && <HealthPill />}
+
+              <NotificationCenter />
 
               <div className="hidden lg:block">
                 <ClusterSwitcher />
