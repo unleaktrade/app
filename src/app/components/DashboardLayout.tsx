@@ -51,6 +51,12 @@ export function DashboardLayout() {
 
   return (
     <div className="min-h-screen bg-surface-page text-white dark">
+      <a
+        href="#main"
+        className="sr-only z-[100] rounded-md bg-surface-raised px-4 py-2 text-sm text-white focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
+      >
+        Skip to content
+      </a>
       <MainNavbar
         currentView={getCurrentView()}
         onNavigate={handleNavigate}

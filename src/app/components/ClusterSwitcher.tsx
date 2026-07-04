@@ -32,6 +32,7 @@ export function ClusterSwitcher() {
     <Select value={cluster} onValueChange={(v) => void handleChange(v)}>
       <SelectTrigger
         size="sm"
+        aria-label="Select Solana cluster"
         className="bg-white/5 border-white/10 text-white/80 hover:bg-white/10 gap-2"
       >
         <span className={`inline-block h-2 w-2 rounded-full ${CLUSTER_DOT_CLASSES[cluster]}`} />

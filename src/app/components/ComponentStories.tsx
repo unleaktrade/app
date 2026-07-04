@@ -96,7 +96,7 @@ export function ComponentStories() {
   const [modalOpen, setModalOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-surface-page px-6 py-10">
+    <main className="min-h-screen bg-surface-page px-6 py-10">
       <div className="mx-auto max-w-4xl space-y-6">
         <h1 className="text-lg font-bold text-white">
           Phase 2 primitives <span className="text-white/40">(dev only)</span>
@@ -237,6 +237,6 @@ export function ComponentStories() {
           </div>
         </Story>
       </div>
-    </div>
+    </main>
   );
 }
