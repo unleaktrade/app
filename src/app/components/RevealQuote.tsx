@@ -23,13 +23,22 @@ import { buildRevealQuoteTx } from "@/chain/instructions/taker";
 import { submitRfqTx } from "@/chain/instructions/shared";
 import { resolveTokenMeta } from "@/app/lib/tokens";
 import { hexToBytes, bytesToHex, loadTicket, parseTicket } from "@/app/lib/reveal-ticket";
+import { ProofInspector } from "@/app/components/ProofInspector";
 import { PageShell } from "@/app/components/PageShell";
 import { TokenAmountInput } from "@/app/components/TokenAmountInput";
 import { DeadlineRing } from "@/app/components/DeadlineRing";
 import { AddressDisplay } from "@/app/components/AddressDisplay";
 import { Button } from "@/app/components/ui/button";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle2, Loader2, Upload, XCircle, PenLine } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Loader2,
+  Upload,
+  XCircle,
+  PenLine,
+  ShieldCheck,
+} from "lucide-react";
 
 interface RevealQuoteProps {
   quotePda: PublicKey;
@@ -53,6 +62,7 @@ export function RevealQuote({ quote, rfqPda, rfq, onDone, onBack }: RevealQuoteP
   const [amount, setAmount] = useState<bigint | null>(null);
   const [localHashHex, setLocalHashHex] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const onchainHashHex = useMemo(() => bytesToHex(quote.commitHash), [quote.commitHash]);
@@ -250,7 +260,22 @@ export function RevealQuote({ quote, rfqPda, rfq, onDone, onBack }: RevealQuoteP
                     <XCircle className="h-4 w-4" /> Mismatch — wrong salt or amount
                   </div>
                 ))}
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setInspectorOpen(true)}
+                className="mt-1 text-white/50 hover:text-white hover:bg-white/10"
+              >
+                <ShieldCheck className="mr-2 h-4 w-4" />
+                Inspect proof
+              </Button>
             </div>
+            <ProofInspector
+              open={inspectorOpen}
+              onOpenChange={setInspectorOpen}
+              rfqPda={rfqPda.toBase58()}
+              quote={{ commitHash: quote.commitHash, liquidityProof: quote.liquidityProof }}
+            />
 
             {!inWindow && (
               <Note tone="amber">

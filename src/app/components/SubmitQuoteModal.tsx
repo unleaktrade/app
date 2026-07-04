@@ -11,6 +11,7 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/app/components/ui/button";
 import { ResponsiveModal } from "@/app/components/ResponsiveModal";
+import { ProofInspector } from "@/app/components/ProofInspector";
 import { TokenAmountInput } from "@/app/components/TokenAmountInput";
 import { BondBreakdown } from "@/app/components/BondBreakdown";
 import type { RFQ } from "@/types/rfq";
@@ -71,6 +72,11 @@ export function SubmitQuoteModal({ rfq, open, onOpenChange }: SubmitQuoteModalPr
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [ticket, setTicket] = useState<RevealTicket | null>(null);
+  const [attestation, setAttestation] = useState<{
+    commitHash: Uint8Array;
+    liquidityProof: Uint8Array;
+  } | null>(null);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
 
   // Seed the amount input with the RFQ minimum on open.
   useEffect(() => {
@@ -147,6 +153,7 @@ export function SubmitQuoteModal({ rfq, open, onOpenChange }: SubmitQuoteModalPr
       };
       saveTicket(t);
       setTicket(t);
+      setAttestation({ commitHash: att.commitHash, liquidityProof: att.liquidityProof });
 
       // 6. Submit commit_quote (Ed25519 verify preinstruction + the ix).
       setPhase("submitting");
@@ -260,14 +267,33 @@ export function SubmitQuoteModal({ rfq, open, onOpenChange }: SubmitQuoteModalPr
           )}
 
           {ticket && (
-            <Button
-              variant="outline"
-              onClick={() => downloadTicket(ticket)}
-              className="w-full border-white/20 bg-white/5 text-white hover:bg-white/10"
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Download reveal ticket
-            </Button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                variant="outline"
+                onClick={() => downloadTicket(ticket)}
+                className="flex-1 border-white/20 bg-white/5 text-white hover:bg-white/10"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Download reveal ticket
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setInspectorOpen(true)}
+                className="flex-1 border-white/20 bg-white/5 text-white hover:bg-white/10"
+              >
+                <ShieldCheck className="mr-2 h-4 w-4" />
+                Inspect proof
+              </Button>
+            </div>
+          )}
+          {ticket && (
+            <ProofInspector
+              open={inspectorOpen}
+              onOpenChange={setInspectorOpen}
+              rfqPda={ticket.rfq}
+              quote={attestation}
+              ticket={ticket}
+            />
           )}
 
           <div className="flex gap-3">
