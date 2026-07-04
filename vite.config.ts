@@ -75,6 +75,38 @@ export default defineConfig(({ mode, command }) => {
     test: {
       // No env injection needed: src/chain/env.ts falls back to committed
       // defaults when VITE_* vars are absent (env.test.ts pins this).
+      // Coverage gates the deterministic logic layers (src/chain/ +
+      // src/app/lib/) — components are exercised by RTL + the hermetic e2e
+      // suite instead of being coverage-gated (issue #17 reconciliation).
+      // Wallet/RPC plumbing (tx builders, query hooks, subscriptions) is
+      // excluded for the same reason: it needs a connection + signer, and the
+      // hermetic replay + on-demand @tx e2e runs are its test surface.
+      coverage: {
+        provider: "v8" as const,
+        include: ["src/chain/**/*.ts", "src/app/lib/**/*.ts"],
+        exclude: [
+          "src/chain/idl/**",
+          "**/__tests__/**",
+          "**/*.test.*",
+          "src/chain/instructions/**",
+          "src/chain/accounts/byKeys.ts",
+          "src/chain/accounts/useDecodedAccount.ts",
+          "src/chain/program.ts",
+          "src/chain/tx.ts",
+          "src/chain/accountSubscription.ts",
+          "src/chain/liquidityGuard.ts",
+        ],
+        reporter: ["text", "html", "json-summary"],
+        thresholds: {
+          statements: 70,
+          lines: 70,
+          functions: 65,
+          branches: 60,
+          "src/chain/**/*.ts": {
+            statements: 80,
+          },
+        },
+      },
       // Two projects: pure-logic suites stay on the node runtime (*.test.ts),
       // React component suites get jsdom + testing-library (*.test.tsx).
       projects: [
