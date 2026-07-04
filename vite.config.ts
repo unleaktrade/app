@@ -73,10 +73,29 @@ export default defineConfig(({ mode, command }) => {
       outDir: "build",
     },
     test: {
-      environment: "node",
-      include: ["src/**/*.test.ts"],
       // No env injection needed: src/chain/env.ts falls back to committed
       // defaults when VITE_* vars are absent (env.test.ts pins this).
+      // Two projects: pure-logic suites stay on the node runtime (*.test.ts),
+      // React component suites get jsdom + testing-library (*.test.tsx).
+      projects: [
+        {
+          extends: true,
+          test: {
+            name: "node",
+            environment: "node",
+            include: ["src/**/*.test.ts"],
+          },
+        },
+        {
+          extends: true,
+          test: {
+            name: "jsdom",
+            environment: "jsdom",
+            include: ["src/**/*.test.tsx"],
+            setupFiles: ["./src/test/setup.ts"],
+          },
+        },
+      ],
     },
     server: {
       port: 3000,
