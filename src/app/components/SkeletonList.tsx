@@ -13,7 +13,7 @@ export function SkeletonList({ count = 3, className }: SkeletonListProps) {
       {Array.from({ length: count }, (_, index) => (
         <div
           key={index}
-          className="animate-pulse rounded-xl border border-white/10 bg-white/[0.03] p-5"
+          className="skeleton-shimmer rounded-xl border border-white/10 bg-white/[0.03] p-5"
         >
           <div className="mb-4 flex items-start justify-between">
             <div className="h-3 w-24 rounded bg-white/10" />

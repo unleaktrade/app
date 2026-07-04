@@ -315,9 +315,10 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
         ) : sortedRFQs.length > 0 ? (
           viewMode === "card" ? (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {sortedRFQs.map((rfq) => (
+              {sortedRFQs.map((rfq, index) => (
                 <RFQMarketplaceCard
                   key={rfq.publicKey}
+                  index={index}
                   rfq={rfq}
                   currentUser={currentUser}
                   onQuote={() => onQuoteRFQ(rfq)}
@@ -328,9 +329,10 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
             </div>
           ) : viewMode === "list" ? (
             <div className="space-y-3">
-              {sortedRFQs.map((rfq) => (
+              {sortedRFQs.map((rfq, index) => (
                 <RFQMarketplaceListItem
                   key={rfq.publicKey}
+                  index={index}
                   rfq={rfq}
                   currentUser={currentUser}
                   onQuote={() => onQuoteRFQ(rfq)}
@@ -475,6 +477,8 @@ interface RFQMarketplaceCardProps {
   onQuote: () => void;
   onView: () => void;
   onEdit?: () => void;
+  /** Position in the rendered list — drives the capped entrance stagger. */
+  index?: number;
 }
 
 function RFQMarketplaceCard({
@@ -483,6 +487,7 @@ function RFQMarketplaceCard({
   onQuote,
   onView,
   onEdit,
+  index = 0,
 }: RFQMarketplaceCardProps) {
   const [base, quote] = rfq.pair.split("/");
   const isCommitted = rfq.state === "Committed";
@@ -502,6 +507,8 @@ function RFQMarketplaceCard({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -3, scale: 1.01 }}
+      transition={{ duration: 0.25, ease: "easeOut", delay: Math.min(index, 12) * 0.04 }}
       className={`group relative ${cardGradient} backdrop-blur-sm border ${
         isMyRFQ ? `${myRFQStyles.border} animate-pulse-glow` : cardBorder
       } rounded-lg sm:rounded-xl p-4 sm:p-5 transition-all`}
@@ -623,6 +630,8 @@ interface RFQMarketplaceListItemProps {
   onQuote: () => void;
   onView: () => void;
   onEdit?: () => void;
+  /** Position in the rendered list — drives the capped entrance stagger. */
+  index?: number;
 }
 
 function RFQMarketplaceListItem({
@@ -631,6 +640,7 @@ function RFQMarketplaceListItem({
   onQuote,
   onView,
   onEdit,
+  index = 0,
 }: RFQMarketplaceListItemProps) {
   const [base, quote] = rfq.pair.split("/");
   const isCommitted = rfq.state === "Committed";
@@ -650,6 +660,8 @@ function RFQMarketplaceListItem({
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -2, scale: 1.005 }}
+      transition={{ duration: 0.2, ease: "easeOut", delay: Math.min(index, 12) * 0.04 }}
       className={`relative ${cardGradient} backdrop-blur-sm border ${
         isMyRFQ ? `${myRFQStyles.border} animate-pulse-glow` : cardBorder
       } rounded-lg p-4 transition-all hover:border-opacity-60`}

@@ -19,6 +19,7 @@ import { buildCompleteSettlementTx } from "@/chain/instructions/taker";
 import { submitRfqTx } from "@/chain/instructions/shared";
 import { resolveTokenMeta } from "@/app/lib/tokens";
 import { formatTokenAmount } from "@/app/lib/format";
+import { fireSettlementConfetti } from "@/app/lib/confetti";
 import { PageShell } from "@/app/components/PageShell";
 import { BondBreakdown } from "@/app/components/BondBreakdown";
 import { DeadlineRing } from "@/app/components/DeadlineRing";
@@ -117,6 +118,7 @@ export function SettleQuote({
         successMessage: "Settlement complete",
       });
       setReceipt(sig);
+      fireSettlementConfetti();
     } catch {
       // toast already surfaced
     } finally {

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Navigate, Outlet, useNavigate, useLocation } from "react-router";
+import { motion } from "motion/react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { AuthGate } from "@/app/components/AuthGate";
@@ -58,7 +59,17 @@ export function DashboardLayout() {
 
       <DevConfigPanel />
 
-      <Outlet context={context} />
+      {/* Enter-only route transition (no AnimatePresence exit — react-router
+          v7 swaps Outlet content synchronously, so exit-freezing is fragile). */}
+      <motion.main
+        id="main"
+        key={location.pathname}
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.18, ease: "easeOut" }}
+      >
+        <Outlet context={context} />
+      </motion.main>
 
       <CreateRFQModal open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen} />
       <UpdateRFQModal
