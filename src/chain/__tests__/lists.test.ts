@@ -3,15 +3,19 @@ import type { Buffer } from "buffer";
 import {
   FACILITATOR_REWARD_FACILITATOR_OFFSET,
   FACILITATOR_REWARD_RFQ_OFFSET,
+  FEES_TRACKER_RFQ_OFFSET,
   QUOTE_RFQ_OFFSET,
   QUOTE_TAKER_OFFSET,
   RFQ_MAKER_OFFSET,
+  SLASHED_BONDS_RFQ_OFFSET,
 } from "@/chain/accounts/lists";
 import {
   encodeAccount,
   makeRawFacilitatorRewardTracker,
+  makeRawFeesTracker,
   makeRawQuote,
   makeRawRfq,
+  makeRawSlashedBondsTracker,
   pk,
 } from "./fixtures";
 
@@ -46,5 +50,17 @@ describe("list memcmp offsets match the committed-IDL Borsh layout", () => {
     );
     expect(pubkeyAt(encoded, FACILITATOR_REWARD_RFQ_OFFSET)).toEqual(rfq.toBytes());
     expect(pubkeyAt(encoded, FACILITATOR_REWARD_FACILITATOR_OFFSET)).toEqual(facilitator.toBytes());
+  });
+
+  it("slashedBondsTracker.rfq sits at SLASHED_BONDS_RFQ_OFFSET", async () => {
+    const rfq = pk();
+    const encoded = await encodeAccount("slashedBondsTracker", makeRawSlashedBondsTracker({ rfq }));
+    expect(pubkeyAt(encoded, SLASHED_BONDS_RFQ_OFFSET)).toEqual(rfq.toBytes());
+  });
+
+  it("feesTracker.rfq sits at FEES_TRACKER_RFQ_OFFSET", async () => {
+    const rfq = pk();
+    const encoded = await encodeAccount("feesTracker", makeRawFeesTracker({ rfq }));
+    expect(pubkeyAt(encoded, FEES_TRACKER_RFQ_OFFSET)).toEqual(rfq.toBytes());
   });
 });

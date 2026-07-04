@@ -35,10 +35,14 @@ export function DashboardLayout() {
   if (!authenticated) return <Navigate to="/" replace />;
 
   const getCurrentView = (): DashboardView =>
-    location.pathname.includes("/my-activity") ? "my-activity" : "marketplace";
+    location.pathname.includes("/my-activity")
+      ? "my-activity"
+      : location.pathname.includes("/transparency")
+        ? "transparency"
+        : "marketplace";
 
   const handleNavigate = (view: DashboardView) => {
-    navigate(view === "marketplace" ? "/dashboard" : "/dashboard/my-activity");
+    navigate(view === "marketplace" ? "/dashboard" : `/dashboard/${view}`);
   };
 
   const context: DashboardOutletContext = {

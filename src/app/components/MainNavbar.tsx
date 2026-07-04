@@ -5,11 +5,21 @@ import { ClusterSwitcher } from "@/app/components/ClusterSwitcher";
 import { HealthPill } from "@/app/components/HealthPill";
 import { useRfqAccounts } from "@/chain/accounts/lists";
 import { LIVE_RFQ_STATES } from "@/app/lib/market-stats";
-import { Plus, Menu, X, TrendingUp, Activity, Store, ListChecks, ChevronRight } from "lucide-react";
+import {
+  Plus,
+  Menu,
+  X,
+  TrendingUp,
+  Activity,
+  Store,
+  ListChecks,
+  ChevronRight,
+  ShieldCheck,
+} from "lucide-react";
 import { useState } from "react";
 import logo from "figma:asset/6d73120824de2c8c6632c71cddef1ae782b1c254.png";
 
-export type DashboardView = "marketplace" | "my-activity";
+export type DashboardView = "marketplace" | "my-activity" | "transparency";
 
 interface MainNavbarProps {
   currentView: DashboardView;
@@ -29,6 +39,12 @@ const NAV_ITEMS: Array<{
     label: "My Activity",
     icon: ListChecks,
     description: "Your RFQs, quotes, and rewards",
+  },
+  {
+    id: "transparency",
+    label: "Transparency",
+    icon: ShieldCheck,
+    description: "Public ledger of slashed bonds and fees",
   },
 ];
 
