@@ -21,6 +21,7 @@ import {
 import { CheckCircle2, Clock, HandCoins, Loader2 } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
+import { GiftIllustration } from "@/app/components/illustrations";
 import { formatTokenAmount, truncateAddress } from "@/app/lib/format";
 import {
   cumulativeClaimSeries,
@@ -307,7 +308,15 @@ function RewardRows({
   onView: (rfq: string) => void;
 }) {
   if (pending.length === 0 && claimed.length === 0) {
-    return <p className="text-sm text-white/40 py-3">Nothing here.</p>;
+    return (
+      <div className="flex flex-col items-center gap-1 py-6 text-center">
+        <GiftIllustration width={72} height={72} />
+        <p className="text-sm text-white/50">Nothing here yet.</p>
+        <p className="text-xs text-white/30">
+          Rewards appear when a trade you facilitated settles.
+        </p>
+      </div>
+    );
   }
   return (
     <div className="space-y-3 pt-2">

@@ -71,7 +71,7 @@ export function AdaptiveRFQDetail({
   if (rfqQuery.isLoading) {
     return (
       <Shell>
-        <SkeletonList count={3} />
+        <SkeletonList variant="detail" />
       </Shell>
     );
   }

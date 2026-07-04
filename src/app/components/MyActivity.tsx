@@ -31,6 +31,7 @@ import { Button } from "@/app/components/ui/button";
 import { PageShell } from "@/app/components/PageShell";
 import { StatusBadge } from "@/app/components/StatusBadge";
 import { SkeletonList } from "@/app/components/SkeletonList";
+import { SeedlingIllustration } from "@/app/components/illustrations";
 import { ErrorRetry } from "@/app/components/ErrorRetry";
 import type { DashboardOutletContext } from "@/app/components/DashboardLayout";
 import {
@@ -841,7 +842,7 @@ function HorizontalStrip({ children }: { children: ReactNode }) {
 function EmptyState({ onCreateRFQ }: { onCreateRFQ: () => void }) {
   return (
     <div className="bg-white/5 border border-white/10 rounded-xl p-8 sm:p-12 text-center">
-      <FileText className="h-12 w-12 text-white/20 mx-auto mb-4" />
+      <SeedlingIllustration className="mx-auto mb-4" />
       <h3 className="text-lg font-semibold text-white mb-2">Nothing here yet</h3>
       <p className="text-sm text-white/50 mb-6">
         Post an RFQ or quote on one to see activity here.

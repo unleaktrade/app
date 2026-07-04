@@ -26,6 +26,7 @@ import {
 import { StatusBadge } from "@/app/components/StatusBadge";
 import { SkeletonList } from "@/app/components/SkeletonList";
 import { EmptyState } from "@/app/components/EmptyState";
+import { RadarIllustration } from "@/app/components/illustrations";
 import { ErrorRetry } from "@/app/components/ErrorRetry";
 import { MarketStatsCards } from "@/app/components/marketplace/MarketStatsCards";
 import { OpenInterestByToken } from "@/app/components/marketplace/OpenInterestByToken";
@@ -460,6 +461,7 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
         ) : (
           <EmptyState
             icon={Filter}
+            illustration={<RadarIllustration />}
             title="No RFQs Found"
             hint="Try adjusting your filters or search query"
           />
