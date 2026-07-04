@@ -11,6 +11,8 @@ import { ErrorRetry } from "@/app/components/ErrorRetry";
 import { RFQActionBar } from "@/app/components/RFQActionBar";
 import { RFQStatePipeline } from "@/app/components/RFQStatePipeline";
 import { AddressDisplay } from "@/app/components/AddressDisplay";
+import { ShareRfqButton } from "@/app/components/ShareRfqButton";
+import type { RfqActionId } from "@/app/lib/rfq-actions";
 import { useRfqAccount, type RfqAccount } from "@/chain/accounts/rfq";
 import { useQuoteAccountsForRfq, type ProgramAccount } from "@/chain/accounts/lists";
 import type { QuoteAccount } from "@/chain/accounts/quote";
@@ -41,6 +43,9 @@ interface AdaptiveRFQDetailProps {
   onBack: () => void;
   onQuoteRFQ?: (rfq: RFQ) => void;
   onEditRFQ?: (rfq: RFQ) => void;
+  /** Deep-linked ?action=… (validated upstream) — forwarded to the action bar. */
+  requestedAction?: RfqActionId | null;
+  onRequestedActionConsumed?: () => void;
 }
 
 /** The connected wallet's relation to this RFQ. Role is internal — never copy. */
@@ -55,6 +60,8 @@ export function AdaptiveRFQDetail({
   onBack,
   onQuoteRFQ,
   onEditRFQ,
+  requestedAction = null,
+  onRequestedActionConsumed,
 }: AdaptiveRFQDetailProps) {
   const pda = useMemo(() => {
     try {
@@ -142,7 +149,10 @@ export function AdaptiveRFQDetail({
               <AddressDisplay address={account.maker.toBase58()} />
             </div>
           </div>
-          <StatusBadge status={rfq.state} />
+          <div className="flex items-center gap-2">
+            <ShareRfqButton rfqPda={rfq.publicKey} state={rfq.state} />
+            <StatusBadge status={rfq.state} />
+          </div>
         </div>
 
         <RFQStatePipeline state={rfq.state} className="mb-4" />
@@ -184,6 +194,8 @@ export function AdaptiveRFQDetail({
           onEdit={() => onEditRFQ?.(rfq)}
           onCommit={() => onQuoteRFQ?.(rfq)}
           onClosed={onBack}
+          requestedAction={requestedAction}
+          onRequestedActionConsumed={onRequestedActionConsumed}
         />
       </div>
     </PageShell>

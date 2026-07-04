@@ -20,12 +20,13 @@ import { submitRfqTx } from "@/chain/instructions/shared";
 import { resolveTokenMeta } from "@/app/lib/tokens";
 import { formatTokenAmount } from "@/app/lib/format";
 import { fireSettlementConfetti } from "@/app/lib/confetti";
+import { SettlementReceiptCard } from "@/app/components/SettlementReceiptCard";
 import { PageShell } from "@/app/components/PageShell";
 import { BondBreakdown } from "@/app/components/BondBreakdown";
 import { DeadlineRing } from "@/app/components/DeadlineRing";
 import { AddressDisplay } from "@/app/components/AddressDisplay";
 import { Button } from "@/app/components/ui/button";
-import { ArrowLeft, CheckCircle2, ExternalLink, Loader2, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Loader2, AlertTriangle } from "lucide-react";
 import type { Cluster } from "@/chain/env";
 
 interface SettleQuoteProps {
@@ -131,28 +132,16 @@ export function SettleQuote({
   if (receipt) {
     return (
       <Shell onBack={onBack}>
-        <div className="rounded-xl border border-green-500/20 bg-gradient-to-br from-green-500/10 to-emerald-500/10 p-6 text-center">
-          <CheckCircle2 className="mx-auto mb-3 h-12 w-12 text-green-400" />
-          <h1 className="text-2xl font-bold text-white">Settlement complete</h1>
-          <p className="mt-1 text-white/60">
-            You received {formatTokenAmount(rfq.baseAmount, baseMeta.decimals)} {baseMeta.symbol};
-            bonds refunded.
-          </p>
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
-            <a href={solscanTx(receipt, cluster)} target="_blank" rel="noreferrer">
-              <Button className="bg-white/5 text-white hover:bg-white/10">
-                <ExternalLink className="mr-2 h-4 w-4" />
-                View on Solscan
-              </Button>
-            </a>
-            <Button
-              onClick={onDone}
-              className="bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600"
-            >
-              Done
-            </Button>
-          </div>
-        </div>
+        <SettlementReceiptCard
+          rfqPda={rfqPda.toBase58()}
+          pair={`${baseMeta.symbol}/${quoteMeta.symbol}`}
+          receivedAmount={formatTokenAmount(rfq.baseAmount, baseMeta.decimals)}
+          receivedSymbol={baseMeta.symbol}
+          txSignature={receipt}
+          solscanUrl={solscanTx(receipt, cluster)}
+          cluster={cluster}
+          onDone={onDone}
+        />
       </Shell>
     );
   }
