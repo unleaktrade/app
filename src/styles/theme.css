@@ -112,6 +112,13 @@
   --sidebar-ring: oklch(0.439 0 0);
 }
 
+/* Font stacks (plain @theme so the vars are also emitted for base styles). */
+@theme {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk Variable", "Inter Variable", ui-sans-serif, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, "SF Mono", "Cascadia Mono", monospace;
+}
+
 @theme inline {
   --color-surface-page: var(--surface-page);
   --color-surface-raised: var(--surface-raised);
@@ -203,6 +210,7 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans);
   }
 
   /**
@@ -212,6 +220,14 @@
 
   html {
     font-size: var(--font-size);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
   }
 
   h1 {
