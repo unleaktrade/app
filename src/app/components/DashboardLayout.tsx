@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Navigate, Outlet, useNavigate, useLocation } from "react-router";
-import { motion } from "motion/react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { AuthGate } from "@/app/components/AuthGate";
@@ -69,17 +68,19 @@ export function DashboardLayout() {
 
       <DevConfigPanel />
 
-      {/* Enter-only route transition (no AnimatePresence exit — react-router
-          v7 swaps Outlet content synchronously, so exit-freezing is fragile). */}
-      <motion.main
+      {/* Enter-only route transition. CSS-driven (tw-animate-css) on purpose:
+          a compositor animation always runs to completion, so content can
+          never be left hidden by a stalled JS tween; `motion-safe:` skips it
+          under prefers-reduced-motion; the pathname key remounts the element
+          so the animation replays on every route change. No exit animation —
+          react-router v7 swaps Outlet content synchronously. */}
+      <main
         id="main"
         key={location.pathname}
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.18, ease: "easeOut" }}
+        className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-200"
       >
         <Outlet context={context} />
-      </motion.main>
+      </main>
 
       <CreateRFQModal open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen} />
       <UpdateRFQModal

@@ -390,10 +390,13 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
                         transition={{ duration: 0.2 }}
                         className="overflow-hidden"
                       >
-                        <div className="overflow-x-auto px-5 pb-5 pt-4">
+                        <div className="overflow-x-auto snap-x snap-proximity px-5 pb-5 pt-4">
                           <div className="flex gap-3 pb-2">
                             {stateRFQs.map((rfq) => (
-                              <div key={rfq.publicKey} className="flex-shrink-0 w-80">
+                              <div
+                                key={rfq.publicKey}
+                                className="flex-shrink-0 snap-start w-72 sm:w-80"
+                              >
                                 <RFQMarketplaceCard
                                   rfq={rfq}
                                   currentUser={currentUser}
@@ -412,8 +415,8 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
               })}
             </div>
           ) : (
-            <div className="overflow-x-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
-              <div className="flex gap-4 pb-4 min-w-max">
+            <div className="md:overflow-x-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
+              <div className="flex flex-col md:flex-row gap-4 pb-4 md:min-w-max">
                 {allStates.map((state) => {
                   const stateRFQs = rfqsByState[state];
                   const stateCount = stateRFQs.length;
@@ -426,7 +429,7 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
                       key={state}
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      className="flex-shrink-0 w-80"
+                      className="flex-shrink-0 w-full md:w-80"
                     >
                       {/* Column Header */}
                       <div
