@@ -1,0 +1,5 @@
+{
+  "comment": "Gzip budgets for build/assets JS, enforced by check-bundle-size.mjs in CI. Baseline 2026-07-04: single entry chunk at 571.7 kB gzip (web3.js + Anchor + recharts dominate). Budgets are baseline +10% — raise deliberately in a PR when a dependency legitimately grows the bundle.",
+  "entryGzipKb": 630,
+  "totalJsGzipKb": 645
+}

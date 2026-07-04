@@ -27,8 +27,16 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Unit tests
-        run: npm test
+      - name: Unit tests (with coverage thresholds)
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 14
 
   # Read-only Playwright specs (desktop + mobile projects), fully HERMETIC:
   # RPC is served from the committed cassette (e2e/fixtures/rpc-cassette.json)
@@ -69,3 +77,62 @@ jobs:
           name: playwright-report-readonly
           path: playwright-report/
           retention-days: 14
+
+  # Bundle-size budget: build the production bundle and fail if the entry
+  # chunk / total JS exceed scripts/bundle-budget.json (gzip). Hermetic — no
+  # secrets; the PR comment uses the default GITHUB_TOKEN and must never fail
+  # the build (fork PRs get a read-only token).
+  bundle:
+    needs: checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Check bundle size against budget
+        run: node scripts/check-bundle-size.mjs
+
+      - name: Comment bundle sizes on the PR
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { execSync } = require("node:child_process");
+            const body = "<!-- bundle-size -->\n" +
+              execSync("node scripts/check-bundle-size.mjs --markdown").toString();
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(
+              (c) => c.user.type === "Bot" && c.body.startsWith("<!-- bundle-size -->"),
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }

@@ -1,0 +1,20 @@
+version: 2
+updates:
+  # npm: weekly, minor+patch grouped into one PR so the zero-ERESOLVE install
+  # rule and the hermetic e2e gate review one diff instead of ten. Majors stay
+  # individual PRs.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
