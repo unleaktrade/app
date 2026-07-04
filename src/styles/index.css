@@ -1,4 +1,6 @@
-@import "@solana/wallet-adapter-react-ui/styles.css";
+/* Bespoke wallet-adapter theme replaces the package stylesheet (and its
+   runtime Google-Fonts import). See wallet-adapter.css for the invariants. */
+@import "./wallet-adapter.css";
 @import "./fonts.css";
 @import "./tailwind.css";
 @import "./theme.css";

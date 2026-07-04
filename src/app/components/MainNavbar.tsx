@@ -128,7 +128,9 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
                 Create RFQ
               </Button>
 
-              {import.meta.env.DEV && <HealthPill />}
+              <div className="hidden md:block">
+                <HealthPill />
+              </div>
 
               <NotificationCenter />
 
@@ -174,160 +176,124 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
         </div>
       </motion.nav>
 
-      <AnimatePresence>
-        {mobileMenuOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              onClick={() => setMobileMenuOpen(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
-            />
+      {/* Backdrop + drawer entrances are CSS-driven (tw-animate-css) so a
+          stalled JS tween can never leave the menu invisible or offscreen;
+          close unmounts instantly. */}
+      {mobileMenuOpen && (
+        <>
+          <div
+            onClick={() => setMobileMenuOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200"
+          />
 
-            <motion.div
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="fixed top-(--nav-h) right-0 bottom-0 w-full max-w-sm bg-surface-page/98 backdrop-blur-xl border-l border-white/10 z-40 lg:hidden overflow-y-auto"
-            >
-              <div className="p-6 space-y-4">
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.05 }}
+          <div className="fixed top-(--nav-h) right-0 bottom-0 w-full max-w-sm bg-surface-page/98 backdrop-blur-xl border-l border-white/10 z-40 lg:hidden overflow-y-auto motion-safe:animate-in motion-safe:slide-in-from-right motion-safe:duration-300">
+            <div className="p-6 space-y-4">
+              <div>
+                <Button
+                  onClick={handleCreateRFQ}
+                  size="lg"
+                  className="w-full bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 hover:from-purple-600 hover:via-purple-700 hover:to-purple-800 text-white shadow-lg shadow-purple-500/30 font-semibold"
                 >
-                  <Button
-                    onClick={handleCreateRFQ}
-                    size="lg"
-                    className="w-full bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 hover:from-purple-600 hover:via-purple-700 hover:to-purple-800 text-white shadow-lg shadow-purple-500/30 font-semibold"
-                  >
-                    <Plus className="h-5 w-5 mr-2" />
-                    Create RFQ
-                  </Button>
-                </motion.div>
+                  <Plus className="h-5 w-5 mr-2" />
+                  Create RFQ
+                </Button>
+              </div>
 
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.08 }}
-                  className="flex flex-col items-center gap-3"
-                >
-                  <ClusterSwitcher />
-                  <WalletMultiButton />
-                </motion.div>
+              <div className="flex flex-col items-center gap-3">
+                <HealthPill />
+                <ClusterSwitcher />
+                <WalletMultiButton />
+              </div>
 
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.1 }}
-                  className="border-t border-white/10"
-                />
+              <div className="border-t border-white/10" />
 
-                <div className="space-y-2">
-                  {NAV_ITEMS.map((item, index) => {
-                    const Icon = item.icon;
-                    const isActive = currentView === item.id;
-                    return (
-                      <motion.button
-                        key={item.id}
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.05 + 0.15 }}
-                        onClick={() => handleNavigate(item.id)}
-                        className={`w-full px-5 py-4 rounded-xl text-left transition-all group ${
-                          isActive
-                            ? "bg-gradient-to-r from-cyan-500/20 to-blue-500/10 border border-cyan-500/30 shadow-lg shadow-cyan-500/10"
-                            : "bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
+              <div className="space-y-2">
+                {NAV_ITEMS.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = currentView === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleNavigate(item.id)}
+                      className={`w-full px-5 py-4 rounded-xl text-left transition-all group ${
+                        isActive
+                          ? "bg-gradient-to-r from-cyan-500/20 to-blue-500/10 border border-cyan-500/30 shadow-lg shadow-cyan-500/10"
+                          : "bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`p-2 rounded-lg ${
+                              isActive ? "bg-cyan-500/20" : "bg-white/10 group-hover:bg-white/20"
+                            }`}
+                          >
+                            <Icon
+                              className={`h-5 w-5 ${
+                                isActive ? "text-cyan-400" : "text-white/60 group-hover:text-white"
+                              }`}
+                            />
+                          </div>
+                          <div>
                             <div
-                              className={`p-2 rounded-lg ${
-                                isActive ? "bg-cyan-500/20" : "bg-white/10 group-hover:bg-white/20"
+                              className={`font-semibold ${
+                                isActive ? "text-white" : "text-white/80 group-hover:text-white"
                               }`}
                             >
-                              <Icon
-                                className={`h-5 w-5 ${
-                                  isActive
-                                    ? "text-cyan-400"
-                                    : "text-white/60 group-hover:text-white"
-                                }`}
-                              />
+                              {item.label}
                             </div>
-                            <div>
-                              <div
-                                className={`font-semibold ${
-                                  isActive ? "text-white" : "text-white/80 group-hover:text-white"
-                                }`}
-                              >
-                                {item.label}
-                              </div>
-                              <div className="text-xs text-white/40 mt-0.5">{item.description}</div>
-                            </div>
+                            <div className="text-xs text-white/40 mt-0.5">{item.description}</div>
                           </div>
-                          <ChevronRight
-                            className={`h-5 w-5 transition-transform ${
-                              isActive
-                                ? "text-cyan-400 translate-x-0"
-                                : "text-white/30 -translate-x-1 group-hover:translate-x-0 group-hover:text-white/60"
-                            }`}
-                          />
                         </div>
-                      </motion.button>
-                    );
-                  })}
+                        <ChevronRight
+                          className={`h-5 w-5 transition-transform ${
+                            isActive
+                              ? "text-cyan-400 translate-x-0"
+                              : "text-white/30 -translate-x-1 group-hover:translate-x-0 group-hover:text-white/60"
+                          }`}
+                        />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="border-t border-white/10" />
+
+              <div className="space-y-3">
+                <div className="text-xs text-white/40 uppercase tracking-wider font-semibold px-2">
+                  Quick Stats
                 </div>
 
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.35 }}
-                  className="border-t border-white/10"
-                />
-
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 }}
-                  className="space-y-3"
-                >
-                  <div className="text-xs text-white/40 uppercase tracking-wider font-semibold px-2">
-                    Quick Stats
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/5 backdrop-blur-sm border border-green-500/20 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="p-1.5 rounded-lg bg-green-500/20">
+                        <Activity className="h-3.5 w-3.5 text-green-400" />
+                      </div>
+                      <div className="text-xs text-white/50">Open</div>
+                    </div>
+                    <div className="text-2xl font-bold text-white">{openCount ?? "—"}</div>
+                    <div className="text-xs text-green-400 mt-0.5">RFQs</div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/5 backdrop-blur-sm border border-green-500/20 rounded-xl p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="p-1.5 rounded-lg bg-green-500/20">
-                          <Activity className="h-3.5 w-3.5 text-green-400" />
-                        </div>
-                        <div className="text-xs text-white/50">Open</div>
+                  <div className="bg-gradient-to-br from-cyan-500/10 to-blue-500/5 backdrop-blur-sm border border-cyan-500/20 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="p-1.5 rounded-lg bg-cyan-500/20">
+                        <TrendingUp className="h-3.5 w-3.5 text-cyan-400" />
                       </div>
-                      <div className="text-2xl font-bold text-white">{openCount ?? "—"}</div>
-                      <div className="text-xs text-green-400 mt-0.5">RFQs</div>
+                      <div className="text-xs text-white/50">Live</div>
                     </div>
-
-                    <div className="bg-gradient-to-br from-cyan-500/10 to-blue-500/5 backdrop-blur-sm border border-cyan-500/20 rounded-xl p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="p-1.5 rounded-lg bg-cyan-500/20">
-                          <TrendingUp className="h-3.5 w-3.5 text-cyan-400" />
-                        </div>
-                        <div className="text-xs text-white/50">Live</div>
-                      </div>
-                      <div className="text-2xl font-bold text-white">{liveCount ?? "—"}</div>
-                      <div className="text-xs text-cyan-400 mt-0.5">RFQs</div>
-                    </div>
+                    <div className="text-2xl font-bold text-white">{liveCount ?? "—"}</div>
+                    <div className="text-xs text-cyan-400 mt-0.5">RFQs</div>
                   </div>
-                </motion.div>
+                </div>
               </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
 }

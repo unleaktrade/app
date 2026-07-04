@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
-import { AnimatePresence, motion } from "motion/react";
 import { Bell, CheckCheck } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
+import { GlassPopover } from "@/app/components/GlassPopover";
 import {
   Drawer,
   DrawerContent,
@@ -33,7 +33,7 @@ export function NotificationCenter() {
       size="sm"
       aria-label={unread > 0 ? `Notifications (${unread} unread)` : "Notifications"}
       onClick={() => setOpen((o) => !o)}
-      className="relative text-white/60 hover:text-white hover:bg-white/10"
+      className="relative h-9 w-9 rounded-xl border border-white/10 bg-white/5 p-0 text-white/60 backdrop-blur-md hover:bg-white/10 hover:text-white"
     >
       <Bell className="h-4 w-4" />
       {unread > 0 && (
@@ -48,15 +48,9 @@ export function NotificationCenter() {
     return (
       <div className="relative">
         {bell}
-        <AnimatePresence>
-          {open && (
-            <DesktopPanel
-              items={items}
-              onClose={() => setOpen(false)}
-              onMarkAllRead={markAllRead}
-            />
-          )}
-        </AnimatePresence>
+        {open && (
+          <DesktopPanel items={items} onClose={() => setOpen(false)} onMarkAllRead={markAllRead} />
+        )}
       </div>
     );
   }
@@ -94,38 +88,10 @@ function DesktopPanel({
   onClose: () => void;
   onMarkAllRead: () => void;
 }) {
-  const panelRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    function onPointerDown(e: PointerEvent) {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    // Defer so the opening click doesn't immediately dismiss.
-    const t = setTimeout(() => document.addEventListener("pointerdown", onPointerDown), 0);
-    return () => {
-      clearTimeout(t);
-      document.removeEventListener("keydown", onKey);
-      document.removeEventListener("pointerdown", onPointerDown);
-    };
-  }, [onClose]);
-
   return (
-    <motion.div
-      ref={panelRef}
-      role="dialog"
-      aria-label="Notifications"
-      initial={{ opacity: 0, y: -6, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -6, scale: 0.98 }}
-      transition={{ duration: 0.15, ease: "easeOut" }}
-      className="glass-panel absolute right-0 top-full z-50 mt-2 w-96 max-w-[90vw] rounded-xl p-3"
-    >
+    <GlassPopover label="Notifications" onClose={onClose}>
       <NotificationList items={items} onMarkAllRead={onMarkAllRead} onNavigated={onClose} />
-    </motion.div>
+    </GlassPopover>
   );
 }
 

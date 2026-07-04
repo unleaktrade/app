@@ -33,14 +33,18 @@ export function ClusterSwitcher() {
       <SelectTrigger
         size="sm"
         aria-label="Select Solana cluster"
-        className="bg-white/5 border-white/10 text-white/80 hover:bg-white/10 gap-2"
+        className="h-9 gap-2 rounded-xl border-white/10 bg-white/5 px-3 text-xs font-medium text-white/70 backdrop-blur-md transition-colors hover:bg-white/10 hover:text-white data-[state=open]:bg-white/10"
       >
         <span className={`inline-block h-2 w-2 rounded-full ${CLUSTER_DOT_CLASSES[cluster]}`} />
         <SelectValue />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent className="rounded-xl border-white/10 bg-surface-raised/90 text-white shadow-2xl backdrop-blur-xl">
         {(Object.keys(CLUSTER_LABELS) as Cluster[]).map((c) => (
-          <SelectItem key={c} value={c}>
+          <SelectItem
+            key={c}
+            value={c}
+            className="rounded-lg text-white/80 focus:bg-white/10 focus:text-white"
+          >
             <span className="flex items-center gap-2">
               <span className={`inline-block h-2 w-2 rounded-full ${CLUSTER_DOT_CLASSES[c]}`} />
               {CLUSTER_LABELS[c]}

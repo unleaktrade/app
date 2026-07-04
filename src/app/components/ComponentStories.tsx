@@ -33,6 +33,9 @@ import {
   ShieldIllustration,
 } from "@/app/components/illustrations";
 import { bytesToHex, type RevealTicket } from "@/app/lib/reveal-ticket";
+import { GuardStatusView } from "@/app/components/HealthPill";
+import { ClusterSwitcher } from "@/app/components/ClusterSwitcher";
+import type { HealthResponse } from "@/chain/liquidityGuard";
 
 const ALL_STATES: RFQState[] = [
   "Draft",
@@ -139,6 +142,14 @@ const STATE_TOKEN_KEYS = [
   "expired",
   "incomplete",
 ] as const;
+
+const STORY_HEALTH: HealthResponse = {
+  status: "healthy",
+  network: "Devnet",
+  servicePubkey: "kzzUVbvatfRP5cFkwZVXQaEW4C85nv6KQmh1NZ7yk1y",
+  timestamp: 1_750_000_000,
+  skipFundChecks: false,
+};
 
 function Story({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -283,6 +294,47 @@ export function ComponentStories() {
             submitLabel="Create RFQ"
             onSubmit={() => undefined}
           />
+        </Story>
+
+        <Story title="Navbar controls — guard status (4 states) + cluster switcher">
+          <div className="flex flex-wrap items-center gap-3">
+            <GuardStatusView
+              state="ok"
+              health={STORY_HEALTH}
+              expectedPubkey={STORY_HEALTH.servicePubkey}
+              cluster="devnet"
+              checkedAt={Date.now() - 8_000}
+            />
+            <GuardStatusView
+              state="mismatch"
+              health={{
+                ...STORY_HEALTH,
+                servicePubkey: "DriftKey1111111111111111111111111111111111",
+              }}
+              expectedPubkey={STORY_HEALTH.servicePubkey}
+              cluster="devnet"
+              checkedAt={Date.now() - 30_000}
+            />
+            <GuardStatusView
+              state="down"
+              health={null}
+              expectedPubkey={null}
+              cluster="devnet"
+              checkedAt={Date.now() - 120_000}
+            />
+            <GuardStatusView
+              state="loading"
+              health={null}
+              expectedPubkey={null}
+              cluster="devnet"
+              checkedAt={null}
+            />
+            <ClusterSwitcher />
+          </div>
+          <p className="mt-3 text-xs text-white/40">
+            Click a chip for the details popover. The wallet button inherits the same glass chip
+            styling via src/styles/wallet-adapter.css.
+          </p>
         </Story>
 
         <Story title="Theme — state tokens (base / deep) + glass surfaces">
