@@ -8,6 +8,11 @@ import {
   normaliseFacilitatorRewardTracker,
   type FacilitatorRewardTrackerAccount,
 } from "./facilitatorRewardTracker";
+import {
+  normaliseSlashedBondsTracker,
+  type SlashedBondsTrackerAccount,
+} from "./slashedBondsTracker";
+import { normaliseFeesTracker, type FeesTrackerAccount } from "./feesTracker";
 
 /**
  * Result row for a list read. The per-account schemas don't carry the account's
@@ -37,6 +42,10 @@ export const QUOTE_TAKER_OFFSET = DISCRIMINATOR + PUBKEY;
 export const FACILITATOR_REWARD_RFQ_OFFSET = DISCRIMINATOR;
 /** facilitatorRewardTracker: [disc][rfq][facilitator] → facilitator at 8 + 32. */
 export const FACILITATOR_REWARD_FACILITATOR_OFFSET = DISCRIMINATOR + PUBKEY;
+/** slashedBondsTracker: [disc][rfq] → rfq at 8. */
+export const SLASHED_BONDS_RFQ_OFFSET = DISCRIMINATOR;
+/** feesTracker: [disc][rfq] → rfq at 8. */
+export const FEES_TRACKER_RFQ_OFFSET = DISCRIMINATOR;
 
 interface MemcmpFilter {
   memcmp: { offset: number; bytes: string };
@@ -121,6 +130,30 @@ export function useQuoteAccountsByTaker(
     memcmps,
     ["quote", env.programId.toBase58(), "all", "taker", taker?.toBase58() ?? null],
     taker !== null,
+  );
+}
+
+/** Every slashed-bond tracker — the read-only transparency ledger. */
+export function useSlashedBondsTrackerAccounts(): UseQueryResult<
+  ProgramAccount<SlashedBondsTrackerAccount>[]
+> {
+  return useProgramAccounts(
+    "slashedBondsTracker",
+    normaliseSlashedBondsTracker,
+    [],
+    ["slashedBondsTracker", env.programId.toBase58(), "all"],
+    true,
+  );
+}
+
+/** Every protocol-fee tracker — per-mint fee totals for the transparency page. */
+export function useFeesTrackerAccounts(): UseQueryResult<ProgramAccount<FeesTrackerAccount>[]> {
+  return useProgramAccounts(
+    "feesTracker",
+    normaliseFeesTracker,
+    [],
+    ["feesTracker", env.programId.toBase58(), "all"],
+    true,
   );
 }
 

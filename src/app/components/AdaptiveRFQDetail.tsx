@@ -11,6 +11,9 @@ import { ErrorRetry } from "@/app/components/ErrorRetry";
 import { RFQActionBar } from "@/app/components/RFQActionBar";
 import { RFQStatePipeline } from "@/app/components/RFQStatePipeline";
 import { AddressDisplay } from "@/app/components/AddressDisplay";
+import { ShareRfqButton } from "@/app/components/ShareRfqButton";
+import { ProofInspector } from "@/app/components/ProofInspector";
+import type { RfqActionId } from "@/app/lib/rfq-actions";
 import { useRfqAccount, type RfqAccount } from "@/chain/accounts/rfq";
 import { useQuoteAccountsForRfq, type ProgramAccount } from "@/chain/accounts/lists";
 import type { QuoteAccount } from "@/chain/accounts/quote";
@@ -33,6 +36,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Trophy,
+  ShieldCheck,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
@@ -41,6 +45,9 @@ interface AdaptiveRFQDetailProps {
   onBack: () => void;
   onQuoteRFQ?: (rfq: RFQ) => void;
   onEditRFQ?: (rfq: RFQ) => void;
+  /** Deep-linked ?action=… (validated upstream) — forwarded to the action bar. */
+  requestedAction?: RfqActionId | null;
+  onRequestedActionConsumed?: () => void;
 }
 
 /** The connected wallet's relation to this RFQ. Role is internal — never copy. */
@@ -55,6 +62,8 @@ export function AdaptiveRFQDetail({
   onBack,
   onQuoteRFQ,
   onEditRFQ,
+  requestedAction = null,
+  onRequestedActionConsumed,
 }: AdaptiveRFQDetailProps) {
   const pda = useMemo(() => {
     try {
@@ -71,7 +80,7 @@ export function AdaptiveRFQDetail({
   if (rfqQuery.isLoading) {
     return (
       <Shell>
-        <SkeletonList count={3} />
+        <SkeletonList variant="detail" />
       </Shell>
     );
   }
@@ -142,7 +151,10 @@ export function AdaptiveRFQDetail({
               <AddressDisplay address={account.maker.toBase58()} />
             </div>
           </div>
-          <StatusBadge status={rfq.state} />
+          <div className="flex items-center gap-2">
+            <ShareRfqButton rfqPda={rfq.publicKey} state={rfq.state} />
+            <StatusBadge status={rfq.state} />
+          </div>
         </div>
 
         <RFQStatePipeline state={rfq.state} className="mb-4" />
@@ -184,6 +196,8 @@ export function AdaptiveRFQDetail({
           onEdit={() => onEditRFQ?.(rfq)}
           onCommit={() => onQuoteRFQ?.(rfq)}
           onClosed={onBack}
+          requestedAction={requestedAction}
+          onRequestedActionConsumed={onRequestedActionConsumed}
         />
       </div>
     </PageShell>
@@ -446,6 +460,8 @@ function SelectionTable({
   const wallet = useWallet();
   const queryClient = useQueryClient();
   const [busyPda, setBusyPda] = useState<string | null>(null);
+  const [inspecting, setInspecting] = useState<ProgramAccount<QuoteAccount> | null>(null);
+  const connected = wallet.publicKey?.toBase58() ?? null;
 
   const revealed = quoteRows
     .filter((q) => q.account.revealedAt !== null && q.account.quoteAmount !== null)
@@ -556,21 +572,52 @@ function SelectionTable({
                     {row.account.selected && <div className="text-xs text-green-400">Selected</div>}
                   </div>
                 </div>
-                {relation.isMaker && (
+                <div className="flex items-center gap-2">
                   <Button
                     size="sm"
-                    disabled={!canSelect || busyPda !== null}
-                    onClick={() => void select(row)}
-                    className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white disabled:opacity-40"
+                    variant="ghost"
+                    aria-label="Inspect liquidity proof"
+                    onClick={() => setInspecting(row)}
+                    className="text-white/40 hover:text-white hover:bg-white/10"
                   >
-                    {busyPda === row.publicKey.toBase58() ? "Selecting…" : "Select"}
+                    <ShieldCheck className="h-4 w-4" />
                   </Button>
-                )}
+                  {relation.isMaker && (
+                    <Button
+                      size="sm"
+                      disabled={!canSelect || busyPda !== null}
+                      onClick={() => void select(row)}
+                      className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white disabled:opacity-40"
+                    >
+                      {busyPda === row.publicKey.toBase58() ? "Selecting…" : "Select"}
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           );
         })}
       </div>
+      {inspecting && (
+        <ProofInspector
+          open
+          onOpenChange={(o) => {
+            if (!o) setInspecting(null);
+          }}
+          rfqPda={rfqPda.toBase58()}
+          quote={{
+            commitHash: inspecting.account.commitHash,
+            liquidityProof: inspecting.account.liquidityProof,
+          }}
+          // The local reveal ticket only describes the connected wallet's own
+          // commitment - inspecting someone else's quote stays tier-1 only.
+          ticket={
+            connected !== null && inspecting.account.taker.toBase58() === connected
+              ? undefined
+              : null
+          }
+        />
+      )}
     </Panel>
   );
 }

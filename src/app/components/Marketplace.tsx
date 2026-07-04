@@ -26,6 +26,7 @@ import {
 import { StatusBadge } from "@/app/components/StatusBadge";
 import { SkeletonList } from "@/app/components/SkeletonList";
 import { EmptyState } from "@/app/components/EmptyState";
+import { RadarIllustration } from "@/app/components/illustrations";
 import { ErrorRetry } from "@/app/components/ErrorRetry";
 import { MarketStatsCards } from "@/app/components/marketplace/MarketStatsCards";
 import { OpenInterestByToken } from "@/app/components/marketplace/OpenInterestByToken";
@@ -315,9 +316,10 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
         ) : sortedRFQs.length > 0 ? (
           viewMode === "card" ? (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {sortedRFQs.map((rfq) => (
+              {sortedRFQs.map((rfq, index) => (
                 <RFQMarketplaceCard
                   key={rfq.publicKey}
+                  index={index}
                   rfq={rfq}
                   currentUser={currentUser}
                   onQuote={() => onQuoteRFQ(rfq)}
@@ -328,9 +330,10 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
             </div>
           ) : viewMode === "list" ? (
             <div className="space-y-3">
-              {sortedRFQs.map((rfq) => (
+              {sortedRFQs.map((rfq, index) => (
                 <RFQMarketplaceListItem
                   key={rfq.publicKey}
+                  index={index}
                   rfq={rfq}
                   currentUser={currentUser}
                   onQuote={() => onQuoteRFQ(rfq)}
@@ -387,10 +390,13 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
                         transition={{ duration: 0.2 }}
                         className="overflow-hidden"
                       >
-                        <div className="overflow-x-auto px-5 pb-5 pt-4">
+                        <div className="overflow-x-auto snap-x snap-proximity px-5 pb-5 pt-4">
                           <div className="flex gap-3 pb-2">
                             {stateRFQs.map((rfq) => (
-                              <div key={rfq.publicKey} className="flex-shrink-0 w-80">
+                              <div
+                                key={rfq.publicKey}
+                                className="flex-shrink-0 snap-start w-72 sm:w-80"
+                              >
                                 <RFQMarketplaceCard
                                   rfq={rfq}
                                   currentUser={currentUser}
@@ -409,8 +415,8 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
               })}
             </div>
           ) : (
-            <div className="overflow-x-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
-              <div className="flex gap-4 pb-4 min-w-max">
+            <div className="md:overflow-x-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
+              <div className="flex flex-col md:flex-row gap-4 pb-4 md:min-w-max">
                 {allStates.map((state) => {
                   const stateRFQs = rfqsByState[state];
                   const stateCount = stateRFQs.length;
@@ -423,7 +429,7 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
                       key={state}
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      className="flex-shrink-0 w-80"
+                      className="flex-shrink-0 w-full md:w-80"
                     >
                       {/* Column Header */}
                       <div
@@ -458,6 +464,7 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
         ) : (
           <EmptyState
             icon={Filter}
+            illustration={<RadarIllustration />}
             title="No RFQs Found"
             hint="Try adjusting your filters or search query"
           />
@@ -475,6 +482,8 @@ interface RFQMarketplaceCardProps {
   onQuote: () => void;
   onView: () => void;
   onEdit?: () => void;
+  /** Position in the rendered list — drives the capped entrance stagger. */
+  index?: number;
 }
 
 function RFQMarketplaceCard({
@@ -483,6 +492,7 @@ function RFQMarketplaceCard({
   onQuote,
   onView,
   onEdit,
+  index = 0,
 }: RFQMarketplaceCardProps) {
   const [base, quote] = rfq.pair.split("/");
   const isCommitted = rfq.state === "Committed";
@@ -502,6 +512,8 @@ function RFQMarketplaceCard({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -3, scale: 1.01 }}
+      transition={{ duration: 0.25, ease: "easeOut", delay: Math.min(index, 12) * 0.04 }}
       className={`group relative ${cardGradient} backdrop-blur-sm border ${
         isMyRFQ ? `${myRFQStyles.border} animate-pulse-glow` : cardBorder
       } rounded-lg sm:rounded-xl p-4 sm:p-5 transition-all`}
@@ -511,7 +523,7 @@ function RFQMarketplaceCard({
         <div className="absolute -top-2 -left-2 z-10">
           <div className="relative">
             <div
-              className={`${myRFQStyles.badge} text-white text-[10px] font-bold px-3 py-1 rounded-md shadow-lg border flex items-center gap-1.5`}
+              className={`${myRFQStyles.badge} text-[10px] font-bold px-3 py-1 rounded-md flex items-center gap-1.5`}
             >
               <BadgeCheck className="h-3 w-3 animate-pulse" />
               <span>MY RFQ</span>
@@ -623,6 +635,8 @@ interface RFQMarketplaceListItemProps {
   onQuote: () => void;
   onView: () => void;
   onEdit?: () => void;
+  /** Position in the rendered list — drives the capped entrance stagger. */
+  index?: number;
 }
 
 function RFQMarketplaceListItem({
@@ -631,6 +645,7 @@ function RFQMarketplaceListItem({
   onQuote,
   onView,
   onEdit,
+  index = 0,
 }: RFQMarketplaceListItemProps) {
   const [base, quote] = rfq.pair.split("/");
   const isCommitted = rfq.state === "Committed";
@@ -650,6 +665,8 @@ function RFQMarketplaceListItem({
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -2, scale: 1.005 }}
+      transition={{ duration: 0.2, ease: "easeOut", delay: Math.min(index, 12) * 0.04 }}
       className={`relative ${cardGradient} backdrop-blur-sm border ${
         isMyRFQ ? `${myRFQStyles.border} animate-pulse-glow` : cardBorder
       } rounded-lg p-4 transition-all hover:border-opacity-60`}
@@ -659,7 +676,7 @@ function RFQMarketplaceListItem({
         <div className="absolute -top-2 -left-2 z-10">
           <div className="relative">
             <div
-              className={`${myRFQStyles.badge} text-white text-[10px] font-bold px-3 py-1 rounded-md shadow-lg border flex items-center gap-1.5`}
+              className={`${myRFQStyles.badge} text-[10px] font-bold px-3 py-1 rounded-md flex items-center gap-1.5`}
             >
               <BadgeCheck className="h-3 w-3 animate-pulse" />
               <span>MY RFQ</span>

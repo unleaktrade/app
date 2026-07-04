@@ -48,7 +48,7 @@ export function AddressDisplay({ address, visible = 4, className }: AddressDispl
         className="text-white/40 transition-colors hover:text-white/80"
       >
         {copied ? (
-          <Check className="h-3.5 w-3.5 text-teal-400" />
+          <Check className="h-3.5 w-3.5 text-state-settled" />
         ) : (
           <Copy className="h-3.5 w-3.5" />
         )}

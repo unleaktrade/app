@@ -1,0 +1,8 @@
+/* Self-hosted variable fonts (issue #16 typography pass). Fontsource CSS uses
+   unicode-range subsetting, so browsers fetch only the latin woff2 at runtime;
+   Vite fingerprints and serves the files same-origin (no Google Fonts request,
+   no FOUT flash). Space Grotesk = display/headings, Inter = body/UI,
+   JetBrains Mono = amounts/addresses/hashes. */
+@import "@fontsource-variable/inter/index.css";
+@import "@fontsource-variable/space-grotesk/index.css";
+@import "@fontsource-variable/jetbrains-mono/index.css";

@@ -1,6 +1,7 @@
 import { motion } from "motion/react";
 import { useCountdown } from "@/app/hooks/useCountdown";
 import { formatDuration } from "@/app/lib/format";
+import { ringColor } from "@/app/lib/ring-color";
 import { cn } from "@/app/components/ui/utils";
 
 interface DeadlineRingProps {
@@ -13,10 +14,6 @@ interface DeadlineRingProps {
   className?: string;
 }
 
-const GREEN = "#34d399"; // emerald-400
-const AMBER = "#fbbf24"; // amber-400
-const RED = "#f87171"; // red-400
-
 /** Circular countdown: green → amber (≤ ⅓ left) → red (≤ ⅒ left). */
 export function DeadlineRing({
   deadlineSec,
@@ -27,7 +24,8 @@ export function DeadlineRing({
 }: DeadlineRingProps) {
   const { remainingSec, expired } = useCountdown(deadlineSec);
   const fraction = totalSec > 0 ? Math.min(1, Math.max(0, remainingSec / totalSec)) : 0;
-  const color = fraction <= 0.1 ? RED : fraction <= 1 / 3 ? AMBER : GREEN;
+  const color = ringColor(fraction);
+  const critical = !expired && deadlineSec !== null && fraction <= 0.1;
 
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -48,6 +46,20 @@ export function DeadlineRing({
           stroke="rgba(255,255,255,0.08)"
           strokeWidth={strokeWidth}
         />
+        {/* Pulsing halo when the window is nearly closed (≤ ⅒ left). */}
+        {critical && (
+          <motion.circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke={color}
+            strokeWidth={strokeWidth + 2}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0.35, 0, 0.35] }}
+            transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+          />
+        )}
         <motion.circle
           cx={size / 2}
           cy={size / 2}

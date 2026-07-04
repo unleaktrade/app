@@ -7,7 +7,7 @@
 // submitRfqTx (build → toast + Solscan link → invalidate). select_quote is not
 // here: picking a winner needs the comparison table, so it lives per-row there.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
@@ -63,6 +63,11 @@ interface RFQActionBarProps {
   onCommit: () => void;
   /** Called after an account-closing action (cancel) so the page can navigate away. */
   onClosed: () => void;
+  /** Deep-linked action (?action=…). Fires once, and only if it is legal for
+   * the connected wallet × current state — otherwise silently dropped. */
+  requestedAction?: RfqActionId | null;
+  /** Invoked after the deep-linked action fires so the URL param can be cleared. */
+  onRequestedActionConsumed?: () => void;
 }
 
 const toneClass: Record<RfqActionTone, string> = {
@@ -81,6 +86,8 @@ export function RFQActionBar({
   onEdit,
   onCommit,
   onClosed,
+  requestedAction = null,
+  onRequestedActionConsumed,
 }: RFQActionBarProps) {
   const program = useSettlementProgram();
   const { connection } = useConnection();
@@ -168,6 +175,19 @@ export function RFQActionBar({
       setBusy(false);
     }
   }
+
+  // Deep-linked ?action=… — fire once, only after it shows up in the legal
+  // action set (data may still be loading on first renders). Never legal ⇒
+  // never fires, and the URL param is left untouched.
+  const requestedFired = useRef(false);
+  useEffect(() => {
+    if (requestedAction === null || requestedFired.current) return;
+    if (!actions.some((a) => a.id === requestedAction)) return;
+    requestedFired.current = true;
+    onActionClick(requestedAction);
+    onRequestedActionConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fire-once guard; onActionClick identity churns per render
+  }, [requestedAction, actions]);
 
   function onActionClick(id: RfqActionId) {
     // Immediate actions (no confirm dialog).

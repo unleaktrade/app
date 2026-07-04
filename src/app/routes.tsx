@@ -5,6 +5,7 @@ import { AuthGate } from "@/app/components/AuthGate";
 import { DashboardLayout } from "@/app/components/DashboardLayout";
 import { MarketplaceWrapper } from "@/app/components/MarketplaceWrapper";
 import { MyActivity } from "@/app/components/MyActivity";
+import { Transparency } from "@/app/components/Transparency";
 import { RFQDetailWrapper } from "@/app/components/RFQDetailWrapper";
 import { RevealQuoteWrapper } from "@/app/components/RevealQuoteWrapper";
 import { SettleQuoteWrapper } from "@/app/components/SettleQuoteWrapper";
@@ -43,6 +44,10 @@ export const router = createBrowserRouter([
       {
         path: "my-activity",
         Component: MyActivity,
+      },
+      {
+        path: "transparency",
+        Component: Transparency,
       },
       {
         path: "rfq/:rfqId",

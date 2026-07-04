@@ -31,6 +31,7 @@ import { Button } from "@/app/components/ui/button";
 import { PageShell } from "@/app/components/PageShell";
 import { StatusBadge } from "@/app/components/StatusBadge";
 import { SkeletonList } from "@/app/components/SkeletonList";
+import { SeedlingIllustration } from "@/app/components/illustrations";
 import { ErrorRetry } from "@/app/components/ErrorRetry";
 import type { DashboardOutletContext } from "@/app/components/DashboardLayout";
 import {
@@ -669,7 +670,7 @@ function StatTile({
   const toneMap = {
     cyan: "text-cyan-400",
     blue: "text-blue-400",
-    teal: "text-teal-400",
+    teal: "text-state-settled",
   };
   return (
     <div className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 sm:px-4 sm:py-3">
@@ -841,7 +842,7 @@ function HorizontalStrip({ children }: { children: ReactNode }) {
 function EmptyState({ onCreateRFQ }: { onCreateRFQ: () => void }) {
   return (
     <div className="bg-white/5 border border-white/10 rounded-xl p-8 sm:p-12 text-center">
-      <FileText className="h-12 w-12 text-white/20 mx-auto mb-4" />
+      <SeedlingIllustration className="mx-auto mb-4" />
       <h3 className="text-lg font-semibold text-white mb-2">Nothing here yet</h3>
       <p className="text-sm text-white/50 mb-6">
         Post an RFQ or quote on one to see activity here.
@@ -1025,7 +1026,7 @@ function SubmittedQuoteCard({
       )}
 
       {quote.bondsRefundedAt !== null && (
-        <div className="flex items-center gap-2 text-xs text-teal-400 mb-3 bg-teal-500/10 rounded p-2">
+        <div className="flex items-center gap-2 text-xs text-state-settled mb-3 bg-state-settled/10 rounded p-2">
           <CheckCircle2 className="h-3 w-3" />
           <span>Bond refunded</span>
         </div>
