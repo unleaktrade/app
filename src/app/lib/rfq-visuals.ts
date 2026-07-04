@@ -14,64 +14,64 @@ export interface StatusConfig {
 
 const STATUS_CONFIG: Record<RFQState, StatusConfig> = {
   Draft: {
-    color: "text-slate-400",
-    bgColor: "bg-slate-500/20",
+    color: "text-state-draft",
+    bgColor: "bg-state-draft/20",
     label: "Draft",
     description:
       "Initial state while the request is being configured. Parameters can still be edited before opening.",
   },
   Open: {
-    color: "text-cyan-400",
-    bgColor: "bg-cyan-500/20",
+    color: "text-state-open",
+    bgColor: "bg-state-open/20",
     label: "Open",
     description:
       "RFQ is open and accepting commitments. Cryptographic proof commitments can now be submitted.",
   },
   Committed: {
-    color: "text-purple-400",
-    bgColor: "bg-purple-500/20",
+    color: "text-state-committed",
+    bgColor: "bg-state-committed/20",
     label: "Committed",
     description:
       "At least one commitment has been received. Committed quotes must now be revealed during the reveal window.",
   },
   Revealed: {
-    color: "text-indigo-400",
-    bgColor: "bg-indigo-500/20",
+    color: "text-state-revealed",
+    bgColor: "bg-state-revealed/20",
     label: "Revealed",
     description:
       "At least one quote has been revealed. The best quote can now be reviewed and selected.",
   },
   Selected: {
-    color: "text-blue-400",
-    bgColor: "bg-blue-500/20",
+    color: "text-state-selected",
+    bgColor: "bg-state-selected/20",
     label: "Selected",
     description:
       "A quote has been selected and settlement initiated. The escrow must now be funded to complete the trade.",
   },
   Settled: {
-    color: "text-teal-400",
-    bgColor: "bg-teal-500/20",
+    color: "text-state-settled",
+    bgColor: "bg-state-settled/20",
     label: "Settled",
     description:
       "Settlement completed successfully! The escrow was funded and the trade has been executed.",
   },
   Ignored: {
-    color: "text-gray-400",
-    bgColor: "bg-gray-500/20",
+    color: "text-state-ignored",
+    bgColor: "bg-state-ignored/20",
     label: "Ignored",
     description:
       "No valid quote was selected within the selection window. The RFQ lapsed without settlement.",
   },
   Expired: {
-    color: "text-orange-400",
-    bgColor: "bg-orange-500/20",
+    color: "text-state-expired",
+    bgColor: "bg-state-expired/20",
     label: "Expired",
     description:
       "RFQ expired without receiving any valid commitments or reveals. No one participated in time.",
   },
   Incomplete: {
-    color: "text-red-400",
-    bgColor: "bg-red-600/20",
+    color: "text-state-incomplete",
+    bgColor: "bg-state-incomplete-deep/20",
     label: "Incomplete",
     description:
       "The escrow was not funded in time after selection. The trade failed to complete and bonds may be slashed.",
@@ -83,67 +83,73 @@ export function getStatusConfig(status: RFQState): StatusConfig {
 }
 
 const CARD_GRADIENTS: Record<RFQState, string> = {
-  Draft: "bg-gradient-to-br from-slate-500/10 via-slate-600/5 to-white/[0.02]",
-  Open: "bg-gradient-to-br from-cyan-500/15 via-cyan-600/8 to-white/[0.02]",
-  Committed: "bg-gradient-to-br from-purple-500/15 via-purple-600/8 to-white/[0.02]",
-  Revealed: "bg-gradient-to-br from-indigo-500/15 via-indigo-600/8 to-white/[0.02]",
-  Selected: "bg-gradient-to-br from-blue-500/15 via-blue-600/8 to-white/[0.02]",
-  Settled: "bg-gradient-to-br from-teal-500/15 via-teal-600/8 to-white/[0.02]",
-  Ignored: "bg-gradient-to-br from-gray-500/15 via-gray-600/8 to-white/[0.02]",
-  Expired: "bg-gradient-to-br from-orange-500/15 via-orange-600/8 to-white/[0.02]",
-  Incomplete: "bg-gradient-to-br from-red-500/15 via-red-600/8 to-white/[0.02]",
+  Draft: "bg-gradient-to-br from-state-draft/10 via-state-draft-deep/5 to-white/[0.02]",
+  Open: "bg-gradient-to-br from-state-open/15 via-state-open-deep/8 to-white/[0.02]",
+  Committed: "bg-gradient-to-br from-state-committed/15 via-state-committed-deep/8 to-white/[0.02]",
+  Revealed: "bg-gradient-to-br from-state-revealed/15 via-state-revealed-deep/8 to-white/[0.02]",
+  Selected: "bg-gradient-to-br from-state-selected/15 via-state-selected-deep/8 to-white/[0.02]",
+  Settled: "bg-gradient-to-br from-state-settled/15 via-state-settled-deep/8 to-white/[0.02]",
+  Ignored: "bg-gradient-to-br from-state-ignored/15 via-state-ignored-deep/8 to-white/[0.02]",
+  Expired: "bg-gradient-to-br from-state-expired/15 via-state-expired-deep/8 to-white/[0.02]",
+  Incomplete:
+    "bg-gradient-to-br from-state-incomplete/15 via-state-incomplete-deep/8 to-white/[0.02]",
 };
 
 const CARD_BORDERS: Record<RFQState, string> = {
-  Draft: "border-slate-500/20 hover:border-slate-400/40",
-  Open: "border-cyan-500/20 hover:border-cyan-400/40",
-  Committed: "border-purple-500/20 hover:border-purple-400/40",
-  Revealed: "border-indigo-500/20 hover:border-indigo-400/40",
-  Selected: "border-blue-500/20 hover:border-blue-400/40",
-  Settled: "border-teal-500/20 hover:border-teal-400/40",
-  Ignored: "border-gray-500/20 hover:border-gray-400/40",
-  Expired: "border-orange-500/20 hover:border-orange-400/40",
-  Incomplete: "border-red-500/20 hover:border-red-400/40",
+  Draft: "border-state-draft/20 hover:border-state-draft/40",
+  Open: "border-state-open/20 hover:border-state-open/40",
+  Committed: "border-state-committed/20 hover:border-state-committed/40",
+  Revealed: "border-state-revealed/20 hover:border-state-revealed/40",
+  Selected: "border-state-selected/20 hover:border-state-selected/40",
+  Settled: "border-state-settled/20 hover:border-state-settled/40",
+  Ignored: "border-state-ignored/20 hover:border-state-ignored/40",
+  Expired: "border-state-expired/20 hover:border-state-expired/40",
+  Incomplete: "border-state-incomplete/20 hover:border-state-incomplete/40",
 };
 
 const CARD_GLOWS: Record<RFQState, string> = {
-  Draft: "from-slate-500/0 to-slate-600/0 group-hover:from-slate-500/5 group-hover:to-slate-600/10",
-  Open: "from-cyan-500/0 to-cyan-600/0 group-hover:from-cyan-500/5 group-hover:to-cyan-600/10",
+  Draft:
+    "from-state-draft/0 to-state-draft-deep/0 group-hover:from-state-draft/5 group-hover:to-state-draft-deep/10",
+  Open: "from-state-open/0 to-state-open-deep/0 group-hover:from-state-open/5 group-hover:to-state-open-deep/10",
   Committed:
-    "from-purple-500/0 to-purple-600/0 group-hover:from-purple-500/5 group-hover:to-purple-600/10",
+    "from-state-committed/0 to-state-committed-deep/0 group-hover:from-state-committed/5 group-hover:to-state-committed-deep/10",
   Revealed:
-    "from-indigo-500/0 to-indigo-600/0 group-hover:from-indigo-500/5 group-hover:to-indigo-600/10",
-  Selected: "from-blue-500/0 to-blue-600/0 group-hover:from-blue-500/5 group-hover:to-blue-600/10",
-  Settled: "from-teal-500/0 to-teal-600/0 group-hover:from-teal-500/5 group-hover:to-teal-600/10",
-  Ignored: "from-gray-500/0 to-gray-600/0 group-hover:from-gray-500/5 group-hover:to-gray-600/10",
+    "from-state-revealed/0 to-state-revealed-deep/0 group-hover:from-state-revealed/5 group-hover:to-state-revealed-deep/10",
+  Selected:
+    "from-state-selected/0 to-state-selected-deep/0 group-hover:from-state-selected/5 group-hover:to-state-selected-deep/10",
+  Settled:
+    "from-state-settled/0 to-state-settled-deep/0 group-hover:from-state-settled/5 group-hover:to-state-settled-deep/10",
+  Ignored:
+    "from-state-ignored/0 to-state-ignored-deep/0 group-hover:from-state-ignored/5 group-hover:to-state-ignored-deep/10",
   Expired:
-    "from-orange-500/0 to-orange-600/0 group-hover:from-orange-500/5 group-hover:to-orange-600/10",
-  Incomplete: "from-red-500/0 to-red-600/0 group-hover:from-red-500/5 group-hover:to-red-600/10",
+    "from-state-expired/0 to-state-expired-deep/0 group-hover:from-state-expired/5 group-hover:to-state-expired-deep/10",
+  Incomplete:
+    "from-state-incomplete/0 to-state-incomplete-deep/0 group-hover:from-state-incomplete/5 group-hover:to-state-incomplete-deep/10",
 };
 
 // Per-state styling for the Marketplace grouped/swimlane section headers.
 const SECTION_GRADIENTS: Record<RFQState, string> = {
-  Draft: "from-slate-500/10 to-slate-600/5",
-  Open: "from-cyan-500/10 to-cyan-600/5",
-  Committed: "from-purple-500/10 to-purple-600/5",
-  Revealed: "from-indigo-500/10 to-indigo-600/5",
-  Selected: "from-blue-500/10 to-blue-600/5",
-  Settled: "from-teal-500/10 to-teal-600/5",
-  Expired: "from-orange-500/10 to-orange-600/5",
-  Ignored: "from-gray-500/10 to-gray-600/5",
-  Incomplete: "from-red-500/10 to-red-600/5",
+  Draft: "from-state-draft/10 to-state-draft-deep/5",
+  Open: "from-state-open/10 to-state-open-deep/5",
+  Committed: "from-state-committed/10 to-state-committed-deep/5",
+  Revealed: "from-state-revealed/10 to-state-revealed-deep/5",
+  Selected: "from-state-selected/10 to-state-selected-deep/5",
+  Settled: "from-state-settled/10 to-state-settled-deep/5",
+  Expired: "from-state-expired/10 to-state-expired-deep/5",
+  Ignored: "from-state-ignored/10 to-state-ignored-deep/5",
+  Incomplete: "from-state-incomplete/10 to-state-incomplete-deep/5",
 };
 
 const STATE_TITLE_COLORS: Record<RFQState, string> = {
-  Draft: "text-slate-400",
-  Open: "text-cyan-400",
-  Committed: "text-purple-400",
-  Revealed: "text-indigo-400",
-  Selected: "text-blue-400",
-  Settled: "text-teal-400",
-  Expired: "text-orange-400",
-  Ignored: "text-gray-400",
-  Incomplete: "text-red-400",
+  Draft: "text-state-draft",
+  Open: "text-state-open",
+  Committed: "text-state-committed",
+  Revealed: "text-state-revealed",
+  Selected: "text-state-selected",
+  Settled: "text-state-settled",
+  Expired: "text-state-expired",
+  Ignored: "text-state-ignored",
+  Incomplete: "text-state-incomplete",
 };
 
 const STATE_SUBTITLES: Record<RFQState, string> = {
@@ -180,49 +186,49 @@ export interface OwnedHighlight {
 // connected wallet, keyed by state.
 const OWNED_HIGHLIGHTS: Record<RFQState, OwnedHighlight> = {
   Draft: {
-    border: "border-slate-500/70 shadow-lg shadow-slate-500/25",
-    badge: "bg-gradient-to-r from-slate-500 via-slate-500 to-slate-600 border-slate-400/30",
-    triangle: "border-t-slate-900",
+    border: "border-state-draft/70 shadow-lg shadow-state-draft/25",
+    badge: "glass-panel border-state-draft/40 text-state-draft",
+    triangle: "border-t-black/60",
   },
   Open: {
-    border: "border-cyan-500/70 shadow-lg shadow-cyan-500/25",
-    badge: "bg-gradient-to-r from-cyan-500 via-cyan-500 to-cyan-600 border-cyan-400/30",
-    triangle: "border-t-cyan-900",
+    border: "border-state-open/70 shadow-lg shadow-state-open/25",
+    badge: "glass-panel border-state-open/40 text-state-open",
+    triangle: "border-t-black/60",
   },
   Committed: {
-    border: "border-purple-500/70 shadow-lg shadow-purple-500/25",
-    badge: "bg-gradient-to-r from-purple-500 via-purple-500 to-purple-600 border-purple-400/30",
-    triangle: "border-t-purple-900",
+    border: "border-state-committed/70 shadow-lg shadow-state-committed/25",
+    badge: "glass-panel border-state-committed/40 text-state-committed",
+    triangle: "border-t-black/60",
   },
   Revealed: {
-    border: "border-indigo-500/70 shadow-lg shadow-indigo-500/25",
-    badge: "bg-gradient-to-r from-indigo-500 via-indigo-500 to-indigo-600 border-indigo-400/30",
-    triangle: "border-t-indigo-900",
+    border: "border-state-revealed/70 shadow-lg shadow-state-revealed/25",
+    badge: "glass-panel border-state-revealed/40 text-state-revealed",
+    triangle: "border-t-black/60",
   },
   Selected: {
-    border: "border-blue-500/70 shadow-lg shadow-blue-500/25",
-    badge: "bg-gradient-to-r from-blue-500 via-blue-500 to-blue-600 border-blue-400/30",
-    triangle: "border-t-blue-900",
+    border: "border-state-selected/70 shadow-lg shadow-state-selected/25",
+    badge: "glass-panel border-state-selected/40 text-state-selected",
+    triangle: "border-t-black/60",
   },
   Settled: {
-    border: "border-teal-500/70 shadow-lg shadow-teal-500/25",
-    badge: "bg-gradient-to-r from-teal-500 via-teal-500 to-teal-600 border-teal-400/30",
-    triangle: "border-t-teal-900",
+    border: "border-state-settled/70 shadow-lg shadow-state-settled/25",
+    badge: "glass-panel border-state-settled/40 text-state-settled",
+    triangle: "border-t-black/60",
   },
   Expired: {
-    border: "border-orange-500/70 shadow-lg shadow-orange-500/25",
-    badge: "bg-gradient-to-r from-orange-500 via-orange-500 to-orange-600 border-orange-400/30",
-    triangle: "border-t-orange-900",
+    border: "border-state-expired/70 shadow-lg shadow-state-expired/25",
+    badge: "glass-panel border-state-expired/40 text-state-expired",
+    triangle: "border-t-black/60",
   },
   Ignored: {
-    border: "border-gray-500/70 shadow-lg shadow-gray-500/25",
-    badge: "bg-gradient-to-r from-gray-500 via-gray-500 to-gray-600 border-gray-400/30",
-    triangle: "border-t-gray-900",
+    border: "border-state-ignored/70 shadow-lg shadow-state-ignored/25",
+    badge: "glass-panel border-state-ignored/40 text-state-ignored",
+    triangle: "border-t-black/60",
   },
   Incomplete: {
-    border: "border-red-500/70 shadow-lg shadow-red-500/25",
-    badge: "bg-gradient-to-r from-red-500 via-red-500 to-red-600 border-red-400/30",
-    triangle: "border-t-red-900",
+    border: "border-state-incomplete/70 shadow-lg shadow-state-incomplete/25",
+    badge: "glass-panel border-state-incomplete/40 text-state-incomplete",
+    triangle: "border-t-black/60",
   },
 };
 

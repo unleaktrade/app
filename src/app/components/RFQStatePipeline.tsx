@@ -45,7 +45,7 @@ function NodeCircle({
             ? "border-red-400 bg-red-500/30 text-red-300"
             : "border-red-500/20 bg-red-500/5 text-red-500/40"
           : status === "done"
-            ? "border-teal-400/60 bg-teal-500/20 text-teal-300"
+            ? "border-state-settled/60 bg-state-settled/20 text-state-settled"
             : status === "current"
               ? "border-cyan-400 bg-cyan-500/25 text-cyan-200"
               : "border-white/15 bg-white/5 text-white/30",
@@ -111,7 +111,7 @@ export function RFQStatePipeline({ state, className }: RFQStatePipelineProps) {
               <div
                 className={cn(
                   "mt-3.5 h-px w-5 sm:w-8",
-                  nodeStatus === "todo" ? "bg-white/10" : "bg-teal-400/40",
+                  nodeStatus === "todo" ? "bg-white/10" : "bg-state-settled/40",
                 )}
               />
             )}

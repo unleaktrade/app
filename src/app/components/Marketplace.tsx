@@ -511,7 +511,7 @@ function RFQMarketplaceCard({
         <div className="absolute -top-2 -left-2 z-10">
           <div className="relative">
             <div
-              className={`${myRFQStyles.badge} text-white text-[10px] font-bold px-3 py-1 rounded-md shadow-lg border flex items-center gap-1.5`}
+              className={`${myRFQStyles.badge} text-[10px] font-bold px-3 py-1 rounded-md flex items-center gap-1.5`}
             >
               <BadgeCheck className="h-3 w-3 animate-pulse" />
               <span>MY RFQ</span>
@@ -659,7 +659,7 @@ function RFQMarketplaceListItem({
         <div className="absolute -top-2 -left-2 z-10">
           <div className="relative">
             <div
-              className={`${myRFQStyles.badge} text-white text-[10px] font-bold px-3 py-1 rounded-md shadow-lg border flex items-center gap-1.5`}
+              className={`${myRFQStyles.badge} text-[10px] font-bold px-3 py-1 rounded-md flex items-center gap-1.5`}
             >
               <BadgeCheck className="h-3 w-3 animate-pulse" />
               <span>MY RFQ</span>

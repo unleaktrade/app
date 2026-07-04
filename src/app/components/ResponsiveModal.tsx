@@ -48,7 +48,9 @@ export function ResponsiveModal({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
           className={cn(
-            "max-h-[90vh] overflow-y-auto border-white/10 bg-surface-raised text-white",
+            // Glassy modal surface — explicit utilities (not `glass-panel`) so
+            // tailwind-merge can drop DialogContent's default bg-background.
+            "max-h-[90vh] overflow-y-auto border-white/10 bg-surface-raised/85 backdrop-blur-xl shadow-2xl text-white",
             contentClassName,
           )}
         >

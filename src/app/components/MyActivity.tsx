@@ -669,7 +669,7 @@ function StatTile({
   const toneMap = {
     cyan: "text-cyan-400",
     blue: "text-blue-400",
-    teal: "text-teal-400",
+    teal: "text-state-settled",
   };
   return (
     <div className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 sm:px-4 sm:py-3">
@@ -1025,7 +1025,7 @@ function SubmittedQuoteCard({
       )}
 
       {quote.bondsRefundedAt !== null && (
-        <div className="flex items-center gap-2 text-xs text-teal-400 mb-3 bg-teal-500/10 rounded p-2">
+        <div className="flex items-center gap-2 text-xs text-state-settled mb-3 bg-state-settled/10 rounded p-2">
           <CheckCircle2 className="h-3 w-3" />
           <span>Bond refunded</span>
         </div>

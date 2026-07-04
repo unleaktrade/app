@@ -391,8 +391,8 @@ function ClaimedRewardRow({ reward, onView }: { reward: ClaimedReward; onView: (
   return (
     <div className="bg-white/5 border border-white/10 rounded-lg p-4 hover:border-white/20 transition-all flex items-center justify-between gap-3">
       <div className="flex items-center gap-4 flex-1 min-w-0">
-        <div className="p-3 rounded-lg bg-teal-500/20">
-          <CheckCircle2 className="h-5 w-5 text-teal-400" />
+        <div className="p-3 rounded-lg bg-state-settled/20">
+          <CheckCircle2 className="h-5 w-5 text-state-settled" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 text-sm">
