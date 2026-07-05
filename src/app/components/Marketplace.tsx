@@ -63,19 +63,31 @@ interface MarketplaceProps {
   onEditRFQ?: (rfq: RFQ) => void;
 }
 
-export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplaceProps) {
-  const allStates = [
-    "Draft",
-    "Open",
-    "Committed",
-    "Revealed",
-    "Selected",
-    "Settled",
-    "Expired",
-    "Ignored",
-    "Incomplete",
-  ] as const;
+// The 9 RFQ lifecycle states, in display order (mirrors the Rust discriminants).
+const ALL_STATES = [
+  "Draft",
+  "Open",
+  "Committed",
+  "Revealed",
+  "Selected",
+  "Settled",
+  "Expired",
+  "Ignored",
+  "Incomplete",
+] as const;
 
+// Sort a group so the connected wallet's own RFQs come first, then by recency.
+function sortByOwnership(rfqs: RFQ[], currentUser: string | null): RFQ[] {
+  return [...rfqs].sort((a, b) => {
+    const aIsMine = currentUser !== null && a.maker === currentUser;
+    const bIsMine = currentUser !== null && b.maker === currentUser;
+    if (aIsMine && !bIsMine) return -1;
+    if (!aIsMine && bIsMine) return 1;
+    return (b.createdAt || 0) - (a.createdAt || 0);
+  });
+}
+
+export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplaceProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [stateFilter, setStateFilter] = useState<
     | "all"
@@ -116,65 +128,52 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
   const currentUser = publicKey?.toBase58() ?? null;
   const { data: rfqRows, isLoading, isError, refetch, isFetching } = useRfqAccounts();
   const nowSecs = Math.floor(Date.now() / 1000);
-  const allRFQs: RFQ[] = (rfqRows ?? []).map((row) => toRfqViewModel(row, nowSecs));
 
-  // Filter RFQs: Show ALL states including Draft
-  // NOW SHOWING my own RFQs with visual distinction
-  const availableRFQs = allRFQs.filter((rfq) => {
-    // Apply state filter
-    if (stateFilter === "draft" && rfq.state !== "Draft") return false;
-    if (stateFilter === "open" && rfq.state !== "Open") return false;
-    if (stateFilter === "committed" && rfq.state !== "Committed") return false;
-    if (stateFilter === "revealed" && rfq.state !== "Revealed") return false;
-    if (stateFilter === "selected" && rfq.state !== "Selected") return false;
-    if (stateFilter === "settled" && rfq.state !== "Settled") return false;
-    if (stateFilter === "expired" && rfq.state !== "Expired") return false;
-    if (stateFilter === "ignored" && rfq.state !== "Ignored") return false;
-    if (stateFilter === "incomplete" && rfq.state !== "Incomplete") return false;
+  // Decode → view-model only when the underlying rows change, not on every
+  // keystroke. nowSecs is intentionally excluded from deps: it changes every
+  // render, and the list's deadline strings only need to be fresh as of the
+  // last data fetch (there is no per-second timer on this screen).
+  const allRFQs = useMemo<RFQ[]>(
+    () => (rfqRows ?? []).map((row) => toRfqViewModel(row, nowSecs)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rfqRows],
+  );
 
-    // Apply search filter
-    if (searchQuery && !rfq.pair.toLowerCase().includes(searchQuery.toLowerCase())) {
-      return false;
-    }
-
-    return true;
-  });
-
-  // Sort RFQs
-  const sortedRFQs = [...availableRFQs].sort((a, b) => {
-    if (sortBy === "newest") {
-      return (b.createdAt || 0) - (a.createdAt || 0);
-    }
-    return 0;
-  });
-
-  // Group RFQs by state for swimlane and horizontal views
-  // Sort each group: MY RFQs first, then others
-  const sortByOwnership = (rfqs: RFQ[]) => {
-    return rfqs.sort((a, b) => {
-      const aIsMine = currentUser !== null && a.maker === currentUser;
-      const bIsMine = currentUser !== null && b.maker === currentUser;
-
-      // My RFQs come first
-      if (aIsMine && !bIsMine) return -1;
-      if (!aIsMine && bIsMine) return 1;
-
-      // Within each group, sort by creation date
-      return (b.createdAt || 0) - (a.createdAt || 0);
+  // Filter → sort → group in one memo so typing in the search box no longer
+  // re-runs the full view-model map + 9× filter/sort on every render.
+  const { sortedRFQs, rfqsByState } = useMemo(() => {
+    const available = allRFQs.filter((rfq) => {
+      if (stateFilter === "draft" && rfq.state !== "Draft") return false;
+      if (stateFilter === "open" && rfq.state !== "Open") return false;
+      if (stateFilter === "committed" && rfq.state !== "Committed") return false;
+      if (stateFilter === "revealed" && rfq.state !== "Revealed") return false;
+      if (stateFilter === "selected" && rfq.state !== "Selected") return false;
+      if (stateFilter === "settled" && rfq.state !== "Settled") return false;
+      if (stateFilter === "expired" && rfq.state !== "Expired") return false;
+      if (stateFilter === "ignored" && rfq.state !== "Ignored") return false;
+      if (stateFilter === "incomplete" && rfq.state !== "Incomplete") return false;
+      if (searchQuery && !rfq.pair.toLowerCase().includes(searchQuery.toLowerCase())) {
+        return false;
+      }
+      return true;
     });
-  };
 
-  const rfqsByState = {
-    Draft: sortByOwnership(sortedRFQs.filter((r) => r.state === "Draft")),
-    Open: sortByOwnership(sortedRFQs.filter((r) => r.state === "Open")),
-    Committed: sortByOwnership(sortedRFQs.filter((r) => r.state === "Committed")),
-    Revealed: sortByOwnership(sortedRFQs.filter((r) => r.state === "Revealed")),
-    Selected: sortByOwnership(sortedRFQs.filter((r) => r.state === "Selected")),
-    Settled: sortByOwnership(sortedRFQs.filter((r) => r.state === "Settled")),
-    Expired: sortByOwnership(sortedRFQs.filter((r) => r.state === "Expired")),
-    Ignored: sortByOwnership(sortedRFQs.filter((r) => r.state === "Ignored")),
-    Incomplete: sortByOwnership(sortedRFQs.filter((r) => r.state === "Incomplete")),
-  };
+    const sorted = [...available].sort((a, b) =>
+      sortBy === "newest" ? (b.createdAt || 0) - (a.createdAt || 0) : 0,
+    );
+
+    const byState = Object.fromEntries(
+      ALL_STATES.map((state) => [
+        state,
+        sortByOwnership(
+          sorted.filter((r) => r.state === state),
+          currentUser,
+        ),
+      ]),
+    ) as Record<(typeof ALL_STATES)[number], RFQ[]>;
+
+    return { sortedRFQs: sorted, rfqsByState: byState };
+  }, [allRFQs, searchQuery, stateFilter, sortBy, currentUser]);
 
   // Analytics over the RAW decoded rows (bigint amounts) — never the display
   // view-models, so per-mint sums stay exact and mints are never merged.
@@ -355,7 +354,7 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
             </div>
           ) : viewMode === "horizontal" ? (
             <div className="space-y-6">
-              {allStates.map((state) => {
+              {ALL_STATES.map((state) => {
                 const stateRFQs = rfqsByState[state];
                 const stateCount = stateRFQs.length;
 
@@ -428,7 +427,7 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
           ) : (
             <div className="md:overflow-x-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
               <div className="flex flex-col md:flex-row gap-4 pb-4 md:min-w-max">
-                {allStates.map((state) => {
+                {ALL_STATES.map((state) => {
                   const stateRFQs = rfqsByState[state];
                   const stateCount = stateRFQs.length;
 
