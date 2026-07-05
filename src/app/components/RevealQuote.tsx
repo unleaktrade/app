@@ -22,7 +22,13 @@ import { deriveSalt } from "@/chain/liquidityGuard";
 import { buildRevealQuoteTx } from "@/chain/instructions/taker";
 import { submitRfqTx } from "@/chain/instructions/shared";
 import { resolveTokenMeta } from "@/app/lib/tokens";
-import { hexToBytes, bytesToHex, loadTicket, parseTicket } from "@/app/lib/reveal-ticket";
+import {
+  hexToBytes,
+  bytesToHex,
+  loadTicket,
+  parseTicket,
+  clearTicket,
+} from "@/app/lib/reveal-ticket";
 import { ProofInspector } from "@/app/components/ProofInspector";
 import { PageShell } from "@/app/components/PageShell";
 import { TokenAmountInput } from "@/app/components/TokenAmountInput";
@@ -165,6 +171,9 @@ export function RevealQuote({ quote, rfqPda, rfq, onDone, onBack }: RevealQuoteP
         pendingMessage: "Revealing quote…",
         successMessage: "Quote revealed",
       });
+      // The bid is now on-chain; drop the cleartext ticket so the sealed amount
+      // + salt don't linger in localStorage past the confidential window.
+      clearTicket(rfqPda.toBase58());
       onDone();
     } catch {
       // toast already surfaced
