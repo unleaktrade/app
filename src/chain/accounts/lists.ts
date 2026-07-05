@@ -62,9 +62,12 @@ function memcmp(offset: number, key: PublicKey): MemcmpFilter {
 /**
  * Shared getProgramAccounts plumbing for list reads. Unlike useDecodedAccount,
  * lists do NOT open a websocket subscription (those stay detail-page-only — no
- * polling loops); freshness comes from TanStack's refetch-on-focus. Query keys
- * follow the [account, programId, "all", …] convention; react-query hashes them
- * structurally, so building the array inline each render is fine.
+ * polling loops). Freshness comes from the shared write-path invalidation (after
+ * a tx) plus the 10s staleTime on remount — refetchOnWindowFocus is off globally
+ * (QueryProvider) so we don't re-run the heavy, throttle-prone getProgramAccounts
+ * on every tab focus. Query keys follow the [account, programId, "all", …]
+ * convention; react-query hashes them structurally, so building the array inline
+ * each render is fine.
  */
 function useProgramAccounts<TRaw, T>(
   accountKey: string,
@@ -133,7 +136,11 @@ export function useQuoteAccountsByTaker(
   );
 }
 
-/** Every slashed-bond tracker — the read-only transparency ledger. */
+/**
+ * Every slashed-bond tracker — the read-only transparency ledger. Full
+ * unfiltered getProgramAccounts scan (no memcmp): fine at current fixture scale,
+ * but add a filter / pagination if the tracker set grows large on mainnet.
+ */
 export function useSlashedBondsTrackerAccounts(): UseQueryResult<
   ProgramAccount<SlashedBondsTrackerAccount>[]
 > {
@@ -146,7 +153,10 @@ export function useSlashedBondsTrackerAccounts(): UseQueryResult<
   );
 }
 
-/** Every protocol-fee tracker — per-mint fee totals for the transparency page. */
+/**
+ * Every protocol-fee tracker — per-mint fee totals for the transparency page.
+ * Full unfiltered getProgramAccounts scan (see the slashed-bonds note above).
+ */
 export function useFeesTrackerAccounts(): UseQueryResult<ProgramAccount<FeesTrackerAccount>[]> {
   return useProgramAccounts(
     "feesTracker",
