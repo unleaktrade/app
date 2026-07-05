@@ -3,7 +3,11 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
-  # workflow_dispatch:
+  # Manual re-run: GitHub Pages' deploy-pages step occasionally fails with a
+  # transient "Deployment failed, try again later." Re-running the workflow
+  # (Actions → Deploy → Run workflow) rebuilds + redeploys without an empty
+  # commit. concurrency.cancel-in-progress keeps only the latest run.
+  workflow_dispatch:
 permissions:
   contents: read
   pages: write
