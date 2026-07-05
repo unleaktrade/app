@@ -38,14 +38,7 @@ import { findQuoteByPda } from "@/app/lib/quote-lookup";
 import { resolveTokenMeta } from "@/app/lib/tokens";
 import type { FacilitatorUpdate } from "@/types/rfq";
 import { Button } from "@/app/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/app/components/ui/dialog";
+import { ResponsiveModal } from "@/app/components/ResponsiveModal";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { RFQActionSheet } from "@/app/components/RFQActionSheet";
@@ -337,16 +330,14 @@ export function RFQActionBar({
         <p className="text-right text-sm text-white/40">{emptyStateMessage}</p>
       )}
 
-      <Dialog
+      <ResponsiveModal
         open={confirm !== null && confirm !== "edit"}
         onOpenChange={(open) => !open && setConfirm(null)}
+        title={pending?.label ?? "Confirm"}
+        description={pending?.description}
+        contentClassName="bg-surface-page"
       >
-        <DialogContent className="border-white/10 bg-surface-page text-white">
-          <DialogHeader>
-            <DialogTitle>{pending?.label ?? "Confirm"}</DialogTitle>
-            <DialogDescription className="text-white/60">{pending?.description}</DialogDescription>
-          </DialogHeader>
-
+        <div className="space-y-4">
           {confirm === "open" && (
             <BondBreakdown
               bondAmount={rfq.bondAmount}
@@ -381,7 +372,7 @@ export function RFQActionBar({
             </div>
           )}
 
-          <DialogFooter>
+          <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
             <Button
               variant="ghost"
               onClick={() => setConfirm(null)}
@@ -398,9 +389,9 @@ export function RFQActionBar({
               {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {pending?.label ?? "Confirm"}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </div>
+        </div>
+      </ResponsiveModal>
     </>
   );
 }
