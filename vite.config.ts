@@ -22,11 +22,15 @@ function loadDevWallets(dir: string | undefined): { label: string; secretKey: nu
     }));
 }
 
-// liquidity-guard upstreams per Solana cluster. The service sets no CORS
-// headers, so in dev every cluster is proxied through the dev server (same
-// origin). The proxy is static (set at server start) while the cluster is a
-// runtime choice, so we expose ONE path per cluster (/liquidity-guard/<cluster>)
-// and let the client pick the path — see src/chain/liquidityGuard.ts.
+// liquidity-guard upstreams per Solana cluster. In dev every cluster is proxied
+// through the dev server (same origin) so the browser never makes a cross-origin
+// call while iterating. The proxy is static (set at server start) while the
+// cluster is a runtime choice, so we expose ONE path per cluster
+// (/liquidity-guard/<cluster>) and let the client pick the path. In production
+// there is no dev server, so the client calls the upstream directly — the Rust
+// service now serves permissive CORS (allow_any_origin), which makes the
+// cross-origin call safe. The resolved map is handed to the client verbatim via
+// the __LG_TARGETS__ define below — see src/chain/liquidityGuard.ts.
 // Defaults below can be overridden per env via VITE_LG_URL_{LOCALNET,DEVNET,MAINNET}.
 const LG_DEFAULTS = {
   localnet: "http://localhost:8080",
@@ -65,6 +69,10 @@ export default defineConfig(({ mode, command }) => {
     define: {
       global: "globalThis",
       __DEV_WALLETS__: JSON.stringify(devWallets),
+      // Resolved liquidity-guard upstreams, exposed to the client so a
+      // production build (no dev proxy) can call the upstream directly. These
+      // are public, keyless URLs — safe to inline into the bundle.
+      __LG_TARGETS__: JSON.stringify(lgTarget),
     },
     optimizeDeps: {
       include: ["buffer", "process"],
@@ -132,9 +140,9 @@ export default defineConfig(({ mode, command }) => {
     server: {
       port: 3000,
       open: true,
-      // One proxy path per cluster; the client routes to the matching one.
-      // Production (no dev server) needs same-origin hosting or a CORS-enabled
-      // reverse proxy per cluster — out of scope here.
+      // One proxy path per cluster; the client routes to the matching one in
+      // dev. Production has no dev server, so the client calls the upstream
+      // directly via __LG_TARGETS__ (the service serves permissive CORS).
       proxy: {
         "/liquidity-guard/localnet": lgProxy("localnet", lgTarget.localnet),
         "/liquidity-guard/devnet": lgProxy("devnet", lgTarget.devnet),
