@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import type { RFQ } from "@/types/rfq";
 import { useRfqAccounts } from "@/chain/accounts/lists";
@@ -29,7 +29,6 @@ import { EmptyState } from "@/app/components/EmptyState";
 import { RadarIllustration } from "@/app/components/illustrations";
 import { ErrorRetry } from "@/app/components/ErrorRetry";
 import { MarketStatsCards } from "@/app/components/marketplace/MarketStatsCards";
-import { OpenInterestByToken } from "@/app/components/marketplace/OpenInterestByToken";
 import { MarketOverview } from "@/app/components/marketplace/MarketOverview";
 import {
   Search,
@@ -49,6 +48,14 @@ import {
   BadgeCheck,
   Edit3,
 } from "lucide-react";
+
+// Lazy so recharts (its only other importer, RewardsSection, is on the lazy
+// My-Activity route) stays out of the entry chunk — see routes.tsx / A2.
+const OpenInterestByToken = lazy(() =>
+  import("@/app/components/marketplace/OpenInterestByToken").then((m) => ({
+    default: m.OpenInterestByToken,
+  })),
+);
 
 interface MarketplaceProps {
   onQuoteRFQ: (rfq: RFQ) => void;
@@ -190,7 +197,11 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
 
       {/* Analytics Section */}
       <div className="grid lg:grid-cols-[320px_1fr] gap-4 sm:gap-6 mb-6 sm:mb-8">
-        <OpenInterestByToken buckets={stats.openByQuoteMint} />
+        <Suspense
+          fallback={<div className="skeleton-shimmer h-[220px] rounded-2xl" aria-hidden="true" />}
+        >
+          <OpenInterestByToken buckets={stats.openByQuoteMint} />
+        </Suspense>
         <MarketOverview stats={stats} now={nowSecs} />
       </div>
 
