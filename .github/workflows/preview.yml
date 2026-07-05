@@ -16,10 +16,11 @@ concurrency:
 
 jobs:
   deploy_preview:
-    # Skip forked PRs (secrets are not available there)
+    # Skip forked PRs and Dependabot PRs (repository secrets are not available there)
     if: >
       github.event_name == 'pull_request' &&
-      github.event.pull_request.head.repo.full_name == github.repository
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     # This makes it visible under Settings → Environments → Preview
     environment:
@@ -32,7 +33,7 @@ jobs:
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v6
         with:

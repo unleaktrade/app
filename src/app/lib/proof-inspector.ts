@@ -11,13 +11,7 @@ import { hexToBytes, bytesToHex, type RevealTicket } from "@/app/lib/reveal-tick
 // quote_mint[32] ‖ quote_amount_LE[8] ‖ bond_amount_LE[8] ‖ taker_fee_bps_LE[2].
 
 export type PreimageSegmentKey =
-  | "salt"
-  | "rfq"
-  | "taker"
-  | "quoteMint"
-  | "quoteAmount"
-  | "bondAmount"
-  | "takerFeeBps";
+  "salt" | "rfq" | "taker" | "quoteMint" | "quoteAmount" | "bondAmount" | "takerFeeBps";
 
 export interface PreimageSegment {
   key: PreimageSegmentKey;
