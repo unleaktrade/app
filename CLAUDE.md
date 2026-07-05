@@ -91,6 +91,12 @@ Playwright (`e2e/`, `playwright.config.ts`) — see `e2e/README.md`. **Two modes
 
 **Security invariant:** `VITE_RPC_URL_*` is inlined into the client bundle by Vite — never set it to a keyed URL in a build/deploy workflow (`deploy.yml` passes nothing → production uses the keyless public RPC). Playwright trace/screenshot/video are `off` under CI (they'd capture served JS / request URLs into the uploaded report). The hermetic PR gate holds no secrets, so there is nothing sensitive to leak even if that guard regressed.
 
+**Responsive overlay rules (hard-won — the guard-status popover used to clip off-screen on phones):**
+
+- **`GlassPopover` is a desktop-only (≥`md`) primitive.** It is a hand-rolled `absolute right-0 top-full` panel with **no viewport-collision handling** (not Radix, not portaled) — anchored near a viewport edge or inside a narrow container it clips off-screen. Anything floating below `md` must use the vaul bottom sheet / `ResponsiveModal` split instead; `NotificationCenter` and `HealthPill` (`GuardStatusView`) are the reference implementations (`useMediaQuery("(min-width: 768px)")` → `GlassPopover` on desktop, `Drawer` below).
+- **Every new or changed popover, drawer, modal, or fixed overlay gets a `@mobile` case in `e2e/specs/responsive-mobile.e2e.spec.ts` in the same change**: open it at the phone viewport, assert its content is visible, its bounding box sits inside the viewport, and `expectNoHorizontalOverflow(page)` still holds. A desktop-only spec is not coverage for a floating element — this class of bug (edge-anchored panel escaping a 390px screen) only reproduces at the mobile project's viewport.
+- jsdom has no `matchMedia`; `src/test/setup.ts` stubs it (desktop by default). RTL suites for viewport-split components use `setMediaQueryMatches(false)` from that setup file to render and assert the mobile branch too.
+
 ## Testing integrity, security & web3 constraints (non-negotiable)
 
 These are hard rules. Do not relax them to make CI green — fix the root cause instead.
@@ -132,6 +138,17 @@ Minimum flow on every UI-affecting change:
 If a wallet interaction can't be driven end-to-end by automation (e.g. the extension popup itself requires a real user gesture), drive it as far as possible — click through the modal, verify the adapter fires without errors, check SWA state via `window.phantom?.solana?.isConnected` / `localStorage.walletName` — and explicitly flag the remaining manual step. Silence = assumed-broken.
 
 Two practical shortcuts: `/dev/stories` is reachable **without auth** (it sits outside `DashboardLayout`), so shared components can be verified there at any viewport without a wallet — add new primitives to that gallery as part of building them. The dashboard screens sit behind the `signMessage` gate — with `DEV_WALLET_KEYPAIR_DIR` set (see "Dev-only UI" above), a `Dev: <keypair filename>` wallet is available in SWA's picker and signs `signMessage`/transactions locally, so automation **can** click through connect → sign-in → the full maker/taker instruction flows without a real extension. Only fall back to "flag the wallet-gated click-through for the user" when no dev wallet is configured for the session.
+
+## Figma design backup (after every commit)
+
+The Figma design file from #21 (`https://www.figma.com/design/ywVePMypIpifiUMA9auaMs`) is the visual source of truth **and a living backup of the shipped UI**. After **each commit that changes rendered UI** (components, screens, styling, layout — not docs/CI/pure-logic changes, which are exempt):
+
+1. Capture the affected screens/components in their new state (the browser-testing flow above already produces these — desktop and mobile where the change is responsive).
+2. Sync them into the Figma design file via the **Figma MCP tools** — load the `figma-generate-design` skill first, then `use_figma` / `generate_figma_design` targeting that file.
+3. Put backups on a **dedicated, clearly-named backup page** — `Code backup — <yyyy-mm-dd> <short-sha>` — one page per commit. **Never modify or overwrite existing design pages**; design exploration pages stay authoritative for intent, backup pages record what actually shipped.
+4. **Never use Figma Make against this repo** (existing hard rule above) — backups go through the MCP into the #21 design file only.
+
+If the Figma MCP is unavailable in the session, note the skipped backup in the final report instead of silently dropping it.
 
 ## Architecture
 
@@ -202,7 +219,7 @@ Everything that touches the chain or the attestation service. One concern per fi
 
 ### Dev-only UI
 
-- `<HealthPill/>` (`src/app/components/HealthPill.tsx`) — the guard-status chip in the navbar control rail, **production-visible** since the control-rail redesign (no longer DEV-gated). Pings `/health` every 15s; presentational `GuardStatusView` (chip + `GlassPopover` details: service status, network match, guard key verified against on-chain Config) is fixture-driven for stories/RTL. States: emerald (ok), amber (drift), red (down), pulsing (loading).
+- `<HealthPill/>` (`src/app/components/HealthPill.tsx`) — the guard-status chip in the navbar control rail, **production-visible** since the control-rail redesign (no longer DEV-gated). Pings `/health` every 15s; presentational `GuardStatusView` (chip + details: service status, network match, guard key verified against on-chain Config) is fixture-driven for stories/RTL. The details render in a `GlassPopover` at ≥`md` and the vaul bottom sheet below (see "Responsive overlay rules" in E2E policy); the mobile-menu instance passes `block` for the full-width chip. States: emerald (ok), amber (drift), red (down), pulsing (loading).
 - `<DevConfigPanel/>` (`src/app/components/DevConfigPanel.tsx`) — dumps decoded Config fields. Renders only when `import.meta.env.DEV && URLSearchParams.get("debug") === "1"`. Use `/dashboard?debug=1` to verify chain wiring end-to-end.
 - `/dev/stories` (`src/app/components/ComponentStories.tsx`) — DEV-only gallery of the shared primitives (`RFQStatePipeline` in all 9 states, `DeadlineRing`, `BondBreakdown`, `TokenAmountInput`, `AddressDisplay`, `RFQActionSheet`, `ResponsiveModal`, `RewardsSection` with two-mint fixtures, the `RFQForm` wizard, `AuthGate`, empty/skeleton/error states). The Storybook/Ladle stand-in. Other shared chrome: `PageShell` (page surface + `--nav-h` offset + orbs + container) wraps every dashboard screen; `bg-surface-page`/`bg-surface-raised` theme tokens replace the old hardcoded hexes; `<MotionConfig reducedMotion="user">` honours prefers-reduced-motion globally.
 - **Dev-only keypair-backed test wallets** (`src/dev/devWallet.ts`) — registers one Wallet Standard wallet per `*.json` Solana CLI keypair file found in `DEV_WALLET_KEYPAIR_DIR` (an env var, read server-side by `vite.config.ts` only for the dev server — never `vite build` — so it can never end up in a production bundle). Each shows up in SWA's wallet picker as `Dev: <filename>` and signs `signMessage`/`signTransaction` locally with that keypair, so the `signMessage` auth gate and every on-chain instruction can be driven **without a real browser extension** — this is what unblocks Claude's own `claude-in-chrome` testing of wallet-gated screens (previously the hard limit called out in "Browser-testing policy" below). It is registered via the standard `wallet-standard:register-wallet` handshake, the same mechanism real wallets use — **zero changes to `WalletProviders.tsx` or `AuthProvider.tsx`**, so it does not violate the "no bespoke auth abstraction" rule in "Stack direction (locked)": SWA auto-discovers it exactly like Phantom/Solflare. Only ever point this at devnet-funded keypairs, never mainnet.
