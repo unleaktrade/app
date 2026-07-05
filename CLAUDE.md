@@ -30,7 +30,7 @@ Goals the stack has to deliver:
 - **#13–#15** — Phases 3–5 (maker / taker / facilitator instruction wiring) — shipped on the PR-#32 branch
 - **#17** — tests & CI
 - **#18** — docs (includes a README rewrite)
-- **#21** — Figma design file as the visual source of truth: https://www.figma.com/design/vmyQPE8WnUX4a5JEl6C2BA
+- **#21** — Figma design file as the visual source of truth: https://www.figma.com/design/ywVePMypIpifiUMA9auaMs
 
 Re-read the linked issues before starting substantive work.
 
