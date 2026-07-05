@@ -1,23 +1,32 @@
 // Client for the liquidity-guard attestation service.
 //
-// All requests go through the Vite dev-server proxy at /liquidity-guard/* so
-// the browser sees same-origin in dev. In production the service must be
-// reachable same-origin or a CORS-enabled reverse proxy must be deployed —
-// the upstream Rust service at ../liquidity-guard sets no CORS headers.
+// In dev, requests go through the Vite dev-server proxy at /liquidity-guard/*
+// so the browser sees same-origin (see vite.config.ts server.proxy). In a
+// production build there is no dev server, so we call the upstream Heroku
+// instance directly — the Rust service at ../liquidity-guard now serves
+// permissive CORS (allow_any_origin), which makes the cross-origin call safe.
 
 import type { PublicKey } from "@solana/web3.js";
 import type { WalletContextState } from "@solana/wallet-adapter-react";
 import nacl from "tweetnacl";
 import type { Cluster } from "@/chain/env";
 
-// Each cluster has its own liquidity-guard upstream, proxied under a dedicated
-// path (configured in vite.config.ts). We route by the active cluster so a
-// devnet session hits the devnet guard, mainnet hits mainnet, etc.
+// Resolved per-cluster upstream URLs, injected at build time by vite.config.ts
+// (env overrides merged over the Heroku defaults). Public, keyless URLs.
+declare const __LG_TARGETS__: Record<"localnet" | "devnet" | "mainnet", string>;
+
+// Each cluster has its own liquidity-guard upstream. We route by the active
+// cluster so a devnet session hits the devnet guard, mainnet hits mainnet, etc.
 const BASE_PATH = "/liquidity-guard";
 
 function lgUrl(cluster: Cluster, endpoint: "health" | "check"): string {
   const segment = cluster === "mainnet-beta" ? "mainnet" : cluster;
-  return `${BASE_PATH}/${segment}/${endpoint}`;
+  // Dev: same-origin proxy path. Prod: absolute upstream (no proxy exists).
+  if (import.meta.env.DEV) {
+    return `${BASE_PATH}/${segment}/${endpoint}`;
+  }
+  const target = __LG_TARGETS__[segment].replace(/\/$/, "");
+  return `${target}/${endpoint}`;
 }
 
 export interface AttestationRequest {
@@ -65,7 +74,11 @@ function fromHex(hex: string): Uint8Array {
   if (hex.length % 2 !== 0) throw new Error(`hex string has odd length: ${hex.length}`);
   const out = new Uint8Array(hex.length / 2);
   for (let i = 0; i < out.length; i += 1) {
-    out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+    const byte = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+    // Guard malformed hex: parseInt returns NaN, which would silently coerce to
+    // a 0 byte and misattribute a later commit-hash / signature mismatch.
+    if (Number.isNaN(byte)) throw new Error(`invalid hex at offset ${i * 2}`);
+    out[i] = byte;
   }
   return out;
 }
