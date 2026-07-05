@@ -84,7 +84,11 @@ const fontsRawKb = Math.round(fonts.reduce((a, f) => a + rawKb(join(assetsDir, f
 
 const breaches = [];
 if (entryName === null) breaches.push("Could not identify the entry chunk from build/index.html");
-if (entryGzipKb > budget.entryGzipKb) {
+// The entry chunk alone is informational by default: rolldown shifts modules
+// between the entry chunk and the first shared chunk across vite patch versions
+// without changing what the browser fetches on first paint. Only gate it if a
+// budget is explicitly set. The portable gates are initialLoad + total below.
+if (budget.entryGzipKb != null && entryGzipKb > budget.entryGzipKb) {
   breaches.push(`Entry chunk ${entryGzipKb} kB gzip exceeds budget ${budget.entryGzipKb} kB`);
 }
 if (budget.initialLoadGzipKb != null && initialLoadGzipKb > budget.initialLoadGzipKb) {
@@ -105,7 +109,10 @@ const summary = {
   fontsRawKb,
   budget,
   headroom: {
-    entryKb: Math.round((budget.entryGzipKb - entryGzipKb) * 10) / 10,
+    entryKb:
+      budget.entryGzipKb != null
+        ? Math.round((budget.entryGzipKb - entryGzipKb) * 10) / 10
+        : null,
     initialLoadKb:
       budget.initialLoadGzipKb != null
         ? Math.round((budget.initialLoadGzipKb - initialLoadGzipKb) * 10) / 10
@@ -123,7 +130,9 @@ if (asJson) {
   console.log("| Metric | Size (gzip) | Budget | Headroom |");
   console.log("| --- | ---: | ---: | ---: |");
   console.log(
-    `| Entry chunk | ${entryGzipKb} kB | ${budget.entryGzipKb} kB | ${summary.headroom.entryKb} kB |`,
+    budget.entryGzipKb != null
+      ? `| Entry chunk | ${entryGzipKb} kB | ${budget.entryGzipKb} kB | ${summary.headroom.entryKb} kB |`
+      : `| Entry chunk (info) | ${entryGzipKb} kB | — | — |`,
   );
   if (budget.initialLoadGzipKb != null) {
     console.log(
@@ -140,7 +149,11 @@ if (asJson) {
     console.log(`⚠️ **Budget exceeded:** ${breaches.join("; ")}`);
   }
 } else {
-  console.log(`Entry chunk (${entryName}): ${entryGzipKb} kB gzip (budget ${budget.entryGzipKb})`);
+  console.log(
+    budget.entryGzipKb != null
+      ? `Entry chunk (${entryName}): ${entryGzipKb} kB gzip (budget ${budget.entryGzipKb})`
+      : `Entry chunk (${entryName}): ${entryGzipKb} kB gzip (informational)`,
+  );
   if (budget.initialLoadGzipKb != null) {
     console.log(
       `Initial load (entry + preloads): ${initialLoadGzipKb} kB gzip (budget ${budget.initialLoadGzipKb})`,
