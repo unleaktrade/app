@@ -1,6 +1,5 @@
 {
-  "comment": "Gzip budgets for build/assets JS, enforced by check-bundle-size.mjs in CI. Baseline 2026-07-05 (post code-split): entry shell 101.5 kB, initial load (entry + modulepreloads = first-paint JS) 552.9 kB, total 591.2 kB. web3.js + Anchor (vendor-solana, eager) and recharts (vendor-charts, warmed for the landing chart) dominate initial load; the 5 route-lazy screens + html-to-image/qrcode defer. Budgets are baseline + headroom — raise deliberately in a PR when a dependency legitimately grows the bundle.",
-  "entryGzipKb": 130,
+  "comment": "Gzip budgets for build/assets JS, enforced by check-bundle-size.mjs in CI. Baseline 2026-07-05 (vite 8.1.3): initial load (entry + modulepreloads = first-paint JS) 544.6 kB, total 582.4 kB. The entry chunk ALONE is reported but NOT gated: rolldown redistributes modules between the entry chunk and the first shared chunk across vite patch versions (8.0.8 split it at ~101 kB, 8.1.3 at ~193 kB) with no change to what the browser actually fetches — so entry-alone is non-portable. Initial load is the portable first-paint gate. Budgets are baseline + headroom — raise deliberately in a PR when a dependency legitimately grows the bundle.",
   "initialLoadGzipKb": 580,
   "totalJsGzipKb": 615
 }
