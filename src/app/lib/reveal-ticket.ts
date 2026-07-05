@@ -64,6 +64,21 @@ export function loadTicket(rfq: string): RevealTicket | null {
   }
 }
 
+/**
+ * Drop the saved ticket once the quote is revealed. The sealed amount + salt
+ * only need to persist through the commit→reveal window; once the amount is
+ * on-chain there's nothing left to recover, so clearing it shrinks the
+ * same-origin read surface for the confidential bid (see the file header).
+ * Best-effort — never throws.
+ */
+export function clearTicket(rfq: string): void {
+  try {
+    localStorage.removeItem(storageKey(rfq));
+  } catch {
+    // storage disabled — nothing to clear.
+  }
+}
+
 /** Validate + normalise an unknown object into a RevealTicket. Throws on a bad
  * shape so the "import ticket" path can surface a clear error. */
 export function parseTicket(input: unknown): RevealTicket {
