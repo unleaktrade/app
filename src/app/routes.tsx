@@ -1,15 +1,22 @@
+import type { ComponentType } from "react";
 import { createBrowserRouter, Navigate } from "react-router";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { WalletConnect } from "@/app/components/WalletConnect";
 import { AuthGate } from "@/app/components/AuthGate";
 import { DashboardLayout } from "@/app/components/DashboardLayout";
 import { MarketplaceWrapper } from "@/app/components/MarketplaceWrapper";
-import { MyActivity } from "@/app/components/MyActivity";
-import { Transparency } from "@/app/components/Transparency";
-import { RFQDetailWrapper } from "@/app/components/RFQDetailWrapper";
-import { RevealQuoteWrapper } from "@/app/components/RevealQuoteWrapper";
-import { SettleQuoteWrapper } from "@/app/components/SettleQuoteWrapper";
-import { ComponentStories } from "@/app/components/ComponentStories";
+
+// The shell (DashboardLayout) and the index Marketplace stay eager so the first
+// dashboard paint needs no extra round-trip. The secondary screens are
+// route-`lazy` so their heavy, route-local deps (recharts, html-to-image,
+// qrcode) land in async chunks instead of the entry bundle — see the bundle
+// budget in scripts/bundle-budget.json.
+function lazyScreen<M extends Record<string, unknown>>(
+  loader: () => Promise<M>,
+  pick: (m: M) => ComponentType,
+) {
+  return async () => ({ Component: pick(await loader()) });
+}
 
 function RootRedirect() {
   const { authenticated, state } = useAuth();
@@ -28,6 +35,20 @@ function RootRedirect() {
   return <WalletConnect />;
 }
 
+// Shown during the initial load of a lazy route (e.g. a deep link straight to
+// /dashboard/my-activity) so a direct hit renders the branded surface rather
+// than a blank frame while the chunk fetches. In-app navigation keeps the
+// current UI mounted during the lazy fetch, so this only covers cold deep links.
+function RouteFallback() {
+  return (
+    <div className="min-h-dvh bg-surface-page" aria-hidden="true">
+      <div className="flex min-h-dvh items-center justify-center">
+        <div className="skeleton-shimmer h-10 w-10 rounded-full" />
+      </div>
+    </div>
+  );
+}
+
 export const router = createBrowserRouter([
   {
     path: "/",
@@ -36,6 +57,7 @@ export const router = createBrowserRouter([
   {
     path: "/dashboard",
     Component: DashboardLayout,
+    HydrateFallback: RouteFallback,
     children: [
       {
         index: true,
@@ -43,24 +65,39 @@ export const router = createBrowserRouter([
       },
       {
         path: "my-activity",
-        Component: MyActivity,
+        lazy: lazyScreen(
+          () => import("@/app/components/MyActivity"),
+          (m) => m.MyActivity,
+        ),
       },
       {
         path: "transparency",
-        Component: Transparency,
+        lazy: lazyScreen(
+          () => import("@/app/components/Transparency"),
+          (m) => m.Transparency,
+        ),
       },
       {
         path: "rfq/:rfqId",
-        Component: RFQDetailWrapper,
+        lazy: lazyScreen(
+          () => import("@/app/components/RFQDetailWrapper"),
+          (m) => m.RFQDetailWrapper,
+        ),
       },
       // Flat, role-free taker cockpits (the /my-quotes subtree is deleted per #10).
       {
         path: "quote/:quoteId/reveal",
-        Component: RevealQuoteWrapper,
+        lazy: lazyScreen(
+          () => import("@/app/components/RevealQuoteWrapper"),
+          (m) => m.RevealQuoteWrapper,
+        ),
       },
       {
         path: "quote/:quoteId/settle",
-        Component: SettleQuoteWrapper,
+        lazy: lazyScreen(
+          () => import("@/app/components/SettleQuoteWrapper"),
+          (m) => m.SettleQuoteWrapper,
+        ),
       },
     ],
   },
@@ -69,7 +106,10 @@ export const router = createBrowserRouter([
     ? [
         {
           path: "/dev/stories",
-          Component: ComponentStories,
+          lazy: lazyScreen(
+            () => import("@/app/components/ComponentStories"),
+            (m) => m.ComponentStories,
+          ),
         },
       ]
     : []),

@@ -48,6 +48,17 @@ try {
 const entryMatch = indexHtml.match(/src="\/?(assets\/[^"]+\.js)"/);
 const entryName = entryMatch?.[1]?.replace(/^assets\//, "") ?? null;
 
+// "Initial load" = the entry chunk plus every chunk index.html preloads
+// (rel="modulepreload"). This is what the browser actually fetches on first
+// paint, so it's the honest gate post-code-splitting: route-lazy chunks (and
+// their unique deps) are NOT preloaded, so they don't count here.
+const preloadNames = new Set(
+  [...indexHtml.matchAll(/rel="modulepreload"[^>]*href="\/?(assets\/[^"]+\.js)"/g)].map((m) =>
+    m[1].replace(/^assets\//, ""),
+  ),
+);
+if (entryName) preloadNames.add(entryName);
+
 const gzipKb = (path) => Math.round((gzipSync(readFileSync(path)).length / 1024) * 10) / 10;
 const rawKb = (path) => Math.round((statSync(path).size / 1024) * 10) / 10;
 
@@ -61,9 +72,12 @@ const jsRows = js.map((f) => ({
   rawKb: rawKb(join(assetsDir, f)),
   gzipKb: gzipKb(join(assetsDir, f)),
   entry: f === entryName,
+  initial: preloadNames.has(f),
 }));
 
 const entryGzipKb = jsRows.filter((r) => r.entry).reduce((a, r) => a + r.gzipKb, 0);
+const initialLoadGzipKb =
+  Math.round(jsRows.filter((r) => r.initial).reduce((a, r) => a + r.gzipKb, 0) * 10) / 10;
 const totalJsGzipKb = Math.round(jsRows.reduce((a, r) => a + r.gzipKb, 0) * 10) / 10;
 const cssGzipKb = Math.round(css.reduce((a, f) => a + gzipKb(join(assetsDir, f)), 0) * 10) / 10;
 const fontsRawKb = Math.round(fonts.reduce((a, f) => a + rawKb(join(assetsDir, f)), 0) * 10) / 10;
@@ -73,6 +87,11 @@ if (entryName === null) breaches.push("Could not identify the entry chunk from b
 if (entryGzipKb > budget.entryGzipKb) {
   breaches.push(`Entry chunk ${entryGzipKb} kB gzip exceeds budget ${budget.entryGzipKb} kB`);
 }
+if (budget.initialLoadGzipKb != null && initialLoadGzipKb > budget.initialLoadGzipKb) {
+  breaches.push(
+    `Initial load ${initialLoadGzipKb} kB gzip exceeds budget ${budget.initialLoadGzipKb} kB`,
+  );
+}
 if (totalJsGzipKb > budget.totalJsGzipKb) {
   breaches.push(`Total JS ${totalJsGzipKb} kB gzip exceeds budget ${budget.totalJsGzipKb} kB`);
 }
@@ -80,12 +99,17 @@ if (totalJsGzipKb > budget.totalJsGzipKb) {
 const summary = {
   entryChunk: entryName,
   entryGzipKb,
+  initialLoadGzipKb,
   totalJsGzipKb,
   cssGzipKb,
   fontsRawKb,
   budget,
   headroom: {
     entryKb: Math.round((budget.entryGzipKb - entryGzipKb) * 10) / 10,
+    initialLoadKb:
+      budget.initialLoadGzipKb != null
+        ? Math.round((budget.initialLoadGzipKb - initialLoadGzipKb) * 10) / 10
+        : null,
     totalJsKb: Math.round((budget.totalJsGzipKb - totalJsGzipKb) * 10) / 10,
   },
   breaches,
@@ -101,6 +125,11 @@ if (asJson) {
   console.log(
     `| Entry chunk | ${entryGzipKb} kB | ${budget.entryGzipKb} kB | ${summary.headroom.entryKb} kB |`,
   );
+  if (budget.initialLoadGzipKb != null) {
+    console.log(
+      `| Initial load (entry + preloads) | ${initialLoadGzipKb} kB | ${budget.initialLoadGzipKb} kB | ${summary.headroom.initialLoadKb} kB |`,
+    );
+  }
   console.log(
     `| Total JS | ${totalJsGzipKb} kB | ${budget.totalJsGzipKb} kB | ${summary.headroom.totalJsKb} kB |`,
   );
@@ -112,6 +141,11 @@ if (asJson) {
   }
 } else {
   console.log(`Entry chunk (${entryName}): ${entryGzipKb} kB gzip (budget ${budget.entryGzipKb})`);
+  if (budget.initialLoadGzipKb != null) {
+    console.log(
+      `Initial load (entry + preloads): ${initialLoadGzipKb} kB gzip (budget ${budget.initialLoadGzipKb})`,
+    );
+  }
   console.log(`Total JS: ${totalJsGzipKb} kB gzip (budget ${budget.totalJsGzipKb})`);
   console.log(`CSS: ${cssGzipKb} kB gzip · Fonts: ${fontsRawKb} kB raw (informational)`);
   for (const row of jsRows.sort((a, b) => b.gzipKb - a.gzipKb).slice(0, 10)) {

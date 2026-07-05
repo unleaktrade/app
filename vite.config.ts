@@ -130,6 +130,31 @@ export default defineConfig(({ mode, command }) => {
     },
     build: {
       outDir: "build",
+      rollupOptions: {
+        output: {
+          // Pin the heavy, rarely-changing vendor deps into stably-named chunks
+          // so they cache across app-code deploys (and so the bundle budget
+          // measures a meaningful boundary). web3.js + Anchor are needed at boot
+          // by the wallet providers, so vendor-solana loads eagerly; recharts is
+          // only reached from lazy routes, so vendor-charts stays async.
+          manualChunks(id) {
+            if (!id.includes("node_modules")) return undefined;
+            if (
+              id.includes("@solana") ||
+              id.includes("@coral-xyz") ||
+              id.includes("web3.js") ||
+              id.includes("jayson") ||
+              id.includes("rpc-websockets")
+            ) {
+              return "vendor-solana";
+            }
+            if (id.includes("recharts") || id.includes("/d3-") || id.includes("victory")) {
+              return "vendor-charts";
+            }
+            return undefined;
+          },
+        },
+      },
     },
     test: {
       // No env injection needed: src/chain/env.ts falls back to committed
