@@ -43,7 +43,7 @@ export function OpenInterestByToken({ buckets }: OpenInterestByTokenProps) {
                 onClick={() => setChartType("donut")}
                 aria-label="Donut chart view"
                 aria-pressed={chartType === "donut"}
-                className={`p-1.5 rounded transition-all ${
+                className={`p-2 rounded transition-all ${
                   chartType === "donut"
                     ? "bg-cyan-500/20 text-cyan-400"
                     : "text-white/40 hover:text-white/60"
@@ -55,7 +55,7 @@ export function OpenInterestByToken({ buckets }: OpenInterestByTokenProps) {
                 onClick={() => setChartType("bar")}
                 aria-label="Bar chart view"
                 aria-pressed={chartType === "bar"}
-                className={`p-1.5 rounded transition-all ${
+                className={`p-2 rounded transition-all ${
                   chartType === "bar"
                     ? "bg-cyan-500/20 text-cyan-400"
                     : "text-white/40 hover:text-white/60"
