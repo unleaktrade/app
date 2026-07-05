@@ -169,7 +169,7 @@ switchers. Rewards and fees are always denominated in the RFQ's quote token,
 never aggregated into USD.
 
 Visual source of truth: the
-[Figma design file](https://www.figma.com/design/vmyQPE8WnUX4a5JEl6C2BA)
+[Figma design file](https://www.figma.com/design/ywVePMypIpifiUMA9auaMs)
 (issue #21).
 
 ## Companion repositories
