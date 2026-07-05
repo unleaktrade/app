@@ -255,7 +255,7 @@ Minimal REST microservice that gates `commit_quote`. Two endpoints:
 ## Deployment
 
 - **Production** (`app.unleak.trade`) — GitHub Pages via `.github/workflows/deploy.yml`, triggered on push to `main`. Workflow copies `build/index.html` to `build/404.html` for SPA fallback and writes a `CNAME` file.
-- **PR previews** — Vercel via `.github/workflows/preview.yml`. Internal PRs only (skips forks because secrets are unavailable there).
+- **PR previews** — Vercel via `.github/workflows/preview.yml`. Internal non-bot PRs only (skips forks **and Dependabot** — a Dependabot `pull_request` run gets Dependabot secrets, not repository secrets, so `VERCEL_TOKEN` would be empty and the job would always fail).
 - Both workflows pin Node 22 and use the latest `actions/*` versions.
 
 ## Commit style
