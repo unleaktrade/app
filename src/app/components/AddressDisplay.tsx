@@ -45,7 +45,7 @@ export function AddressDisplay({ address, visible = 4, className }: AddressDispl
         type="button"
         onClick={copy}
         aria-label="Copy address"
-        className="text-white/40 transition-colors hover:text-white/80"
+        className="-m-1.5 rounded p-1.5 text-white/40 transition-colors hover:text-white/80"
       >
         {copied ? (
           <Check className="h-3.5 w-3.5 text-state-settled" />
@@ -59,7 +59,7 @@ export function AddressDisplay({ address, visible = 4, className }: AddressDispl
           target="_blank"
           rel="noopener noreferrer"
           aria-label="View on Solscan"
-          className="text-white/40 transition-colors hover:text-white/80"
+          className="-m-1.5 rounded p-1.5 text-white/40 transition-colors hover:text-white/80"
         >
           <ExternalLink className="h-3.5 w-3.5" />
         </a>

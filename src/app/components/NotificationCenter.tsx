@@ -33,7 +33,7 @@ export function NotificationCenter() {
       size="sm"
       aria-label={unread > 0 ? `Notifications (${unread} unread)` : "Notifications"}
       onClick={() => setOpen((o) => !o)}
-      className="relative h-9 w-9 rounded-xl border border-white/10 bg-white/5 p-0 text-white/60 backdrop-blur-md hover:bg-white/10 hover:text-white"
+      className="relative h-11 w-11 rounded-xl border border-white/10 bg-white/5 p-0 text-white/60 backdrop-blur-md hover:bg-white/10 hover:text-white"
     >
       <Bell className="h-4 w-4" />
       {unread > 0 && (

@@ -144,7 +144,7 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
 
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="lg:hidden p-2.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-all"
+                className="lg:hidden p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-all"
                 aria-label="Toggle menu"
               >
                 <AnimatePresence mode="wait">
