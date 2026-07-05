@@ -45,7 +45,10 @@ function DrawerContent({
       <DrawerPrimitive.Content
         data-slot="drawer-content"
         className={cn(
-          "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-2xl border border-white/10 bg-surface-raised text-white",
+          // pb-[safe-area] keeps the last control clear of the iOS home
+          // indicator on every vaul bottom sheet (ResponsiveModal, action
+          // sheet, notifications, guard status) at once.
+          "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-2xl border border-white/10 bg-surface-raised pb-[env(safe-area-inset-bottom)] text-white",
           className,
         )}
         {...props}

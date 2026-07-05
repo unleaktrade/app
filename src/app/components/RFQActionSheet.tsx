@@ -32,7 +32,7 @@ export function RFQActionSheet({ children, title = "Actions", className }: RFQAc
       {/* Bottom action bar + sheet on mobile */}
       <div className="md:hidden">
         <Drawer>
-          <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-surface-page/90 p-3 backdrop-blur-xl">
+          <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-surface-page/90 px-3 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur-xl">
             <DrawerTrigger asChild>
               <Button className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:from-cyan-600 hover:to-blue-600">
                 <ChevronUp className="mr-2 h-4 w-4" />

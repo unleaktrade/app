@@ -187,7 +187,7 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
           />
 
           <div className="fixed top-(--nav-h) right-0 bottom-0 w-full max-w-sm bg-surface-page/98 backdrop-blur-xl border-l border-white/10 z-40 lg:hidden overflow-y-auto motion-safe:animate-in motion-safe:slide-in-from-right motion-safe:duration-300">
-            <div className="p-6 space-y-4">
+            <div className="px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] space-y-4">
               <div>
                 <Button
                   onClick={handleCreateRFQ}
