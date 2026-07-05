@@ -2,8 +2,9 @@
 // quote keys referenced by a set of Settled RFQs, fetch them all in one
 // `fetchMultiple` round-trip and hand back a base58-keyed Map. Settled
 // accounts are immutable, so — unlike useDecodedAccount — there is no
-// websocket subscription here; freshness follows the same TanStack defaults
-// the list hooks use (refetch-on-focus + the shared write-path invalidation).
+// websocket subscription here, and no refresh is needed beyond the shared
+// write-path invalidation + staleTime the list hooks use (refetchOnWindowFocus
+// is off globally — see QueryProvider).
 
 import type { PublicKey } from "@solana/web3.js";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
