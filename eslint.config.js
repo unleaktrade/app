@@ -19,6 +19,11 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      // React-Compiler-prep rules (new in eslint-plugin-react-hooks v7). We don't
+      // build with the compiler; enabling them would force refactors of tested
+      // wallet/auth effect flows for no runtime gain. Revisit on compiler adoption.
+      "react-hooks/purity": "off",
+      "react-hooks/set-state-in-effect": "off",
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": [
         "error",
