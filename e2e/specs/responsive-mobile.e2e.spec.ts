@@ -65,6 +65,26 @@ test.describe("Mobile viewport @mobile", () => {
     await makerPage.keyboard.press("Escape");
   });
 
+  test("guard status opens as a bottom sheet from the mobile menu", async ({ makerPage }) => {
+    // The guard details use GlassPopover only at ≥md; below md they render in
+    // the vaul bottom sheet (GlassPopover has no viewport-collision handling
+    // and used to clip off the left edge inside the mobile menu). Hermetic
+    // mode has no liquidity-guard, so the state is Offline — the aria-label
+    // regex is state-agnostic.
+    await makerPage.goto("/dashboard");
+    await makerPage.getByRole("button", { name: "Toggle menu" }).click();
+    await makerPage.getByRole("button", { name: /^Settlement guard:/ }).click();
+    const sheet = makerPage.getByRole("dialog").filter({ hasText: "Settlement guard" });
+    await expect(sheet.getByText(/attestation service signs a funds check/i)).toBeVisible();
+    const box = await sheet.boundingBox();
+    const viewport = makerPage.viewportSize();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(viewport!.width + 1);
+    await expectNoHorizontalOverflow(makerPage);
+    await makerPage.keyboard.press("Escape");
+  });
+
   test("My Activity renders without horizontal overflow", async ({ makerPage }) => {
     await makerPage.goto("/dashboard/my-activity");
     await expect(makerPage.getByRole("heading", { name: "My Activity" })).toBeVisible({

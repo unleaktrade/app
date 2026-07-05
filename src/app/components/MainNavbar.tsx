@@ -200,7 +200,7 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
               </div>
 
               <div className="flex flex-col items-center gap-3">
-                <HealthPill />
+                <HealthPill block />
                 <ClusterSwitcher />
                 <WalletMultiButton />
               </div>
