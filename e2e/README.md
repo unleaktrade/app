@@ -61,6 +61,22 @@ funds them) and must **never** hold mainnet assets. CI supplies them only to the
 on-demand `e2e.yml` run via `DEV_WALLET_{MAKER,TAKER1,TAKER2}_KEYPAIR` +
 `DEVNET_RPC_URL` — never to the per-PR gate.
 
+## Docs screenshots
+
+`specs/docs-screenshots.e2e.spec.ts` is an opt-in capture harness, not a test:
+it drives the same hermetic replay setup (cassette + ephemeral wallets, no
+devnet, no secrets) and screenshots the screens embedded in the GitBook user
+guide (`unleaktrade/docs` → `user-guide/`). Without `DOCS_SCREENSHOTS=1` the
+file registers no tests, so the per-PR gate never runs it.
+
+```bash
+DOCS_SCREENSHOTS=1 REPLAY_RPC=1 npx playwright test --project=desktop docs-screenshots
+# PNGs → e2e/artifacts/docs-screenshots/ (override with DOCS_SHOTS_DIR)
+```
+
+Copy the keepers into the docs repo's `.gitbook/assets/user-guide/` and keep
+the file names stable — the GitBook pages reference them by name.
+
 ## Regenerating the cassette
 
 Re-record when the account layout / IDL changes (a stale cassette makes the
