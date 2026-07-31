@@ -13,6 +13,13 @@ updates:
         update-types:
           - minor
           - patch
+    # typescript-eslint hard-caps `typescript <6.1.0` and has no TS 7 support yet
+    # (it runtime-throws on TS 7, and installing 7.x breaks the zero-ERESOLVE
+    # rule). Skip the perpetually-unmergeable major until typescript-eslint
+    # ships TS 7 support (tracked upstream). Minor/patch on 6.x still flow.
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
