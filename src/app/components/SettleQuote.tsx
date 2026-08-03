@@ -4,10 +4,9 @@
 // complete_settlement (bonds refund, base delivers, fee routes) and show a
 // shareable receipt with the Solscan link.
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import type { PublicKey } from "@solana/web3.js";
 import type { RfqAccount } from "@/chain/accounts/rfq";
 import type { QuoteAccount } from "@/chain/accounts/quote";
@@ -19,6 +18,8 @@ import { buildCompleteSettlementTx } from "@/chain/instructions/taker";
 import { submitRfqTx } from "@/chain/instructions/shared";
 import { resolveTokenMeta } from "@/app/lib/tokens";
 import { formatTokenAmount } from "@/app/lib/format";
+import { useTokenBalanceState } from "@/app/hooks/useTokenBalanceState";
+import { BetaTokenNotice } from "@/app/components/BetaTokenNotice";
 import { fireSettlementConfetti } from "@/app/lib/confetti";
 import { SettlementReceiptCard } from "@/app/components/SettlementReceiptCard";
 import { PageShell } from "@/app/components/PageShell";
@@ -71,27 +72,16 @@ export function SettleQuote({
     [quoteAmount, rfq.takerFeeBps],
   );
 
-  const [balance, setBalance] = useState<bigint | null>(null);
   const [busy, setBusy] = useState(false);
   const [receipt, setReceipt] = useState<string | null>(null);
 
-  // Best-effort balance check on the taker's quote-mint ATA.
-  useEffect(() => {
-    if (!wallet.publicKey) return;
-    let cancelled = false;
-    const ata = getAssociatedTokenAddressSync(rfq.quoteMint, wallet.publicKey);
-    connection
-      .getTokenAccountBalance(ata)
-      .then((r) => {
-        if (!cancelled) setBalance(BigInt(r.value.amount));
-      })
-      .catch(() => {
-        if (!cancelled) setBalance(0n);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [connection, wallet.publicKey, rfq.quoteMint]);
+  // Balance check on the taker's quote-mint ATA — through the shared hook so a
+  // missing ATA / RPC failure are distinct states, never a silent 0.
+  const balanceState = useTokenBalanceState(rfq.quoteMint, required);
+  // The quote mint IS the beta devnet USDC when it matches the RFQ's snapshot
+  // of Config.usdcMint — then a shortfall gets waitlist guidance, not a
+  // generic top-up note.
+  const isBetaMint = rfq.quoteMint.equals(rfq.usdcMint);
 
   const now = Math.floor(Date.now() / 1000);
   const canSettle = canCompleteSettlement(
@@ -103,7 +93,12 @@ export function SettleQuote({
     },
     now,
   );
-  const underfunded = balance !== null && balance < required;
+  // Soft block only: funding can land between render and sign, so the settle
+  // button stays clickable and the chain remains the final arbiter.
+  const underfunded =
+    balanceState.status === "no-ata" ||
+    balanceState.status === "zero" ||
+    balanceState.status === "insufficient";
 
   async function settle() {
     if (!program || !wallet.publicKey) return;
@@ -189,22 +184,52 @@ export function SettleQuote({
                 <div
                   className={`font-mono text-lg ${underfunded ? "text-red-400" : "text-green-400"}`}
                 >
-                  {balance === null
+                  {balanceState.status === "loading" || balanceState.status === "no-wallet"
                     ? "…"
-                    : `${formatTokenAmount(balance, quoteMeta.decimals)} ${quoteMeta.symbol}`}
+                    : balanceState.status === "error"
+                      ? "unavailable"
+                      : balanceState.status === "no-ata"
+                        ? `no ${quoteMeta.symbol} token account yet`
+                        : `${formatTokenAmount(
+                            balanceState.status === "zero" ? 0n : balanceState.balance,
+                            quoteMeta.decimals,
+                          )} ${quoteMeta.symbol}`}
                 </div>
               </div>
             </div>
 
-            {underfunded && (
+            {balanceState.status === "error" && (
               <Note tone="amber">
-                <span className="inline-flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4" />
-                  Your {quoteMeta.symbol} balance is below the funding requirement — top up before
-                  settling or the transaction will fail.
-                </span>
+                Couldn't read your {quoteMeta.symbol} balance (RPC hiccup) — the check will retry;
+                you can still settle if the account is funded.
               </Note>
             )}
+
+            {underfunded &&
+              (isBetaMint ? (
+                <BetaTokenNotice
+                  state={balanceState}
+                  cluster={cluster}
+                  symbol={quoteMeta.symbol}
+                  decimals={quoteMeta.decimals}
+                  required={required}
+                  variant="inline"
+                />
+              ) : (
+                <Note tone="amber">
+                  <span className="inline-flex items-start gap-2">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>
+                      {balanceState.status === "no-ata"
+                        ? `This wallet has no ${quoteMeta.symbol} token account yet — fund it before settling.`
+                        : `You need ${formatTokenAmount(required, quoteMeta.decimals)} ${quoteMeta.symbol} to settle — you have ${formatTokenAmount(
+                            balanceState.status === "insufficient" ? balanceState.balance : 0n,
+                            quoteMeta.decimals,
+                          )} ${quoteMeta.symbol}. Top up before settling.`}
+                    </span>
+                  </span>
+                </Note>
+              ))}
 
             {!canSettle && (
               <Note tone="amber">

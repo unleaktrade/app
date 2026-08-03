@@ -282,6 +282,18 @@ export function seededTokenMeta(mint: string): ResolvedToken | undefined {
   return SEED_MANIFEST[mint];
 }
 
+/** True when the mint is one the devnet seed manifest knows about — i.e. one
+ * scripts/seed.ts created/verified. The waitlist distribution (waitlist#18)
+ * hands out the manifest's devnet USDC, so an on-chain `Config.usdcMint` that
+ * is NOT in the manifest means the distribution mint may have drifted. */
+export function isKnownSeededMint(mint: string): boolean {
+  return Object.prototype.hasOwnProperty.call(SEED_MANIFEST, mint);
+}
+
+// DEV-only one-shot drift diagnostic: warn once per unknown mint (module-level
+// Set) instead of spamming every render.
+const warnedUnknownMints = new Set<string>();
+
 /**
  * Resolve a mint to its display symbol + decimals synchronously. Falls back to
  * a truncated address with 0 decimals for mints not in the manifest or catalog
@@ -299,6 +311,14 @@ export function resolveTokenMeta(mint: string): ResolvedToken {
       decimals: fromCatalog.decimals,
       ...(fromCatalog.logoURI !== undefined ? { logoURI: fromCatalog.logoURI } : {}),
     };
+  }
+  if (import.meta.env.DEV && !warnedUnknownMints.has(mint)) {
+    warnedUnknownMints.add(mint);
+    console.warn(
+      `[tokens] Mint ${mint} is not in seed-manifest.devnet.json or the static catalog — ` +
+        "rendering it with 0 decimals (raw base units). If Config.usdcMint rotated, regenerate " +
+        "the seed manifest (npm run seed) and verify against waitlist#18.",
+    );
   }
   return { symbol: shortMint(mint), decimals: 0 };
 }

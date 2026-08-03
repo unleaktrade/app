@@ -4,6 +4,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { ArrowLeft, Sparkles, Shield, Zap } from "lucide-react";
 import logo from "figma:asset/6d73120824de2c8c6632c71cddef1ae782b1c254.png";
+import { LANDING_URL } from "@/app/lib/links";
 
 export function WalletConnect() {
   const { wallet, connected, connecting, select } = useWallet();
@@ -164,7 +165,7 @@ export function WalletConnect() {
                 transition={{ delay: 0.8 }}
               >
                 <a
-                  href="https://unleak.trade"
+                  href={LANDING_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all text-white/70 hover:text-white text-sm font-medium"
