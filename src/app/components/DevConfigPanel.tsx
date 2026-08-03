@@ -4,6 +4,7 @@ import { useCluster } from "@/app/providers/ClusterProvider";
 import { CLUSTER_LABELS } from "@/chain/cluster";
 import { env } from "@/chain/env";
 import { deriveConfigPda } from "@/chain/pda";
+import { isKnownSeededMint } from "@/app/lib/tokens";
 
 function formatPubkey(pk: { toBase58(): string }): string {
   const s = pk.toBase58();
@@ -56,6 +57,12 @@ export function DevConfigPanel() {
             ))}
           </tbody>
         </table>
+        {query.data && !isKnownSeededMint(query.data.usdcMint.toBase58()) && (
+          <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-amber-200">
+            usdcMint not in seed-manifest.devnet.json — distribution mint may have drifted;
+            regenerate seeding / verify against waitlist#18.
+          </div>
+        )}
       </details>
     </div>
   );

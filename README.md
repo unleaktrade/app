@@ -87,10 +87,49 @@ npm run dev        # → http://localhost:3000
 ```
 
 That's it — zero configuration. The committed IDL supplies the program id,
-devnet USDC is the default mint, and the dev proxy routes
+the on-chain Config account supplies the USDC mint (the app never configures
+one — see "Getting beta tokens" below), and the dev proxy routes
 `/liquidity-guard/devnet/*` to the hosted attestation service. Connect any
 Wallet Standard wallet (Phantom, Solflare, Backpack, …) and sign the
 `signMessage` challenge.
+
+## Getting beta tokens (devnet USDC)
+
+Every bond in the protocol is posted in the USDC mint resolved live from the
+on-chain `Config.usdcMint` account — there is no `VITE_USDC_MINT` and no other
+frontend source of truth. On devnet that mint is a **custom devnet USDC**
+distributed by the waitlist backend
+([waitlist#18](https://github.com/unleaktrade/waitlist/issues/18); product/UX
+context in
+[landing-page#35](https://github.com/unleaktrade/landing-page/issues/35)):
+
+- **Who gets it** — activated waitlist members receive **1000 custom devnet
+  USDC** to the wallet they registered on the waitlist.
+- **Same-wallet requirement** — connect that same wallet in the app; tokens
+  sent to your registered wallet are not visible from any other one.
+- **Devnet-only, no monetary value, no faucet** — the mint exists only on
+  Solana devnet and the tokens have no real-world monetary value. There is no
+  faucet for this mint; if you run out, use the support path on the landing
+  FAQ (`https://unleak.trade/faq#devnet-usdc`).
+- **What 1000 covers** — roughly **~96 RFQ cycles** at current devnet sizes,
+  so the allocation is plenty for exploring every flow.
+- **Empty balance ≠ something went wrong** — an empty or missing balance may
+  mean the distribution is still pending or the RPC is lagging. It is never,
+  by itself, proof that a distribution did not happen — check your status via
+  the in-app notice or the landing FAQ before assuming anything.
+
+Behavior notes:
+
+- **Config mint rotation** — if the admin rotates `Config.usdcMint`, the app
+  follows the chain automatically, but the seed manifest
+  (`src/app/lib/seed-manifest.devnet.json`) must be regenerated so symbols /
+  decimals resolve; until then `DevConfigPanel` (`/dashboard?debug=1`) shows a
+  drift warning and unknown mints render raw with a DEV console warning.
+- **Localnet** — `npm run seed` creates its own USDC mint (see `scripts/seed.ts`
+  `--usdc-source`); waitlist distribution does not apply.
+- **Future mainnet** — the Config account would point at real USDC; the
+  waitlist token guidance is N/A there and the app makes no balance claims
+  off-devnet.
 
 ## Quickstart — localnet
 

@@ -21,7 +21,10 @@ import { useSettlementProgram } from "@/chain/program";
 import { useCluster } from "@/app/providers/ClusterProvider";
 import { commitHash } from "@/chain/commitHash";
 import { commitDeadline, revealDeadline } from "@/chain/state-machine";
+import { totalToFund } from "@/chain/math";
 import { formatDuration } from "@/app/lib/format";
+import { useTokenBalanceState } from "@/app/hooks/useTokenBalanceState";
+import { BetaTokenNotice } from "@/app/components/BetaTokenNotice";
 import {
   deriveSalt,
   fetchAttestation,
@@ -71,7 +74,26 @@ export function SubmitQuoteModal({ rfq, open, onOpenChange }: SubmitQuoteModalPr
   const [amount, setAmount] = useState<bigint | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
+  // Set when a commit attempt was aborted on the local bond-balance read (#67).
+  const [bondGated, setBondGated] = useState(false);
+  // Raw liquidity-guard rejection that pattern-matched a funds shortfall — the
+  // guidance notice fronts it; the raw string stays behind a "details" line.
+  const [guardShortfall, setGuardShortfall] = useState<string | null>(null);
   const [ticket, setTicket] = useState<RevealTicket | null>(null);
+
+  // Local pre-signing reads (#67): the bond is posted in the RFQ's USDC mint
+  // (the beta token); the guard additionally checks the quote mint. Gating on
+  // the bond BEFORE deriveSalt/attestation saves a signMessage prompt + a
+  // guard round-trip when the wallet obviously can't fund it.
+  const bondState = useTokenBalanceState(account?.usdcMint ?? null, account?.bondAmount);
+  const requiredQuote = account
+    ? totalToFund(amount ?? account.minQuoteAmount, account.takerFeeBps)
+    : undefined;
+  const quoteState = useTokenBalanceState(account?.quoteMint ?? null, requiredQuote);
+  const bondBlocked =
+    bondState.status === "no-ata" ||
+    bondState.status === "zero" ||
+    bondState.status === "insufficient";
   const [attestation, setAttestation] = useState<{
     commitHash: Uint8Array;
     liquidityProof: Uint8Array;
@@ -85,6 +107,8 @@ export function SubmitQuoteModal({ rfq, open, onOpenChange }: SubmitQuoteModalPr
       setAmount(null);
       setPhase("idle");
       setError(null);
+      setBondGated(false);
+      setGuardShortfall(null);
       setTicket(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -105,6 +129,16 @@ export function SubmitQuoteModal({ rfq, open, onOpenChange }: SubmitQuoteModalPr
       return;
     }
     setError(null);
+    setGuardShortfall(null);
+
+    // Pre-signing gate (#67): abort before deriveSalt (a signMessage prompt)
+    // and the guard round-trip when the bond obviously can't be posted.
+    // Loading/error reads never block — the guard remains authoritative.
+    if (bondBlocked) {
+      setBondGated(true);
+      return;
+    }
+    setBondGated(false);
     setPhase("attesting");
     try {
       // 1. salt = signMessage(rfq pubkey) — deterministic per (wallet, rfq).
@@ -183,6 +217,17 @@ export function SubmitQuoteModal({ rfq, open, onOpenChange }: SubmitQuoteModalPr
       setPhase("idle");
     } catch (err) {
       setPhase("idle");
+      // A guard rejection that reads like a funds shortfall gets the beta
+      // token guidance (quote-mint context) instead of the raw string — the
+      // raw message stays available behind the collapsed details line.
+      if (
+        err instanceof LiquidityGuardError &&
+        err.status !== 429 &&
+        /insufficient|balance|funds/i.test(err.message)
+      ) {
+        setGuardShortfall(err.message);
+        return;
+      }
       const message =
         err instanceof LiquidityGuardError
           ? err.status === 429
@@ -258,6 +303,34 @@ export function SubmitQuoteModal({ rfq, open, onOpenChange }: SubmitQuoteModalPr
               })()}
             </span>
           </div>
+
+          {bondGated && bondBlocked && usdcMeta && (
+            <BetaTokenNotice
+              state={bondState}
+              cluster={cluster}
+              symbol={usdcMeta.symbol}
+              decimals={usdcMeta.decimals}
+              required={account.bondAmount}
+              variant="inline"
+            />
+          )}
+
+          {guardShortfall !== null && quoteMeta && (
+            <div className="space-y-2">
+              <BetaTokenNotice
+                state={quoteState}
+                cluster={cluster}
+                symbol={quoteMeta.symbol}
+                decimals={quoteMeta.decimals}
+                required={requiredQuote}
+                variant="inline"
+              />
+              <details className="text-xs text-white/40">
+                <summary className="cursor-pointer select-none text-white/50">Details</summary>
+                <p className="mt-1 font-mono">{guardShortfall}</p>
+              </details>
+            </div>
+          )}
 
           {error && (
             <div className="flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">

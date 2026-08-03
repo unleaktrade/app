@@ -36,6 +36,10 @@ import {
 } from "@/app/lib/rfq-actions";
 import { findQuoteByPda } from "@/app/lib/quote-lookup";
 import { resolveTokenMeta } from "@/app/lib/tokens";
+import { formatTokenAmount } from "@/app/lib/format";
+import { useCluster } from "@/app/providers/ClusterProvider";
+import { useTokenBalanceState } from "@/app/hooks/useTokenBalanceState";
+import { BetaTokenNotice } from "@/app/components/BetaTokenNotice";
 import type { FacilitatorUpdate } from "@/types/rfq";
 import { Button } from "@/app/components/ui/button";
 import { ResponsiveModal } from "@/app/components/ResponsiveModal";
@@ -139,6 +143,18 @@ export function RFQActionBar({
 
   const quoteMeta = resolveTokenMeta(rfq.quoteMint.toBase58());
   const usdcMeta = resolveTokenMeta(rfq.usdcMint.toBase58());
+
+  // Bond-funding check for the "open" confirm (#67). Only reads while the
+  // action is actually on offer (draft + connected maker); hard-blocks the
+  // confirm on no-ata/zero/insufficient because open_rfq posts the bond
+  // immediately — there is no soft path like settle's.
+  const { cluster } = useCluster();
+  const canOpenHere = actions.some((a) => a.id === "open");
+  const bondState = useTokenBalanceState(canOpenHere ? rfq.usdcMint : null, rfq.bondAmount);
+  const bondBlocked =
+    bondState.status === "no-ata" ||
+    bondState.status === "zero" ||
+    bondState.status === "insufficient";
 
   async function run(
     build: () => Promise<import("@solana/web3.js").Transaction>,
@@ -339,16 +355,42 @@ export function RFQActionBar({
       >
         <div className="space-y-4">
           {confirm === "open" && (
-            <BondBreakdown
-              bondAmount={rfq.bondAmount}
-              bondSymbol={usdcMeta.symbol}
-              bondDecimals={usdcMeta.decimals}
-              quoteAmount={rfq.minQuoteAmount}
-              quoteSymbol={quoteMeta.symbol}
-              quoteDecimals={quoteMeta.decimals}
-              takerFeeBps={rfq.takerFeeBps}
-              facilitatorFeeBps={rfq.facilitatorFeeBps}
-            />
+            <>
+              <BondBreakdown
+                bondAmount={rfq.bondAmount}
+                bondSymbol={usdcMeta.symbol}
+                bondDecimals={usdcMeta.decimals}
+                quoteAmount={rfq.minQuoteAmount}
+                quoteSymbol={quoteMeta.symbol}
+                quoteDecimals={quoteMeta.decimals}
+                takerFeeBps={rfq.takerFeeBps}
+                facilitatorFeeBps={rfq.facilitatorFeeBps}
+              />
+              <p className="text-sm text-white/70">
+                Bond required: {formatTokenAmount(rfq.bondAmount, usdcMeta.decimals)}{" "}
+                {usdcMeta.symbol} — your balance:{" "}
+                {bondState.status === "loading" || bondState.status === "no-wallet"
+                  ? "…"
+                  : bondState.status === "error"
+                    ? "unavailable"
+                    : bondState.status === "no-ata"
+                      ? `no ${usdcMeta.symbol} token account yet`
+                      : `${formatTokenAmount(
+                          bondState.status === "zero" ? 0n : bondState.balance,
+                          usdcMeta.decimals,
+                        )} ${usdcMeta.symbol}`}
+              </p>
+              {bondBlocked && (
+                <BetaTokenNotice
+                  state={bondState}
+                  cluster={cluster}
+                  symbol={usdcMeta.symbol}
+                  decimals={usdcMeta.decimals}
+                  required={rfq.bondAmount}
+                  variant="inline"
+                />
+              )}
+            </>
           )}
 
           {(confirm === "setFacilitator" || confirm === "setQuoteFacilitator") && (
@@ -383,7 +425,7 @@ export function RFQActionBar({
             </Button>
             <Button
               onClick={submitConfirmed}
-              disabled={busy}
+              disabled={busy || (confirm === "open" && bondBlocked)}
               className={cn(toneClass[pending?.tone ?? "primary"])}
             >
               {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

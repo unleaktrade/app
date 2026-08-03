@@ -12,6 +12,7 @@ import { BondBreakdown } from "@/app/components/BondBreakdown";
 import { AddressDisplay } from "@/app/components/AddressDisplay";
 import { TokenAmountInput } from "@/app/components/TokenAmountInput";
 import { EmptyState } from "@/app/components/EmptyState";
+import { BetaTokenNotice } from "@/app/components/BetaTokenNotice";
 import { SkeletonList } from "@/app/components/SkeletonList";
 import { ErrorRetry } from "@/app/components/ErrorRetry";
 import { RFQActionSheet } from "@/app/components/RFQActionSheet";
@@ -438,6 +439,46 @@ export function ComponentStories() {
             state="Open"
             className="border border-white/20 bg-white/5 text-white"
           />
+        </Story>
+
+        <Story title="BetaTokenNotice — waitlist beta-token guidance (#67)">
+          <div className="space-y-4">
+            <BetaTokenNotice
+              state={{ status: "no-ata" }}
+              cluster="devnet"
+              symbol="USDC"
+              decimals={6}
+              variant="empty-state"
+            />
+            <BetaTokenNotice
+              state={{ status: "no-ata" }}
+              cluster="devnet"
+              symbol="USDC"
+              decimals={6}
+              variant="inline"
+            />
+            <BetaTokenNotice
+              state={{ status: "zero" }}
+              cluster="devnet"
+              symbol="USDC"
+              decimals={6}
+              variant="inline"
+            />
+            <BetaTokenNotice
+              state={{ status: "insufficient", balance: 250_000_000n, required: 1_000_000_000n }}
+              cluster="devnet"
+              symbol="USDC"
+              decimals={6}
+              variant="inline"
+            />
+            <BetaTokenNotice
+              state={{ status: "zero" }}
+              cluster="mainnet-beta"
+              symbol="USDC"
+              decimals={6}
+              variant="inline"
+            />
+          </div>
         </Story>
 
         <Story title="EmptyState / ErrorRetry / SkeletonList">

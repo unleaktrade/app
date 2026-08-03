@@ -19,6 +19,7 @@ import { submitRfqTx } from "@/chain/instructions/shared";
 import { toRfqViewModel, toQuoteViewModel } from "@/app/lib/rfq-view-model";
 import { resolveTokenMeta } from "@/app/lib/tokens";
 import { formatTokenAmount } from "@/app/lib/format";
+import { fetchTokenBalance } from "@/app/lib/token-balance-state";
 import {
   derivePendingRewards,
   groupByMint,
@@ -219,6 +220,36 @@ export function MyActivity() {
     }
     setBusyId(rfq.publicKey);
     try {
+      // Pre-signing gate (#67): opening posts the maker bond in the RFQ's USDC
+      // mint — read the balance imperatively and don't build the tx on an
+      // obvious shortfall. A read error never blocks (chain stays the arbiter),
+      // and an empty balance is guidance, not proof anything went wrong.
+      const raw = rfqQuery.data?.find((row) => row.publicKey.toBase58() === rfq.publicKey);
+      if (raw) {
+        const bondMint = raw.account.usdcMint;
+        const bondAmount = raw.account.bondAmount;
+        let shortfall: string | null = null;
+        try {
+          const bal = await fetchTokenBalance(connection, bondMint, me);
+          if (!bal.exists || bal.amount < bondAmount) {
+            const meta = resolveTokenMeta(bondMint.toBase58());
+            const current = bal.exists
+              ? `${formatTokenAmount(bal.amount, meta.decimals)} ${meta.symbol}`
+              : `no ${meta.symbol} token account yet`;
+            shortfall =
+              `Opening needs a ${formatTokenAmount(bondAmount, meta.decimals)} ${meta.symbol} ` +
+              `bond — you have ${current}. Beta tokens go to activated waitlist wallets; ` +
+              "connect the wallet you registered or check your distribution status.";
+          }
+        } catch {
+          // Balance read unavailable — proceed; the transaction surfaces errors.
+        }
+        if (shortfall !== null) {
+          toast.error("Not enough beta tokens to post the bond", { description: shortfall });
+          setBusyId(null);
+          return;
+        }
+      }
       await submitRfqTx({
         connection,
         wallet,
