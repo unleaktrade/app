@@ -1,12 +1,16 @@
 // Waitlist → beta handoff guidance (#67). Explains why a wallet may hold no
-// beta devnet USDC (registered a different wallet, distribution still pending,
-// wrong cluster) and where to check status — instead of a generic
-// "insufficient balance" dead end.
+// Unleak USDC (uUSDC — the devnet-only test token) (registered a different
+// wallet, distribution still pending, wrong cluster) and where to check
+// status — instead of a generic "insufficient balance" dead end.
 //
-// Copy rules (locked by #67): role-free, no USD aggregation, never present a
-// size threshold as a gate, and NEVER claim a distribution "failed" — an empty
-// balance can always still mean RPC lag or a pending transaction. Long-form
-// explanations live on the landing FAQ; this component only deep-links.
+// Copy rules (locked by #67, naming by PR #71): role-free, no USD aggregation,
+// never present a size threshold as a gate, and NEVER claim a distribution
+// "failed" — an empty balance can always still mean RPC lag or a pending
+// transaction. The token is "Unleak USDC (uUSDC)" on first mention, "uUSDC"
+// after, and the brand name never stands alone as the fake-token signal — the
+// copy always pairs it with an explicit "not real USDC / no real-world value"
+// qualifier. Long-form explanations live on the landing FAQ; this component
+// only deep-links.
 
 import { ExternalLink, Gift } from "lucide-react";
 import type { Cluster } from "@/chain/env";
@@ -30,20 +34,21 @@ interface BetaTokenNoticeProps {
 }
 
 const BASE_COPY =
-  "This beta uses custom USDC on Solana devnet. Activated waitlist members receive 1000 test " +
-  "tokens in the wallet they registered. Connect that same wallet or check your distribution " +
-  "status. These tokens have no real-world monetary value.";
+  "This beta trades with Unleak USDC (uUSDC) — UnleakTrade's test version of USDC on Solana " +
+  "devnet. Activated waitlist members receive 1000 uUSDC in the wallet they registered. " +
+  "Connect that same wallet or check your distribution status. uUSDC is not real USDC and has " +
+  "no real-world value.";
 
 const WRONG_CLUSTER_COPY = (cluster: Cluster) =>
-  `Beta tokens live on Solana devnet — you're connected to ${CLUSTER_LABELS[cluster]}. ` +
-  "Switch clusters to use them.";
+  `uUSDC lives on Solana devnet — you're connected to ${CLUSTER_LABELS[cluster]}. ` +
+  "Switch clusters to use it.";
 
 const NO_ATA_COPY =
-  "This wallet has no account for the beta token yet. If you registered a different wallet on " +
+  "This wallet has no account for uUSDC yet. If you registered a different wallet on " +
   "the waitlist, connect that one — or your distribution may still be on its way.";
 
 const ZERO_COPY =
-  "Your beta token balance is empty. Distribution may still be pending — check your status " +
+  "Your uUSDC balance is empty. Distribution may still be pending — check your status " +
   "before assuming anything went wrong.";
 
 /** State-specific detail line. Balance claims are suppressed off-devnet — the
@@ -105,7 +110,7 @@ export function BetaTokenNotice({
   if (variant === "empty-state") {
     return (
       <EmptyState
-        title="Beta tokens come from the waitlist"
+        title="Unleak USDC comes from the waitlist"
         hint={detail ? `${BASE_COPY} ${detail}` : BASE_COPY}
         illustration={<GiftIllustration />}
         action={<StatusLink />}

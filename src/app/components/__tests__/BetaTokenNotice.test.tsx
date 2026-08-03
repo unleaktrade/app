@@ -1,6 +1,8 @@
-// BetaTokenNotice (#67) — per-state copy, the hard copy rules ("no real-world
-// monetary value" always present, the string "failed" NEVER rendered), FAQ
-// deep links from links.ts, and wrong-cluster precedence over balance claims.
+// BetaTokenNotice (#67, naming per PR #71) — per-state copy, the hard copy
+// rules ("Unleak USDC (uUSDC)" on first mention always paired with the "not
+// real USDC / no real-world value" qualifier, the string "failed" NEVER
+// rendered), FAQ deep links from links.ts, and wrong-cluster precedence over
+// balance claims.
 
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
@@ -25,14 +27,16 @@ const ALL_STATES: TokenBalanceState[] = [
 ];
 
 describe("BetaTokenNotice", () => {
-  it("always carries the base beta copy, incl. 'no real-world monetary value'", () => {
+  it("always carries the base copy: 'Unleak USDC (uUSDC)' + the not-real qualifier", () => {
     for (const variant of ["inline", "empty-state"] as const) {
       const { container, unmount } = render(
         <BetaTokenNotice state={{ status: "zero" }} variant={variant} {...BASE} />,
       );
-      expect(container.textContent).toContain("custom USDC on Solana devnet");
-      expect(container.textContent).toContain("1000 test tokens");
-      expect(container.textContent).toContain("no real-world monetary value");
+      expect(container.textContent).toMatch(/Unleak USDC \(uUSDC\)/);
+      expect(container.textContent).toMatch(/uusdc/i);
+      expect(container.textContent).toContain("1000 uUSDC");
+      expect(container.textContent).toMatch(/not real usdc/i);
+      expect(container.textContent).toMatch(/no real-world value/i);
       unmount();
     }
   });
@@ -55,7 +59,7 @@ describe("BetaTokenNotice", () => {
     const { container } = render(
       <BetaTokenNotice state={{ status: "no-ata" }} variant="inline" {...BASE} />,
     );
-    expect(container.textContent).toContain("no account for the beta token yet");
+    expect(container.textContent).toContain("no account for uUSDC yet");
     expect(container.textContent).toContain("registered a different wallet");
     expect(container.textContent).toContain("may still be on its way");
   });
@@ -64,7 +68,7 @@ describe("BetaTokenNotice", () => {
     const { container } = render(
       <BetaTokenNotice state={{ status: "zero" }} variant="inline" {...BASE} />,
     );
-    expect(container.textContent).toContain("beta token balance is empty");
+    expect(container.textContent).toContain("uUSDC balance is empty");
     expect(container.textContent).toContain("Distribution may still be pending");
   });
 
@@ -103,20 +107,20 @@ describe("BetaTokenNotice", () => {
       />,
     );
     expect(container.textContent).toContain(
-      "Beta tokens live on Solana devnet — you're connected to Mainnet Beta.",
+      "uUSDC lives on Solana devnet — you're connected to Mainnet Beta.",
     );
     expect(container.textContent).toContain("Switch clusters");
     // No balance claims off-devnet.
     expect(container.textContent).not.toContain("You need");
     expect(container.textContent).not.toContain("empty");
-    expect(container.textContent).not.toContain("no account for the beta token");
+    expect(container.textContent).not.toContain("no account for uUSDC");
   });
 
   it("empty-state variant composes EmptyState with the gift illustration", () => {
     const { container } = render(
       <BetaTokenNotice state={{ status: "no-ata" }} variant="empty-state" {...BASE} />,
     );
-    expect(container.textContent).toContain("Beta tokens come from the waitlist");
+    expect(container.textContent).toContain("Unleak USDC comes from the waitlist");
     expect(container.querySelector("svg")).toBeInTheDocument();
   });
 });

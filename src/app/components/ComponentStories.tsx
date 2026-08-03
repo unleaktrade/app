@@ -441,7 +441,7 @@ export function ComponentStories() {
           />
         </Story>
 
-        <Story title="BetaTokenNotice — waitlist beta-token guidance (#67)">
+        <Story title="BetaTokenNotice — waitlist Unleak USDC (uUSDC) guidance (#67)">
           <div className="space-y-4">
             <BetaTokenNotice
               state={{ status: "no-ata" }}

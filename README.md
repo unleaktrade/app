@@ -88,29 +88,30 @@ npm run dev        # → http://localhost:3000
 
 That's it — zero configuration. The committed IDL supplies the program id,
 the on-chain Config account supplies the USDC mint (the app never configures
-one — see "Getting beta tokens" below), and the dev proxy routes
+one — see "Getting Unleak USDC (uUSDC)" below), and the dev proxy routes
 `/liquidity-guard/devnet/*` to the hosted attestation service. Connect any
 Wallet Standard wallet (Phantom, Solflare, Backpack, …) and sign the
 `signMessage` challenge.
 
-## Getting beta tokens (devnet USDC)
+## Getting Unleak USDC (uUSDC)
 
 Every bond in the protocol is posted in the USDC mint resolved live from the
 on-chain `Config.usdcMint` account — there is no `VITE_USDC_MINT` and no other
-frontend source of truth. On devnet that mint is a **custom devnet USDC**
-distributed by the waitlist backend
+frontend source of truth. On devnet that mint is **Unleak USDC (uUSDC)** —
+UnleakTrade's test version of USDC, not real USDC: a devnet-only token with no
+real-world value, distributed by the waitlist backend
 ([waitlist#18](https://github.com/unleaktrade/waitlist/issues/18); product/UX
 context in
 [landing-page#35](https://github.com/unleaktrade/landing-page/issues/35)):
 
-- **Who gets it** — activated waitlist members receive **1000 custom devnet
-  USDC** to the wallet they registered on the waitlist.
-- **Same-wallet requirement** — connect that same wallet in the app; tokens
-  sent to your registered wallet are not visible from any other one.
-- **Devnet-only, no monetary value, no faucet** — the mint exists only on
-  Solana devnet and the tokens have no real-world monetary value. There is no
-  faucet for this mint; if you run out, use the support path on the landing
-  FAQ (`https://unleak.trade/faq#devnet-usdc`).
+- **Who gets it** — activated waitlist members receive **1000 uUSDC** to the
+  wallet they registered on the waitlist.
+- **Same-wallet requirement** — connect that same wallet in the app; uUSDC
+  sent to your registered wallet is not visible from any other one.
+- **Devnet-only, no monetary value, no faucet** — uUSDC is not real USDC: the
+  mint exists only on Solana devnet and the tokens have no real-world value.
+  There is no faucet for this mint; if you run out, use the support path on
+  the landing FAQ (`https://unleak.trade/faq#devnet-usdc`).
 - **What 1000 covers** — roughly **~96 RFQ cycles** at current devnet sizes,
   so the allocation is plenty for exploring every flow.
 - **Empty balance ≠ something went wrong** — an empty or missing balance may
