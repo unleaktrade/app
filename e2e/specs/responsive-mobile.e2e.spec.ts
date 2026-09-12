@@ -186,7 +186,17 @@ test.describe("Mobile menu keyboard dismissal @mobile", () => {
     await makerPage.getByRole("button", { name: "Toggle menu" }).click();
     const menu = makerPage.getByRole("dialog", { name: "Menu" });
     await expect(menu).toBeVisible();
-    await expectInViewport(makerPage, menu);
+    // The drawer slides in from the right (CSS animation); poll until it has
+    // settled fully inside the phone viewport instead of measuring mid-flight.
+    await expect
+      .poll(async () => {
+        const box = await menu.boundingBox();
+        const viewport = makerPage.viewportSize();
+        return (
+          box !== null && viewport !== null && box.x >= 0 && box.x + box.width <= viewport.width + 1
+        );
+      })
+      .toBe(true);
 
     await makerPage.keyboard.press("Escape");
 

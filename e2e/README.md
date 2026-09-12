@@ -103,6 +103,15 @@ timestamp is stored so replay can pin the clock and keep every deadline window
 exactly as captured. Unmatched requests get a benign empty result, and an
 ephemeral wallet's account queries legitimately return empty.
 
+To see exactly which requests a replay run does not cover, set
+`REPLAY_RPC_LOG_MISSES=1` — every miss is printed with its full cassette key.
+Per-run ephemeral-wallet scans are expected there; a missing account or mint
+read is not. When a change only adds a new **time-independent** read (e.g. the
+`getMultipleAccounts` mint-decimals batch), you can merge just that entry from
+a fresh recording into the committed cassette instead of re-recording
+everything — that keeps `__capturedAt` (and every deadline window) as it was,
+which matters once the pinned Open RFQ's commit window has closed on devnet.
+
 ## Fixture philosophy
 
 `scripts/seed.ts` is append-only and not resettable. The hermetic read-only
