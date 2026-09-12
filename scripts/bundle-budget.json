@@ -1,5 +1,5 @@
 {
-  "comment": "Gzip budgets for build/assets JS, enforced by check-bundle-size.mjs in CI. Baseline 2026-07-05 (vite 8.1.3): initial load (entry + modulepreloads = first-paint JS) 544.6 kB, total 582.4 kB. The entry chunk ALONE is reported but NOT gated: rolldown redistributes modules between the entry chunk and the first shared chunk across vite patch versions (8.0.8 split it at ~101 kB, 8.1.3 at ~193 kB) with no change to what the browser actually fetches — so entry-alone is non-portable. Initial load is the portable first-paint gate. Budgets are baseline + headroom — raise deliberately in a PR when a dependency legitimately grows the bundle.",
-  "initialLoadGzipKb": 580,
-  "totalJsGzipKb": 615
+  "comment": "Gzip budgets for build/assets JS, enforced by check-bundle-size.mjs in CI. Baseline 2026-07-05 (vite 8.1.3): initial load (entry + modulepreloads = first-paint JS) 544.6 kB, total 582.4 kB. The entry chunk ALONE is reported but NOT gated: rolldown redistributes modules between the entry chunk and the first shared chunk across vite patch versions (8.0.8 split it at ~101 kB, 8.1.3 at ~193 kB) with no change to what the browser actually fetches — so entry-alone is non-portable. Initial load is the portable first-paint gate. Re-baselined 2026-09-12 (React 19.3 + React Compiler adoption): initial 587.6 kB, total 635.7 kB — the compiler adds ~18 kB gzip of memo-cache scaffolding over our own components (node_modules are excluded by @rolldown/plugin-babel by default), React 19.3 + minor bumps ~10 kB. Budgets are baseline + headroom — raise deliberately in a PR when a dependency legitimately grows the bundle.",
+  "initialLoadGzipKb": 600,
+  "totalJsGzipKb": 650
 }
