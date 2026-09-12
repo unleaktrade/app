@@ -6,6 +6,7 @@ import { useRfqAccounts } from "@/chain/accounts/lists";
 import { toRfqViewModel } from "@/app/lib/rfq-view-model";
 import { computeMarketStats } from "@/app/lib/market-stats";
 import { useResolveTokenMeta } from "@/app/hooks/useResolveTokenMeta";
+import { useNowSecs } from "@/app/hooks/useNowSecs";
 import {
   getCardGradient,
   getCardBorder,
@@ -128,17 +129,14 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
   const { publicKey } = useWallet();
   const currentUser = publicKey?.toBase58() ?? null;
   const { data: rfqRows, isLoading, isError, refetch, isFetching } = useRfqAccounts();
-  const nowSecs = Math.floor(Date.now() / 1000);
+  const nowSecs = useNowSecs(60_000);
   const resolveToken = useResolveTokenMeta();
 
-  // Decode → view-model only when the underlying rows change, not on every
-  // keystroke. nowSecs is intentionally excluded from deps: it changes every
-  // render, and the list's deadline strings only need to be fresh as of the
-  // last data fetch (there is no per-second timer on this screen).
+  // Decode → view-model when the rows, the mint registry, or the once-a-minute
+  // clock change — never on every keystroke.
   const allRFQs = useMemo<RFQ[]>(
-    () => (rfqRows ?? []).map((row) => toRfqViewModel(row, nowSecs)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rfqRows],
+    () => (rfqRows ?? []).map((row) => toRfqViewModel(row, nowSecs, resolveToken)),
+    [rfqRows, nowSecs, resolveToken],
   );
 
   // Filter → sort → group in one memo so typing in the search box no longer

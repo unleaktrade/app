@@ -45,7 +45,9 @@ export function TokenAmountInput({
   const [text, setText] = useState(() =>
     value === null ? "" : formatTokenAmount(value, decimals),
   );
-  const [invalid, setInvalid] = useState(false);
+  // Validity is derived from the text and the current decimals — never stored,
+  // so a decimals change re-validates in the same render.
+  const invalid = text.trim() !== "" && parseTokenAmount(text.replace(/,/g, ""), decimals) === null;
 
   // Prop → text sync without an effect ("adjust state during render"): when
   // the parent sets `value` to something the current text doesn't already
@@ -58,7 +60,6 @@ export function TokenAmountInput({
       text.trim() === "" ? null : parseTokenAmount(text.replace(/,/g, ""), decimals);
     if (textValue !== value) {
       setText(value === null ? "" : formatTokenAmount(value, decimals));
-      setInvalid(false);
     }
   }
 
@@ -71,9 +72,8 @@ export function TokenAmountInput({
     if (lastDecimals.current === decimals) return;
     lastDecimals.current = decimals;
     if (text.trim() === "") return;
-    const parsed = parseTokenAmount(text.replace(/,/g, ""), decimals);
-    setInvalid(parsed === null);
-    onChange(parsed);
+    // Notify the parent of the re-scaled value; nothing of our own is set here.
+    onChange(parseTokenAmount(text.replace(/,/g, ""), decimals));
   }, [decimals, text, onChange]);
 
   const usd = useUsdPrice(mint, cluster, showUsdEstimate);
@@ -85,13 +85,10 @@ export function TokenAmountInput({
   const handleChange = (raw: string) => {
     setText(raw);
     if (raw.trim() === "") {
-      setInvalid(false);
       onChange(null);
       return;
     }
-    const parsed = parseTokenAmount(raw.replace(/,/g, ""), decimals);
-    setInvalid(parsed === null);
-    onChange(parsed);
+    onChange(parseTokenAmount(raw.replace(/,/g, ""), decimals));
   };
 
   return (

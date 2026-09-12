@@ -19,6 +19,7 @@ import { submitRfqTx } from "@/chain/instructions/shared";
 import { toRfqViewModel, toQuoteViewModel } from "@/app/lib/rfq-view-model";
 import { resolveTokenMeta } from "@/app/lib/tokens";
 import { useResolveTokenMeta } from "@/app/hooks/useResolveTokenMeta";
+import { useNowSecs } from "@/app/hooks/useNowSecs";
 import { formatTokenAmount } from "@/app/lib/format";
 import { fetchTokenBalance } from "@/app/lib/token-balance-state";
 import {
@@ -90,15 +91,12 @@ export function MyActivity() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [batch, setBatch] = useState<{ done: number; total: number } | null>(null);
 
-  const nowSecs = Math.floor(Date.now() / 1000);
+  const nowSecs = useNowSecs(60_000);
   const resolveToken = useResolveTokenMeta();
 
   const allRFQs = useMemo(
     () => (rfqQuery.data ?? []).map((row) => toRfqViewModel(row, nowSecs, resolveToken)),
-    // nowSecs intentionally excluded — re-deriving every second churns identity
-    // for no benefit; expiresIn refreshes on the next data refetch.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rfqQuery.data, resolveToken],
+    [rfqQuery.data, nowSecs, resolveToken],
   );
   const rfqByKey = useMemo(() => new Map(allRFQs.map((r) => [r.publicKey, r])), [allRFQs]);
 

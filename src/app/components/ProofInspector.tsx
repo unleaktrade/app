@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ShieldCheck, ShieldX, ShieldQuestion } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { ResponsiveModal } from "@/app/components/ResponsiveModal";
@@ -45,6 +45,33 @@ type Verdict = "unknown" | "valid" | "invalid";
  * out byte-by-byte and the SHA-256 recomputed locally.
  */
 export function ProofInspector({ open, onOpenChange, rfqPda, quote, ticket }: ProofInspectorProps) {
+  return (
+    <ResponsiveModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Liquidity proof inspector"
+      description="Verify the attestation locally — no server involved."
+      contentClassName="sm:max-w-2xl"
+    >
+      {/* Verdicts belong to one (RFQ, open) subject: keying the body remounts it
+          with fresh state instead of resetting three states from an effect. */}
+      <ProofInspectorBody
+        key={`${rfqPda}:${open}`}
+        rfqPda={rfqPda}
+        quote={quote}
+        ticket={ticket}
+        open={open}
+      />
+    </ResponsiveModal>
+  );
+}
+
+function ProofInspectorBody({
+  rfqPda,
+  quote,
+  ticket,
+  open,
+}: Pick<ProofInspectorProps, "rfqPda" | "quote" | "ticket" | "open">) {
   const configQuery = useConfigAccount();
   const guardPubkey = configQuery.data?.liquidityGuard ?? null;
 
@@ -56,13 +83,6 @@ export function ProofInspector({ open, onOpenChange, rfqPda, quote, ticket }: Pr
   const [sigVerdict, setSigVerdict] = useState<Verdict>("unknown");
   const [hashVerdict, setHashVerdict] = useState<Verdict>("unknown");
   const [localHashHex, setLocalHashHex] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Fresh verdicts per subject.
-    setSigVerdict("unknown");
-    setHashVerdict("unknown");
-    setLocalHashHex(null);
-  }, [rfqPda, open]);
 
   function verifySignature() {
     if (!quote || !guardPubkey) return;
@@ -94,105 +114,96 @@ export function ProofInspector({ open, onOpenChange, rfqPda, quote, ticket }: Pr
   }, [effectiveTicket]);
 
   return (
-    <ResponsiveModal
-      open={open}
-      onOpenChange={onOpenChange}
-      title="Liquidity proof inspector"
-      description="Verify the attestation locally — no server involved."
-      contentClassName="sm:max-w-2xl"
-    >
-      <div className="space-y-5 text-sm">
-        {/* Tier 1 — on-chain hash + guard signature */}
-        {quote ? (
-          <section className="space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-white/40">
-              On-chain commitment
-            </h3>
-            <HexField label="commit_hash (SHA-256, 32 bytes)" hex={bytesToHex(quote.commitHash)} />
-            <HexField
-              label="liquidity_proof (ed25519 signature, 64 bytes)"
-              hex={bytesToHex(quote.liquidityProof)}
-            />
+    <div className="space-y-5 text-sm">
+      {/* Tier 1 — on-chain hash + guard signature */}
+      {quote ? (
+        <section className="space-y-3">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-white/40">
+            On-chain commitment
+          </h3>
+          <HexField label="commit_hash (SHA-256, 32 bytes)" hex={bytesToHex(quote.commitHash)} />
+          <HexField
+            label="liquidity_proof (ed25519 signature, 64 bytes)"
+            hex={bytesToHex(quote.liquidityProof)}
+          />
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              size="sm"
+              onClick={verifySignature}
+              disabled={guardPubkey === null}
+              className="bg-white/10 text-white hover:bg-white/20"
+            >
+              <ShieldQuestion className="mr-2 h-4 w-4" />
+              Verify signature
+            </Button>
+            <VerdictBadge verdict={sigVerdict} validText="Signed by the on-chain guard key" />
+          </div>
+          <div className="flex items-center gap-2 text-xs text-white/40">
+            <span>Guard key (from on-chain Config):</span>
+            {guardPubkey ? (
+              <AddressDisplay address={guardPubkey.toBase58()} />
+            ) : (
+              <span>loading…</span>
+            )}
+          </div>
+        </section>
+      ) : (
+        <p className="text-white/50">
+          No on-chain commitment loaded for this RFQ — the signature check needs a committed quote.
+        </p>
+      )}
+
+      {/* Tier 2 — preimage hex map (needs the reveal ticket) */}
+      <section className="space-y-3">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-white/40">
+          Commit-hash preimage (178 bytes)
+        </h3>
+        {segments ? (
+          <>
+            <div className="space-y-2">
+              {segments.map((seg) => (
+                <div
+                  key={seg.key}
+                  className={cn("rounded-lg border px-3 py-2", SEGMENT_TINTS[seg.key])}
+                >
+                  <div className="mb-1 flex items-baseline justify-between gap-3">
+                    <span className="text-xs font-semibold">{seg.label}</span>
+                    <span className="font-mono text-[10px] opacity-70">
+                      bytes {seg.offset}–{seg.offset + seg.length - 1}
+                    </span>
+                  </div>
+                  <div className="break-all font-mono text-[10px] leading-relaxed opacity-90">
+                    {seg.hex}
+                  </div>
+                  <div className="mt-1 truncate text-[10px] text-white/50">= {seg.decoded}</div>
+                </div>
+              ))}
+            </div>
             <div className="flex flex-wrap items-center gap-3">
               <Button
                 size="sm"
-                onClick={verifySignature}
-                disabled={guardPubkey === null}
+                onClick={() => void verifyLocally()}
                 className="bg-white/10 text-white hover:bg-white/20"
               >
                 <ShieldQuestion className="mr-2 h-4 w-4" />
-                Verify signature
+                Verify locally
               </Button>
-              <VerdictBadge verdict={sigVerdict} validText="Signed by the on-chain guard key" />
+              <VerdictBadge
+                verdict={hashVerdict}
+                validText="SHA-256 matches the on-chain hash"
+                invalidText="Recomputed hash does NOT match"
+              />
             </div>
-            <div className="flex items-center gap-2 text-xs text-white/40">
-              <span>Guard key (from on-chain Config):</span>
-              {guardPubkey ? (
-                <AddressDisplay address={guardPubkey.toBase58()} />
-              ) : (
-                <span>loading…</span>
-              )}
-            </div>
-          </section>
+            {localHashHex && <HexField label="Recomputed SHA-256" hex={localHashHex} />}
+          </>
         ) : (
-          <p className="text-white/50">
-            No on-chain commitment loaded for this RFQ — the signature check needs a committed
-            quote.
+          <p className="text-xs text-white/40">
+            The preimage breakdown needs this commitment's reveal ticket (kept locally at commit
+            time). Import it in the reveal cockpit if you have the JSON backup.
           </p>
         )}
-
-        {/* Tier 2 — preimage hex map (needs the reveal ticket) */}
-        <section className="space-y-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-white/40">
-            Commit-hash preimage (178 bytes)
-          </h3>
-          {segments ? (
-            <>
-              <div className="space-y-2">
-                {segments.map((seg) => (
-                  <div
-                    key={seg.key}
-                    className={cn("rounded-lg border px-3 py-2", SEGMENT_TINTS[seg.key])}
-                  >
-                    <div className="mb-1 flex items-baseline justify-between gap-3">
-                      <span className="text-xs font-semibold">{seg.label}</span>
-                      <span className="font-mono text-[10px] opacity-70">
-                        bytes {seg.offset}–{seg.offset + seg.length - 1}
-                      </span>
-                    </div>
-                    <div className="break-all font-mono text-[10px] leading-relaxed opacity-90">
-                      {seg.hex}
-                    </div>
-                    <div className="mt-1 truncate text-[10px] text-white/50">= {seg.decoded}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <Button
-                  size="sm"
-                  onClick={() => void verifyLocally()}
-                  className="bg-white/10 text-white hover:bg-white/20"
-                >
-                  <ShieldQuestion className="mr-2 h-4 w-4" />
-                  Verify locally
-                </Button>
-                <VerdictBadge
-                  verdict={hashVerdict}
-                  validText="SHA-256 matches the on-chain hash"
-                  invalidText="Recomputed hash does NOT match"
-                />
-              </div>
-              {localHashHex && <HexField label="Recomputed SHA-256" hex={localHashHex} />}
-            </>
-          ) : (
-            <p className="text-xs text-white/40">
-              The preimage breakdown needs this commitment's reveal ticket (kept locally at commit
-              time). Import it in the reveal cockpit if you have the JSON backup.
-            </p>
-          )}
-        </section>
-      </div>
-    </ResponsiveModal>
+      </section>
+    </div>
   );
 }
 

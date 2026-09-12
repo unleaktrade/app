@@ -37,6 +37,7 @@ import { bytesToHex, type RevealTicket } from "@/app/lib/reveal-ticket";
 import { GuardStatusView } from "@/app/components/HealthPill";
 import { ClusterSwitcher } from "@/app/components/ClusterSwitcher";
 import type { HealthResponse } from "@/chain/liquidityGuard";
+import { useNowSecs } from "@/app/hooks/useNowSecs";
 
 const ALL_STATES: RFQState[] = [
   "Draft",
@@ -162,7 +163,8 @@ function Story({ title, children }: { title: string; children: React.ReactNode }
 }
 
 export function ComponentStories() {
-  const now = Math.floor(Date.now() / 1000);
+  const now = useNowSecs();
+  const nowMs = now * 1000;
   const [amount, setAmount] = useState<bigint | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -304,7 +306,7 @@ export function ComponentStories() {
               health={STORY_HEALTH}
               expectedPubkey={STORY_HEALTH.servicePubkey}
               cluster="devnet"
-              checkedAt={Date.now() - 8_000}
+              checkedAt={nowMs - 8_000}
             />
             <GuardStatusView
               state="mismatch"
@@ -314,14 +316,14 @@ export function ComponentStories() {
               }}
               expectedPubkey={STORY_HEALTH.servicePubkey}
               cluster="devnet"
-              checkedAt={Date.now() - 30_000}
+              checkedAt={nowMs - 30_000}
             />
             <GuardStatusView
               state="down"
               health={null}
               expectedPubkey={null}
               cluster="devnet"
-              checkedAt={Date.now() - 120_000}
+              checkedAt={nowMs - 120_000}
             />
             <GuardStatusView
               state="loading"
