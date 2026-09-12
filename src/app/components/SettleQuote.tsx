@@ -12,6 +12,7 @@ import type { RfqAccount } from "@/chain/accounts/rfq";
 import type { QuoteAccount } from "@/chain/accounts/quote";
 import { useSettlementProgram } from "@/chain/program";
 import { useCluster } from "@/app/providers/ClusterProvider";
+import { useNowSecs } from "@/app/hooks/useNowSecs";
 import { solscanTxUrl } from "@/chain/cluster";
 import { canCompleteSettlement, fundingDeadline } from "@/chain/state-machine";
 import { totalToFund } from "@/chain/math";
@@ -77,7 +78,7 @@ export function SettleQuote({
   // generic top-up note.
   const isBetaMint = rfq.quoteMint.equals(rfq.usdcMint);
 
-  const now = Math.floor(Date.now() / 1000);
+  const now = useNowSecs();
   const canSettle = canCompleteSettlement(
     rfq,
     {

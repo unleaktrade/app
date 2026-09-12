@@ -36,6 +36,7 @@ import { DeadlineRing } from "@/app/components/DeadlineRing";
 import { AddressDisplay } from "@/app/components/AddressDisplay";
 import { Button } from "@/app/components/ui/button";
 import { toast } from "sonner";
+import { useNowSecs } from "@/app/hooks/useNowSecs";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -111,7 +112,7 @@ export function RevealQuote({ quote, rfqPda, rfq, onDone, onBack }: RevealQuoteP
   }, [salt, amount, rfqPda, quote.taker, rfq.quoteMint, rfq.bondAmount, rfq.takerFeeBps]);
 
   const matches = localHashHex !== null && localHashHex === onchainHashHex;
-  const now = Math.floor(Date.now() / 1000);
+  const now = useNowSecs();
   const inWindow = canRevealQuote(
     rfq,
     {
