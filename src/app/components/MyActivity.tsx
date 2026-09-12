@@ -1,72 +1,37 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { useNavigate, useOutletContext } from "react-router";
 import { PublicKey } from "@solana/web3.js";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import type { Quote, RFQ, RFQState } from "@/types/rfq";
-import {
-  useRfqAccounts,
-  useQuoteAccountsByTaker,
-  useFacilitatorRewardTrackersByFacilitator,
-} from "@/chain/accounts/lists";
-import { useQuoteAccountsByKeys, useSettlementAccountsByKeys } from "@/chain/accounts/byKeys";
+import type { RFQ, RFQState } from "@/types/rfq";
 import { useConfigAccount } from "@/chain/accounts/config";
 import { useSettlementProgram } from "@/chain/program";
-import { buildOpenRfqTx, buildWithdrawRewardTx } from "@/chain/instructions/maker";
+import { buildOpenRfqTx } from "@/chain/instructions/maker";
 import { submitRfqTx } from "@/chain/instructions/shared";
-import { toRfqViewModel, toQuoteViewModel } from "@/app/lib/rfq-view-model";
 import { resolveTokenMeta } from "@/app/lib/tokens";
-import { useResolveTokenMeta } from "@/app/hooks/useResolveTokenMeta";
-import { useNowSecs } from "@/app/hooks/useNowSecs";
 import { formatTokenAmount } from "@/app/lib/format";
 import { fetchTokenBalance } from "@/app/lib/token-balance-state";
-import {
-  derivePendingRewards,
-  groupByMint,
-  toClaimedRewards,
-  type MintRewardTotals,
-  type PendingReward,
-} from "@/app/lib/rewards";
+import { deriveAttentionItems, type AttentionItem } from "@/app/lib/attention";
+import { useMyActivityData } from "@/app/hooks/useMyActivityData";
+import { useRewardClaims } from "@/app/hooks/useRewardClaims";
 import { RewardsSection } from "@/app/components/RewardsSection";
 import { Button } from "@/app/components/ui/button";
 import { PageShell } from "@/app/components/PageShell";
-import { StatusBadge } from "@/app/components/StatusBadge";
 import { SkeletonList } from "@/app/components/SkeletonList";
 import { CollapsibleSection } from "@/app/components/CollapsibleSection";
-import { SeedlingIllustration } from "@/app/components/illustrations";
 import { ErrorRetry } from "@/app/components/ErrorRetry";
+import { PinnedSummary } from "@/app/components/my-activity/PinnedSummary";
+import { AttentionRibbon } from "@/app/components/my-activity/AttentionRibbon";
+import { HorizontalStrip } from "@/app/components/my-activity/HorizontalStrip";
+import { ActivityEmptyState } from "@/app/components/my-activity/ActivityEmptyState";
+import { PostedRFQCard } from "@/app/components/my-activity/PostedRFQCard";
+import { SubmittedQuoteCard } from "@/app/components/my-activity/SubmittedQuoteCard";
 import type { DashboardOutletContext } from "@/app/components/DashboardLayout";
-import {
-  CheckCircle2,
-  Clock,
-  Coins,
-  Edit,
-  Eye,
-  FileText,
-  HandCoins,
-  Loader2,
-  Lock,
-  MousePointerClick,
-  Plus,
-  Sparkles,
-  Unlock,
-  Zap,
-} from "lucide-react";
+import { FileText, HandCoins, MousePointerClick, Plus } from "lucide-react";
 
 const TERMINAL_STATES = new Set<RFQState>(["Settled", "Expired", "Ignored", "Incomplete"]);
-
-interface Attention {
-  id: string;
-  kind: "reveal" | "select" | "settle" | "open-draft" | "claim";
-  label: string;
-  sublabel?: string;
-  cta: string;
-  tone: "urgent" | "primary" | "reward";
-  expiresIn?: string | null;
-  onClick: () => void;
-}
 
 export function MyActivity() {
   const navigate = useNavigate();
@@ -79,113 +44,33 @@ export function MyActivity() {
   const queryClient = useQueryClient();
   const wallet = useWallet();
   const me = publicKey ?? null;
-  const meStr = me?.toBase58() ?? null;
-
-  // All RFQs (small at seed scale) → map by pubkey; my quotes/rewards point at
-  // RFQs I may not have posted, so we need the full set to resolve their pair.
-  const rfqQuery = useRfqAccounts();
-  const quoteQuery = useQuoteAccountsByTaker(me);
-  const rewardQuery = useFacilitatorRewardTrackersByFacilitator(me);
   const configQuery = useConfigAccount();
 
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [batch, setBatch] = useState<{ done: number; total: number } | null>(null);
+  const {
+    myRFQs,
+    myQuotes,
+    pendingRewards,
+    claimedRewards,
+    pendingMintGroups,
+    rfqByKey,
+    rfqRows,
+    isLoading,
+    isError,
+    refetchAll,
+    refetchRewards,
+  } = useMyActivityData();
 
-  const nowSecs = useNowSecs(60_000);
-  const resolveToken = useResolveTokenMeta();
-
-  const allRFQs = useMemo(
-    () => (rfqQuery.data ?? []).map((row) => toRfqViewModel(row, nowSecs, resolveToken)),
-    [rfqQuery.data, nowSecs, resolveToken],
-  );
-  const rfqByKey = useMemo(() => new Map(allRFQs.map((r) => [r.publicKey, r])), [allRFQs]);
-
-  const myRFQs = useMemo(
-    () => (meStr === null ? [] : allRFQs.filter((r) => r.maker === meStr)),
-    [allRFQs, meStr],
-  );
-
-  const myQuotes = useMemo(
-    () =>
-      (quoteQuery.data ?? []).map((row) => {
-        const parent = rfqByKey.get(row.account.rfq.toBase58());
-        const decimals = parent ? resolveToken(parent.quoteMint).decimals : 0;
-        return toQuoteViewModel(row, decimals);
-      }),
-    [quoteQuery.data, rfqByKey, resolveToken],
-  );
-
-  // Rewards (Phase 5 #15). Candidates are Settled RFQs where I'm the recorded
-  // facilitator; their settlement + winning-quote accounts are bulk-fetched and
-  // joined in derivePendingRewards, which mirrors withdraw_reward's on-chain
-  // guards (settlement completed, quote facilitator matches, share > 0 from the
-  // RFQ's facilitatorFeeBps snapshot). Trackers exist only post-claim.
-  const rewardCandidates = useMemo(
-    () =>
-      meStr === null
-        ? []
-        : (rfqQuery.data ?? []).filter(
-            (row) =>
-              row.account.state === "Settled" && row.account.facilitator?.toBase58() === meStr,
-          ),
-    [rfqQuery.data, meStr],
-  );
-  const settlementKeys = useMemo(
-    () =>
-      rewardCandidates.flatMap((row) => (row.account.settlement ? [row.account.settlement] : [])),
-    [rewardCandidates],
-  );
-  const winningQuoteKeys = useMemo(
-    () =>
-      rewardCandidates.flatMap((row) =>
-        row.account.selectedQuote ? [row.account.selectedQuote] : [],
-      ),
-    [rewardCandidates],
-  );
-  const settlementsQuery = useSettlementAccountsByKeys(settlementKeys);
-  const winningQuotesQuery = useQuoteAccountsByKeys(winningQuoteKeys);
-
-  const pendingRewards = useMemo(
-    () =>
-      meStr === null
-        ? []
-        : derivePendingRewards({
-            rfqRows: rfqQuery.data ?? [],
-            settlements: settlementsQuery.data ?? new Map(),
-            quotes: winningQuotesQuery.data ?? new Map(),
-            trackers: rewardQuery.data ?? [],
-            me: meStr,
-            resolve: resolveToken,
-          }),
-    [
-      meStr,
-      rfqQuery.data,
-      settlementsQuery.data,
-      winningQuotesQuery.data,
-      rewardQuery.data,
-      resolveToken,
-    ],
-  );
-  const claimedRewards = useMemo(
-    () => toClaimedRewards(rewardQuery.data ?? [], rfqQuery.data),
-    [rewardQuery.data, rfqQuery.data],
-  );
-  const pendingMintGroups: MintRewardTotals[] = useMemo(
-    () => groupByMint(pendingRewards, []),
-    [pendingRewards],
-  );
-  // busyId is shared with openDraft; only report it as a claim when it names a
-  // pending reward's RFQ.
+  const {
+    claim: claimReward,
+    claimAll: claimAllRewards,
+    busyId,
+    batch,
+  } = useRewardClaims({ pendingRewards, onBatchDone: refetchRewards });
+  // Only report busyId as a claim when it names a pending reward's RFQ.
   const claimingRfq =
     busyId !== null && pendingRewards.some((r) => r.rfq === busyId) ? busyId : null;
 
-  const isLoading = rfqQuery.isLoading || quoteQuery.isLoading || rewardQuery.isLoading;
-  const isError = rfqQuery.isError || quoteQuery.isError || rewardQuery.isError;
-  const refetchAll = () => {
-    void rfqQuery.refetch();
-    void quoteQuery.refetch();
-    void rewardQuery.refetch();
-  };
+  const [openingId, setOpeningId] = useState<string | null>(null);
 
   const activeRFQs = myRFQs.filter((r) => !TERMINAL_STATES.has(r.state));
   const activeQuotes = myQuotes.filter((q) => {
@@ -225,13 +110,13 @@ export function MyActivity() {
     } catch {
       return;
     }
-    setBusyId(rfq.publicKey);
+    setOpeningId(rfq.publicKey);
     try {
       // Pre-signing gate (#67): opening posts the maker bond in the RFQ's USDC
       // mint — read the balance imperatively and don't build the tx on an
       // obvious shortfall. A read error never blocks (chain stays the arbiter),
       // and an empty balance is guidance, not proof anything went wrong.
-      const raw = rfqQuery.data?.find((row) => row.publicKey.toBase58() === rfq.publicKey);
+      const raw = rfqRows?.find((row) => row.publicKey.toBase58() === rfq.publicKey);
       if (raw) {
         const bondMint = raw.account.usdcMint;
         const bondAmount = raw.account.bondAmount;
@@ -253,7 +138,7 @@ export function MyActivity() {
         }
         if (shortfall !== null) {
           toast.error("Not enough beta tokens to post the bond", { description: shortfall });
-          setBusyId(null);
+          setOpeningId(null);
           return;
         }
       }
@@ -269,152 +154,36 @@ export function MyActivity() {
     } catch {
       // toast already surfaced
     } finally {
-      setBusyId(null);
+      setOpeningId(null);
     }
   };
 
-  // Claim a reward (withdraw_reward). The PendingReward already carries the
-  // winning quote PDA + quote mint, so nothing is re-derived from view models.
-  // sendClaim is the shared submit path; claimReward wraps it with per-row busy
-  // state, claimAllRewards loops it sequentially and keeps going on failures.
-  const sendClaim = async (reward: PendingReward) => {
-    if (!program || !me) {
-      toast.error("Connect a wallet to claim");
-      throw new Error("wallet not ready");
-    }
-    const rfq = new PublicKey(reward.rfq);
-    await submitRfqTx({
-      connection,
-      wallet,
-      queryClient,
-      rfq,
-      build: () =>
-        buildWithdrawRewardTx({
-          program,
-          facilitator: me,
-          rfq,
-          quote: new PublicKey(reward.quote),
-          quoteMint: new PublicKey(reward.quoteMint),
-        }),
-      pendingMessage: "Claiming reward…",
-      successMessage: "Reward claimed to your wallet",
-    });
-  };
+  const attention = useMemo(
+    () => deriveAttentionItems({ myRFQs, myQuotes, pendingRewards, rfqByKey }),
+    [myRFQs, myQuotes, pendingRewards, rfqByKey],
+  );
 
-  const claimReward = async (reward: PendingReward) => {
-    setBusyId(reward.rfq);
-    try {
-      await sendClaim(reward);
-    } catch {
-      // toast already surfaced
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const claimAllRewards = async () => {
-    const rewards = pendingRewards;
-    if (!program || !me || rewards.length === 0 || batch !== null) return;
-    setBatch({ done: 0, total: rewards.length });
-    let succeeded = 0;
-    for (const [index, reward] of rewards.entries()) {
-      try {
-        await sendClaim(reward);
-        succeeded += 1;
-      } catch {
-        // per-tx toast already surfaced — keep claiming the rest
+  // Resolved at click time from the item's kind + keys, so the ribbon never
+  // holds a navigate / claim closure that could go stale.
+  const onAttentionAction = (item: AttentionItem) => {
+    switch (item.kind) {
+      case "open-draft":
+      case "select":
+        viewRFQ(item.rfqKey);
+        return;
+      case "reveal":
+        navigate(`/dashboard/quote/${item.quoteKey}/reveal`);
+        return;
+      case "settle":
+        navigate(`/dashboard/quote/${item.quoteKey}/settle`);
+        return;
+      case "claim": {
+        const reward = pendingRewards.find((r) => r.rfq === item.rfqKey);
+        if (reward) void claimReward(reward);
+        return;
       }
-      setBatch({ done: index + 1, total: rewards.length });
     }
-    setBatch(null);
-    toast.success(`Claimed ${succeeded} of ${rewards.length} rewards`);
-    void rewardQuery.refetch();
   };
-
-  const attention: Attention[] = useMemo(() => {
-    const items: Attention[] = [];
-    // Drafts to open
-    myRFQs
-      .filter((r) => r.state === "Draft")
-      .forEach((rfq) => {
-        items.push({
-          id: `open:${rfq.publicKey}`,
-          kind: "open-draft",
-          label: `Open draft ${rfq.pair}`,
-          cta: "Open",
-          tone: "primary",
-          onClick: () => viewRFQ(rfq.publicKey),
-        });
-      });
-    // Quotes to reveal
-    myQuotes.forEach((q) => {
-      const rfq = rfqByKey.get(q.rfq);
-      if (rfq && rfq.state === "Committed" && !q.revealedAt) {
-        items.push({
-          id: `reveal:${q.publicKey}`,
-          kind: "reveal",
-          label: `Reveal quote on ${rfq.pair}`,
-          cta: "Reveal",
-          tone: "urgent",
-          expiresIn: rfq.expiresIn,
-          onClick: () => navigate(`/dashboard/quote/${q.publicKey}/reveal`),
-        });
-      }
-    });
-    // My Revealed RFQs → pick winner
-    myRFQs
-      .filter((r) => r.state === "Revealed")
-      .forEach((rfq) => {
-        items.push({
-          id: `select:${rfq.publicKey}`,
-          kind: "select",
-          label: `Select winner on ${rfq.pair}`,
-          cta: "Select",
-          tone: "urgent",
-          expiresIn: rfq.expiresIn,
-          onClick: () => viewRFQ(rfq.publicKey),
-        });
-      });
-    // My selected quotes → settle
-    myQuotes
-      .filter((q) => q.selected)
-      .forEach((q) => {
-        const rfq = rfqByKey.get(q.rfq);
-        if (rfq && rfq.state === "Selected") {
-          items.push({
-            id: `settle:${q.publicKey}`,
-            kind: "settle",
-            label: `Settle ${rfq.pair}`,
-            cta: "Settle",
-            tone: "urgent",
-            expiresIn: rfq.expiresIn,
-            onClick: () => navigate(`/dashboard/quote/${q.publicKey}/settle`),
-          });
-        }
-      });
-    // Pending rewards (Settled RFQs I facilitated, not yet withdrawn)
-    pendingRewards.forEach((reward) => {
-      items.push({
-        id: `claim:${reward.rfq}`,
-        kind: "claim",
-        label: `Claim reward — ${reward.pair}`,
-        sublabel: `${formatTokenAmount(reward.amount, reward.decimals)} ${reward.symbol} ready`,
-        cta: "Claim",
-        tone: "reward",
-        onClick: () => void claimReward(reward),
-      });
-    });
-    // Urgent first, then everything else; within each, time-based first
-    const order = { urgent: 0, primary: 1, reward: 2 };
-    return items.sort((a, b) => {
-      const ta = order[a.tone];
-      const tb = order[b.tone];
-      if (ta !== tb) return ta - tb;
-      if (a.expiresIn && !b.expiresIn) return -1;
-      if (!a.expiresIn && b.expiresIn) return 1;
-      return 0;
-    });
-  }, [myRFQs, myQuotes, pendingRewards, rfqByKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hasAnyActivity =
     myRFQs.length > 0 ||
@@ -457,7 +226,7 @@ export function MyActivity() {
         >
           <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">My Activity</h1>
         </motion.div>
-        <EmptyState onCreateRFQ={() => setIsCreateModalOpen(true)} />
+        <ActivityEmptyState onCreateRFQ={() => setIsCreateModalOpen(true)} />
       </PageShell>
     );
   }
@@ -489,7 +258,7 @@ export function MyActivity() {
         }}
       />
 
-      {attention.length > 0 && <AttentionRibbon items={attention} />}
+      {attention.length > 0 && <AttentionRibbon items={attention} onAction={onAttentionAction} />}
 
       <div className="space-y-4 sm:space-y-6 mt-6 sm:mt-8">
         <CollapsibleSection
@@ -515,7 +284,7 @@ export function MyActivity() {
               <PostedRFQCard
                 key={rfq.publicKey}
                 rfq={rfq}
-                busy={busyId === rfq.publicKey}
+                busy={openingId === rfq.publicKey}
                 onView={() => viewRFQ(rfq.publicKey)}
                 onEdit={rfq.state === "Draft" ? () => editRFQ(rfq) : undefined}
                 onOpen={rfq.state === "Draft" ? () => void openDraft(rfq) : undefined}
@@ -583,443 +352,5 @@ export function MyActivity() {
         )}
       </div>
     </PageShell>
-  );
-}
-
-interface PinnedSummaryProps {
-  pendingRewards: PendingReward[];
-  pendingMintGroups: MintRewardTotals[];
-  activeRFQs: number;
-  activeQuotes: number;
-  settled: number;
-  claiming: boolean;
-  onClaim: () => void;
-}
-
-function PinnedSummary({
-  pendingRewards,
-  pendingMintGroups,
-  activeRFQs,
-  activeQuotes,
-  settled,
-  claiming,
-  onClaim,
-}: PinnedSummaryProps) {
-  return (
-    <div className="sticky top-(--nav-h) z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 bg-surface-page/80 backdrop-blur-xl border-y border-white/10 py-3 sm:py-4 mb-4">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 items-stretch">
-        <RewardsTile
-          pending={pendingRewards}
-          groups={pendingMintGroups}
-          claiming={claiming}
-          onClaim={onClaim}
-        />
-        <StatTile label="Active RFQs" value={activeRFQs} tone="cyan" />
-        <StatTile label="Active quotes" value={activeQuotes} tone="blue" />
-        <StatTile label="Settled" value={settled} tone="teal" />
-      </div>
-    </div>
-  );
-}
-
-function RewardsTile({
-  pending,
-  groups,
-  claiming,
-  onClaim,
-}: {
-  pending: PendingReward[];
-  groups: MintRewardTotals[];
-  claiming: boolean;
-  onClaim: () => void;
-}) {
-  const hasUnclaimed = pending.length > 0;
-  // One mint pending → the exact amount; several mints → a count, with the
-  // per-mint amounts in a title tooltip (never summed across mints).
-  const singleMint = groups.length === 1 ? groups[0] : undefined;
-  const perMintTooltip = groups
-    .map((g) => `${formatTokenAmount(g.pendingTotal, g.decimals)} ${g.symbol}`)
-    .join(", ");
-  return (
-    <div
-      className={`col-span-2 sm:col-span-1 flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 sm:px-4 sm:py-3 ${
-        hasUnclaimed
-          ? "bg-gradient-to-br from-green-500/15 to-emerald-500/10 border-green-500/30"
-          : "bg-white/5 border-white/10"
-      }`}
-    >
-      <div className="min-w-0">
-        <div className="text-[0.65rem] sm:text-xs uppercase tracking-wider text-white/50">
-          Rewards
-        </div>
-        {hasUnclaimed && singleMint ? (
-          <div className="flex items-baseline gap-1.5 min-w-0">
-            <span className="text-xl sm:text-2xl font-bold text-green-400 truncate">
-              {formatTokenAmount(singleMint.pendingTotal, singleMint.decimals)}
-            </span>
-            <span className="text-xs sm:text-sm text-white/60 whitespace-nowrap">
-              {singleMint.symbol} to claim
-            </span>
-          </div>
-        ) : (
-          <div
-            className="flex items-baseline gap-1.5"
-            title={hasUnclaimed ? perMintTooltip : undefined}
-          >
-            <span
-              className={`text-xl sm:text-2xl font-bold ${hasUnclaimed ? "text-green-400" : "text-white/70"}`}
-            >
-              {pending.length}
-            </span>
-            <span className="text-xs sm:text-sm text-white/60">to claim</span>
-          </div>
-        )}
-      </div>
-      {hasUnclaimed ? (
-        <Button
-          onClick={onClaim}
-          disabled={claiming}
-          size="sm"
-          className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-lg shadow-green-500/20 disabled:opacity-60"
-        >
-          {claiming ? (
-            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <HandCoins className="mr-1.5 h-3.5 w-3.5" />
-          )}
-          Claim
-        </Button>
-      ) : (
-        <CheckCircle2 className="h-5 w-5 text-white/30" />
-      )}
-    </div>
-  );
-}
-
-function StatTile({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number;
-  tone: "cyan" | "blue" | "teal";
-}) {
-  const toneMap = {
-    cyan: "text-cyan-400",
-    blue: "text-blue-400",
-    teal: "text-state-settled",
-  };
-  return (
-    <div className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 sm:px-4 sm:py-3">
-      <div className="min-w-0">
-        <div className="text-[0.65rem] sm:text-xs uppercase tracking-wider text-white/50">
-          {label}
-        </div>
-        <div className={`text-xl sm:text-2xl font-bold ${toneMap[tone]}`}>{value}</div>
-      </div>
-    </div>
-  );
-}
-
-function AttentionRibbon({ items }: { items: Attention[] }) {
-  return (
-    <div className="mt-4 sm:mt-6">
-      <div className="flex items-center gap-2 mb-3">
-        <Sparkles className="h-4 w-4 text-amber-400" />
-        <h2 className="text-sm sm:text-base font-semibold text-white">
-          Needs your attention <span className="text-white/40 font-normal">({items.length})</span>
-        </h2>
-      </div>
-      <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 scrollbar-thin">
-        {items.map((item) => (
-          <AttentionChip key={item.id} item={item} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function AttentionChip({ item }: { item: Attention }) {
-  const toneClasses = {
-    urgent: "from-orange-500/15 to-red-500/10 border-orange-500/30",
-    primary: "from-purple-500/15 to-violet-500/10 border-purple-500/30",
-    reward: "from-green-500/15 to-emerald-500/10 border-green-500/30",
-  }[item.tone];
-
-  const ctaClasses = {
-    urgent: "bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600",
-    primary:
-      "bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600",
-    reward:
-      "bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600",
-  }[item.tone];
-
-  const Icon = {
-    urgent: Zap,
-    primary: Edit,
-    reward: HandCoins,
-  }[item.tone];
-
-  return (
-    <div
-      className={`flex-shrink-0 w-64 sm:w-72 rounded-xl border bg-gradient-to-br ${toneClasses} backdrop-blur-sm p-3 flex flex-col justify-between gap-3`}
-    >
-      <div className="min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <Icon className="h-4 w-4 text-white/80 flex-shrink-0" />
-          <div className="text-sm font-semibold text-white truncate">{item.label}</div>
-        </div>
-        {item.sublabel && (
-          <div className="text-xs text-white/50 truncate pl-6">{item.sublabel}</div>
-        )}
-        {item.expiresIn && (
-          <div className="flex items-center gap-1 text-xs text-orange-300 pl-6 mt-1">
-            <Clock className="h-3 w-3" />
-            <span>{item.expiresIn}</span>
-          </div>
-        )}
-      </div>
-      <Button
-        onClick={item.onClick}
-        size="sm"
-        className={`${ctaClasses} text-white shadow-lg w-full`}
-      >
-        {item.cta}
-      </Button>
-    </div>
-  );
-}
-
-function HorizontalStrip({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin">{children}</div>
-  );
-}
-
-function EmptyState({ onCreateRFQ }: { onCreateRFQ: () => void }) {
-  return (
-    <div className="bg-white/5 border border-white/10 rounded-xl p-8 sm:p-12 text-center">
-      <SeedlingIllustration className="mx-auto mb-4" />
-      <h3 className="text-lg font-semibold text-white mb-2">Nothing here yet</h3>
-      <p className="text-sm text-white/50 mb-6">
-        Post an RFQ or quote on one to see activity here.
-      </p>
-      <Button
-        onClick={onCreateRFQ}
-        className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600"
-      >
-        <Plus className="mr-2 h-4 w-4" />
-        Create RFQ
-      </Button>
-    </div>
-  );
-}
-
-function PostedRFQCard({
-  rfq,
-  busy,
-  onView,
-  onEdit,
-  onOpen,
-}: {
-  rfq: RFQ;
-  busy?: boolean;
-  onView: () => void;
-  onEdit?: () => void;
-  onOpen?: () => void;
-}) {
-  return (
-    <div className="flex-shrink-0 w-72 bg-white/5 border border-white/10 rounded-lg p-4 hover:border-white/20 transition-all">
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2 min-w-0">
-          <Coins className="h-4 w-4 text-cyan-400 flex-shrink-0" />
-          <span className="font-semibold text-sm text-white truncate">{rfq.pair}</span>
-        </div>
-        <StatusBadge status={rfq.state} />
-      </div>
-
-      <div className="grid grid-cols-2 gap-2 mb-3">
-        <div>
-          <div className="text-xs text-white/50 mb-1">Base</div>
-          <div className="text-sm font-bold text-white truncate">
-            {rfq.baseAmount.toLocaleString()}
-          </div>
-        </div>
-        <div>
-          <div className="text-xs text-white/50 mb-1">Min Quote</div>
-          <div className="text-sm font-bold text-white truncate">
-            {rfq.minQuoteAmount.toLocaleString()}
-          </div>
-        </div>
-      </div>
-
-      {rfq.expiresIn && (
-        <div className="flex items-center gap-2 text-xs text-orange-400 mb-3 bg-orange-500/10 rounded p-2">
-          <Clock className="h-3 w-3" />
-          <span>Expires in {rfq.expiresIn}</span>
-        </div>
-      )}
-
-      <Button
-        onClick={onView}
-        size="sm"
-        variant="outline"
-        className="w-full bg-white/5 border-white/20 text-white hover:bg-white/10 hover:border-white/30"
-      >
-        <Eye className="mr-2 h-4 w-4" />
-        View
-      </Button>
-
-      {onOpen && (
-        <Button
-          onClick={onOpen}
-          disabled={busy}
-          size="sm"
-          className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-semibold shadow-lg shadow-cyan-500/20 mt-2 disabled:opacity-60"
-        >
-          {busy ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Zap className="mr-2 h-4 w-4" />
-          )}
-          Open
-        </Button>
-      )}
-
-      {onEdit && (
-        <Button
-          onClick={onEdit}
-          disabled={busy}
-          size="sm"
-          variant="outline"
-          className="w-full bg-white/5 border-white/20 text-white hover:bg-white/10 mt-2 disabled:opacity-60"
-        >
-          <Edit className="mr-2 h-4 w-4" />
-          Edit Draft
-        </Button>
-      )}
-    </div>
-  );
-}
-
-function SubmittedQuoteCard({
-  quote,
-  rfq,
-  onView,
-  onReveal,
-  onSettle,
-}: {
-  quote: Quote;
-  rfq: RFQ | undefined;
-  onView: () => void;
-  onReveal?: () => void;
-  onSettle?: () => void;
-}) {
-  const isRevealed = quote.revealedAt !== null;
-  const decided =
-    rfq !== undefined &&
-    (rfq.state === "Selected" || rfq.state === "Settled" || rfq.state === "Incomplete");
-  const notSelected = decided && !quote.selected;
-
-  return (
-    <div
-      className={`flex-shrink-0 w-72 bg-white/5 border rounded-lg p-4 hover:border-white/20 transition-all ${
-        quote.selected ? "border-cyan-500/40 bg-cyan-500/5" : "border-white/10"
-      }`}
-    >
-      {quote.selected && (
-        <div className="flex items-center gap-2 text-xs text-cyan-400 mb-2 font-semibold">
-          <CheckCircle2 className="h-4 w-4" />
-          <span>Selected</span>
-        </div>
-      )}
-      {notSelected && (
-        <div className="flex items-center gap-2 text-xs text-white/40 mb-2 font-semibold">
-          <span>Not selected</span>
-        </div>
-      )}
-
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2 min-w-0">
-          <Coins className="h-4 w-4 text-cyan-400 flex-shrink-0" />
-          <span className="font-semibold text-sm text-white truncate">{rfq ? rfq.pair : "—"}</span>
-        </div>
-        {rfq && <StatusBadge status={rfq.state} />}
-      </div>
-
-      <div className="space-y-2 mb-3">
-        {rfq && (
-          <div className="flex justify-between items-center text-xs">
-            <span className="text-white/50">RFQ Base</span>
-            <span className="text-white font-medium">{rfq.baseAmount.toLocaleString()}</span>
-          </div>
-        )}
-        <div className="flex justify-between items-center text-xs">
-          <span className="text-white/50">Your Quote</span>
-          <div className="flex items-center gap-2">
-            {isRevealed ? (
-              <Unlock className="h-3 w-3 text-cyan-400" />
-            ) : (
-              <Lock className="h-3 w-3 text-orange-400" />
-            )}
-            <span className={`font-bold ${isRevealed ? "text-cyan-400" : "text-orange-400"}`}>
-              {quote.quoteAmount !== null ? quote.quoteAmount.toLocaleString() : "Hidden"}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {rfq?.expiresIn && (
-        <div className="flex items-center gap-2 text-xs text-orange-400 mb-3 bg-orange-500/10 rounded p-2">
-          <Clock className="h-3 w-3" />
-          <span>
-            {rfq.state === "Committed" && !isRevealed
-              ? `Reveal within ${rfq.expiresIn}`
-              : rfq.state === "Selected" && quote.selected
-                ? `Settle within ${rfq.expiresIn}`
-                : `Expires in ${rfq.expiresIn}`}
-          </span>
-        </div>
-      )}
-
-      {quote.bondsRefundedAt !== null && (
-        <div className="flex items-center gap-2 text-xs text-state-settled mb-3 bg-state-settled/10 rounded p-2">
-          <CheckCircle2 className="h-3 w-3" />
-          <span>Bond refunded</span>
-        </div>
-      )}
-
-      <Button
-        onClick={onView}
-        size="sm"
-        variant="outline"
-        className="w-full bg-white/5 border-white/20 text-white hover:bg-white/10 hover:border-white/30"
-      >
-        <Eye className="mr-2 h-4 w-4" />
-        View RFQ
-      </Button>
-
-      {onReveal && (
-        <Button
-          onClick={onReveal}
-          size="sm"
-          className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-semibold mt-2"
-        >
-          <Unlock className="mr-2 h-4 w-4" />
-          Reveal
-        </Button>
-      )}
-      {onSettle && (
-        <Button
-          onClick={onSettle}
-          size="sm"
-          className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold mt-2"
-        >
-          <Zap className="mr-2 h-4 w-4" />
-          Settle
-        </Button>
-      )}
-    </div>
   );
 }
