@@ -25,6 +25,11 @@ import { useResolveTokenMeta } from "@/app/hooks/useResolveTokenMeta";
  * account subscriptions — with NO new websockets and NO polling. The first
  * snapshot per wallet seeds the diff baseline silently (no backlog spam).
  */
+interface Inbox {
+  wallet: string | null;
+  items: AppNotification[];
+}
+
 export function useNotifications() {
   const { publicKey } = useWallet();
   const me = publicKey?.toBase58() ?? null;
@@ -34,17 +39,21 @@ export function useNotifications() {
   const rewardsQuery = useFacilitatorRewardTrackersByFacilitator(publicKey ?? null);
   const resolveToken = useResolveTokenMeta();
 
-  const [items, setItems] = useState<AppNotification[]>([]);
-  const lastSeen = useRef<Map<string, RfqStateSnapshot> | null>(null);
-  const walletRef = useRef<string | null>(null);
-
-  // Wallet switch: reload that wallet's persisted inbox, reset the baseline.
-  useEffect(() => {
-    if (me === walletRef.current) return;
-    walletRef.current = me;
-    lastSeen.current = null;
-    setItems(me === null ? [] : loadNotifications(me));
-  }, [me]);
+  // The inbox is keyed by wallet: switching wallets swaps to that wallet's
+  // persisted items and drops the diff baseline in the same render (no
+  // "reset on prop change" effect).
+  const [inbox, setInbox] = useState<Inbox>(() => ({
+    wallet: me,
+    items: me === null ? [] : loadNotifications(me),
+  }));
+  if (inbox.wallet !== me) {
+    setInbox({ wallet: me, items: me === null ? [] : loadNotifications(me) });
+  }
+  const items = inbox.wallet === me ? inbox.items : me === null ? [] : loadNotifications(me);
+  // Diff baseline per wallet; `wallet` mismatch means "seed silently".
+  const lastSeen = useRef<{ wallet: string | null; map: Map<string, RfqStateSnapshot> } | null>(
+    null,
+  );
 
   useEffect(() => {
     if (me === null || rfqsQuery.data === undefined) return;
@@ -69,25 +78,25 @@ export function useNotifications() {
       });
     }
 
-    if (lastSeen.current === null) {
-      lastSeen.current = snapshot;
+    if (lastSeen.current === null || lastSeen.current.wallet !== me) {
+      lastSeen.current = { wallet: me, map: snapshot };
       return;
     }
-    const fresh = diffRfqStates(lastSeen.current, snapshot, Date.now());
-    lastSeen.current = snapshot;
+    const fresh = diffRfqStates(lastSeen.current.map, snapshot, Date.now());
+    lastSeen.current = { wallet: me, map: snapshot };
     if (fresh.length === 0) return;
-    setItems((prev) => {
-      const merged = mergeNotifications(prev, fresh);
+    setInbox((prev) => {
+      const merged = mergeNotifications(prev.items, fresh);
       saveNotifications(me, merged);
-      return merged;
+      return { wallet: prev.wallet, items: merged };
     });
   }, [me, rfqsQuery.data, myQuotesQuery.data, rewardsQuery.data, resolveToken]);
 
   const markRead = useCallback(() => {
-    setItems((prev) => {
-      const next = markAllRead(prev);
+    setInbox((prev) => {
+      const next = markAllRead(prev.items);
       if (me !== null) saveNotifications(me, next);
-      return next;
+      return { wallet: prev.wallet, items: next };
     });
   }, [me]);
 

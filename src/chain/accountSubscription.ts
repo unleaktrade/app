@@ -34,8 +34,8 @@ export function useAccountSubscription<T>(
     return () => {
       void connection.removeAccountChangeListener(id);
     };
-    // queryKey is stable upstream (caller uses stable array); JSON.stringify would
-    // be wasteful. decoder is a pure module-level function; treat as stable.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connection, pubkey?.toBase58(), queryClient]);
+    // `decoder` and `queryKey` are memoised by useDecodedAccount (per program /
+    // address), so listing them re-subscribes exactly when the coder or the
+    // cache slot changes — never per render.
+  }, [connection, pubkey, decoder, queryKey, queryClient]);
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useNowSecs } from "./useNowSecs";
 
 export interface Countdown {
   /** Seconds until the deadline, clamped at 0. 0 when deadlineSec is null. */
@@ -7,23 +7,13 @@ export interface Countdown {
   expired: boolean;
 }
 
-function remainingTo(deadlineSec: number | null): number {
-  if (deadlineSec === null) return 0;
-  return Math.max(0, deadlineSec - Math.floor(Date.now() / 1000));
-}
-
-/** 1-second ticking countdown to a unix-seconds deadline. */
+/**
+ * 1-second ticking countdown to a unix-seconds deadline. Derived from a
+ * ticking clock rather than stored, so a deadline change is reflected in the
+ * same render (no stale frame) and there is no state to keep in sync.
+ */
 export function useCountdown(deadlineSec: number | null): Countdown {
-  const [remainingSec, setRemainingSec] = useState(() => remainingTo(deadlineSec));
-
-  useEffect(() => {
-    setRemainingSec(remainingTo(deadlineSec));
-    if (deadlineSec === null) return;
-    const id = setInterval(() => {
-      setRemainingSec(remainingTo(deadlineSec));
-    }, 1000);
-    return () => clearInterval(id);
-  }, [deadlineSec]);
-
+  const now = useNowSecs(1_000);
+  const remainingSec = deadlineSec === null ? 0 : Math.max(0, deadlineSec - now);
   return { remainingSec, expired: deadlineSec !== null && remainingSec <= 0 };
 }
