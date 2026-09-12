@@ -1,7 +1,9 @@
 import { PublicKey } from "@solana/web3.js";
 import { useQuery, type QueryKey, type UseQueryResult } from "@tanstack/react-query";
+import { useConnection } from "@solana/wallet-adapter-react";
 import { env } from "@/chain/env";
 import { useSettlementProgram } from "@/chain/program";
+import { listKey } from "./queryKeys";
 import { normaliseRfq, type RfqAccount } from "./rfq";
 import { normaliseQuote, type QuoteAccount } from "./quote";
 import {
@@ -65,21 +67,22 @@ function memcmp(offset: number, key: PublicKey): MemcmpFilter {
  * polling loops). Freshness comes from the shared write-path invalidation (after
  * a tx) plus the 10s staleTime on remount — refetchOnWindowFocus is off globally
  * (QueryProvider) so we don't re-run the heavy, throttle-prone getProgramAccounts
- * on every tab focus. Query keys follow the [account, programId, "all", …]
- * convention; react-query hashes them structurally, so building the array inline
- * each render is fine.
+ * on every tab focus. Query keys come from queryKeys.ts (they include the RPC endpoint so
+ * clusters never share cache); react-query hashes them structurally, so
+ * building the array inline each render is fine.
  */
 function useProgramAccounts<TRaw, T>(
   accountKey: string,
   normalise: (raw: TRaw) => T,
   filters: MemcmpFilter[],
-  queryKey: QueryKey,
+  keyFor: (endpoint: string) => QueryKey,
   enabled: boolean,
 ): UseQueryResult<ProgramAccount<T>[]> {
   const program = useSettlementProgram();
+  const { connection } = useConnection();
 
   return useQuery<ProgramAccount<T>[]>({
-    queryKey,
+    queryKey: keyFor(connection.rpcEndpoint),
     enabled: program !== null && enabled,
     queryFn: async () => {
       if (!program) return [];
@@ -103,7 +106,7 @@ export function useRfqAccounts(
     "rfq",
     normaliseRfq,
     memcmps,
-    ["rfq", env.programId.toBase58(), "all", maker?.toBase58() ?? null],
+    (endpoint) => listKey("rfq", env.programId.toBase58(), endpoint, maker?.toBase58() ?? null),
     true,
   );
 }
@@ -117,7 +120,8 @@ export function useQuoteAccountsForRfq(
     "quote",
     normaliseQuote,
     memcmps,
-    ["quote", env.programId.toBase58(), "all", "rfq", rfq?.toBase58() ?? null],
+    (endpoint) =>
+      listKey("quote", env.programId.toBase58(), endpoint, "rfq", rfq?.toBase58() ?? null),
     rfq !== null,
   );
 }
@@ -131,7 +135,8 @@ export function useQuoteAccountsByTaker(
     "quote",
     normaliseQuote,
     memcmps,
-    ["quote", env.programId.toBase58(), "all", "taker", taker?.toBase58() ?? null],
+    (endpoint) =>
+      listKey("quote", env.programId.toBase58(), endpoint, "taker", taker?.toBase58() ?? null),
     taker !== null,
   );
 }
@@ -148,7 +153,7 @@ export function useSlashedBondsTrackerAccounts(): UseQueryResult<
     "slashedBondsTracker",
     normaliseSlashedBondsTracker,
     [],
-    ["slashedBondsTracker", env.programId.toBase58(), "all"],
+    (endpoint) => listKey("slashedBondsTracker", env.programId.toBase58(), endpoint),
     true,
   );
 }
@@ -162,7 +167,7 @@ export function useFeesTrackerAccounts(): UseQueryResult<ProgramAccount<FeesTrac
     "feesTracker",
     normaliseFeesTracker,
     [],
-    ["feesTracker", env.programId.toBase58(), "all"],
+    (endpoint) => listKey("feesTracker", env.programId.toBase58(), endpoint),
     true,
   );
 }
@@ -176,7 +181,13 @@ export function useFacilitatorRewardTrackersByFacilitator(
     "facilitatorRewardTracker",
     normaliseFacilitatorRewardTracker,
     memcmps,
-    ["facilitatorRewardTracker", env.programId.toBase58(), "all", facilitator?.toBase58() ?? null],
+    (endpoint) =>
+      listKey(
+        "facilitatorRewardTracker",
+        env.programId.toBase58(),
+        endpoint,
+        facilitator?.toBase58() ?? null,
+      ),
     facilitator !== null,
   );
 }

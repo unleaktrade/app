@@ -8,8 +8,10 @@
 
 import type { PublicKey } from "@solana/web3.js";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { useConnection } from "@solana/wallet-adapter-react";
 import { env } from "@/chain/env";
 import { useSettlementProgram } from "@/chain/program";
+import { byKeysKey } from "./queryKeys";
 import { normaliseSettlement, type RawSettlement, type SettlementAccount } from "./settlement";
 import { normaliseQuote, type RawQuote, type QuoteAccount } from "./quote";
 
@@ -18,8 +20,8 @@ interface FetchMultipleApi<TRaw> {
 }
 
 /**
- * Shared fetchMultiple plumbing. Query keys follow the
- * ["<account>", "byKeys", programId, ...sortedBase58] convention — sorting
+ * Shared fetchMultiple plumbing. Query keys come from queryKeys.ts
+ * ([account, programId, endpoint, "byKeys", ...sortedBase58]) — sorting
  * makes the key order-insensitive so the same set of keys hits the same cache
  * entry regardless of how the caller assembled the array. Accounts that don't
  * exist (fetchMultiple returns null slots) are skipped silently; consumers
@@ -31,10 +33,11 @@ function useAccountsByKeys<TRaw, T>(
   keys: PublicKey[],
 ): UseQueryResult<Map<string, T>> {
   const program = useSettlementProgram();
+  const { connection } = useConnection();
   const base58Keys = keys.map((k) => k.toBase58());
 
   return useQuery<Map<string, T>>({
-    queryKey: [accountKey, "byKeys", env.programId.toBase58(), ...[...base58Keys].sort()],
+    queryKey: byKeysKey(accountKey, env.programId.toBase58(), connection.rpcEndpoint, base58Keys),
     enabled: program !== null && keys.length > 0,
     queryFn: async () => {
       const result = new Map<string, T>();
