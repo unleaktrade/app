@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { PublicKey } from "@solana/web3.js";
-import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { toast } from "sonner";
 import { useSettlementProgram } from "@/chain/program";
 import { buildWithdrawRewardTx } from "@/chain/instructions/maker";
-import { submitRfqTx } from "@/chain/instructions/shared";
+import { useSubmitRfqTx } from "@/app/hooks/useSubmitRfqTx";
 import type { PendingReward } from "@/app/lib/rewards";
 
 export interface RewardClaims {
@@ -22,8 +21,9 @@ export interface RewardClaims {
 /**
  * Claim a reward (withdraw_reward). The PendingReward already carries the
  * winning quote PDA + quote mint, so nothing is re-derived from view models.
- * sendClaim is the shared submit path; claim wraps it with per-row busy
- * state, claimAll loops it sequentially and keeps going on failures.
+ * Every write goes through useSubmitRfqTx; `busyId` is derived from the
+ * mutation's in-flight variables (tagged with the RFQ key) for single claims,
+ * while claimAll keeps its own sequential progress counter.
  */
 export function useRewardClaims({
   pendingRewards,
@@ -34,14 +34,14 @@ export function useRewardClaims({
   onBatchDone: () => void;
 }): RewardClaims {
   const { publicKey } = useWallet();
-  const { connection } = useConnection();
   const program = useSettlementProgram();
-  const queryClient = useQueryClient();
-  const wallet = useWallet();
+  const submit = useSubmitRfqTx();
   const me = publicKey ?? null;
 
-  const [busyId, setBusyId] = useState<string | null>(null);
   const [batch, setBatch] = useState<{ done: number; total: number } | null>(null);
+  // Per-row busy state only for single claims — during a batch the progress
+  // counter is the indicator, exactly as before.
+  const busyId = batch === null && submit.isPending ? (submit.variables?.tag ?? null) : null;
 
   const sendClaim = async (reward: PendingReward) => {
     if (!program || !me) {
@@ -49,11 +49,9 @@ export function useRewardClaims({
       throw new Error("wallet not ready");
     }
     const rfq = new PublicKey(reward.rfq);
-    await submitRfqTx({
-      connection,
-      wallet,
-      queryClient,
+    await submit.mutateAsync({
       rfq,
+      tag: reward.rfq,
       build: () =>
         buildWithdrawRewardTx({
           program,
@@ -68,13 +66,10 @@ export function useRewardClaims({
   };
 
   const claim = async (reward: PendingReward) => {
-    setBusyId(reward.rfq);
     try {
       await sendClaim(reward);
     } catch {
       // toast already surfaced
-    } finally {
-      setBusyId(null);
     }
   };
 

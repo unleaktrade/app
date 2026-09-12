@@ -3,13 +3,12 @@ import { motion } from "motion/react";
 import { useNavigate, useOutletContext } from "react-router";
 import { PublicKey } from "@solana/web3.js";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { RFQ, RFQState } from "@/types/rfq";
 import { useConfigAccount } from "@/chain/accounts/config";
 import { useSettlementProgram } from "@/chain/program";
 import { buildOpenRfqTx } from "@/chain/instructions/maker";
-import { submitRfqTx } from "@/chain/instructions/shared";
+import { useSubmitRfqTx } from "@/app/hooks/useSubmitRfqTx";
 import { resolveTokenMeta } from "@/app/lib/tokens";
 import { formatTokenAmount } from "@/app/lib/format";
 import { fetchTokenBalance } from "@/app/lib/token-balance-state";
@@ -41,8 +40,6 @@ export function MyActivity() {
   const { publicKey } = useWallet();
   const { connection } = useConnection();
   const program = useSettlementProgram();
-  const queryClient = useQueryClient();
-  const wallet = useWallet();
   const me = publicKey ?? null;
   const configQuery = useConfigAccount();
 
@@ -71,6 +68,9 @@ export function MyActivity() {
     busyId !== null && pendingRewards.some((r) => r.rfq === busyId) ? busyId : null;
 
   const [openingId, setOpeningId] = useState<string | null>(null);
+  // openingId spans the pre-signing balance read AND the tx, so it stays local
+  // state; the write itself goes through the shared mutation hook.
+  const submitOpen = useSubmitRfqTx();
 
   const activeRFQs = myRFQs.filter((r) => !TERMINAL_STATES.has(r.state));
   const activeQuotes = myQuotes.filter((q) => {
@@ -142,10 +142,7 @@ export function MyActivity() {
           return;
         }
       }
-      await submitRfqTx({
-        connection,
-        wallet,
-        queryClient,
+      await submitOpen.mutateAsync({
         rfq: pda,
         build: () => buildOpenRfqTx({ program, maker: me, rfq: pda, usdcMint: config.usdcMint }),
         pendingMessage: "Opening RFQ…",
