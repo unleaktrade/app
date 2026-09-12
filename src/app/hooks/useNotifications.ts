@@ -15,7 +15,7 @@ import {
   type AppNotification,
   type RfqStateSnapshot,
 } from "@/app/lib/notifications";
-import { resolveTokenMeta } from "@/app/lib/tokens";
+import { useResolveTokenMeta } from "@/app/hooks/useResolveTokenMeta";
 
 /**
  * State-transition inbox for the RFQs the connected wallet is involved in:
@@ -32,6 +32,7 @@ export function useNotifications() {
   const rfqsQuery = useRfqAccounts();
   const myQuotesQuery = useQuoteAccountsByTaker(publicKey ?? null);
   const rewardsQuery = useFacilitatorRewardTrackersByFacilitator(publicKey ?? null);
+  const resolveToken = useResolveTokenMeta();
 
   const [items, setItems] = useState<AppNotification[]>([]);
   const lastSeen = useRef<Map<string, RfqStateSnapshot> | null>(null);
@@ -63,7 +64,7 @@ export function useNotifications() {
       if (!involved) continue;
       snapshot.set(key, {
         rfq: key,
-        pair: `${resolveTokenMeta(account.baseMint.toBase58()).symbol}/${resolveTokenMeta(account.quoteMint.toBase58()).symbol}`,
+        pair: `${resolveToken(account.baseMint.toBase58()).symbol}/${resolveToken(account.quoteMint.toBase58()).symbol}`,
         state: account.state,
       });
     }
@@ -80,7 +81,7 @@ export function useNotifications() {
       saveNotifications(me, merged);
       return merged;
     });
-  }, [me, rfqsQuery.data, myQuotesQuery.data, rewardsQuery.data]);
+  }, [me, rfqsQuery.data, myQuotesQuery.data, rewardsQuery.data, resolveToken]);
 
   const markRead = useCallback(() => {
     setItems((prev) => {

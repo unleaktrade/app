@@ -17,7 +17,7 @@ import {
   ChevronRight,
   ShieldCheck,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import logo from "figma:asset/6d73120824de2c8c6632c71cddef1ae782b1c254.png";
 
 export type DashboardView = "marketplace" | "my-activity" | "transparency";
@@ -51,6 +51,17 @@ const NAV_ITEMS: Array<{
 
 export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Keyboard dismissal for the mobile menu: the backdrop is decorative (see
+  // aria-hidden below), so Escape is the non-pointer way out besides the X.
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileMenuOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [mobileMenuOpen]);
 
   // Same list query Marketplace uses — react-query dedupes on the shared key.
   const { data: rfqRows } = useRfqAccounts();
@@ -182,11 +193,17 @@ export function MainNavbar({ currentView, onNavigate, onCreateRFQ }: MainNavbarP
       {mobileMenuOpen && (
         <>
           <div
+            aria-hidden="true"
             onClick={() => setMobileMenuOpen(false)}
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200"
           />
 
-          <div className="fixed top-(--nav-h) right-0 bottom-0 w-full max-w-sm bg-surface-page/98 backdrop-blur-xl border-l border-white/10 z-40 lg:hidden overflow-y-auto motion-safe:animate-in motion-safe:slide-in-from-right motion-safe:duration-300">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menu"
+            className="fixed top-(--nav-h) right-0 bottom-0 w-full max-w-sm bg-surface-page/98 backdrop-blur-xl border-l border-white/10 z-40 lg:hidden overflow-y-auto motion-safe:animate-in motion-safe:slide-in-from-right motion-safe:duration-300"
+          >
             <div className="px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] space-y-4">
               <div>
                 <Button

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
+import { renderWithProviders } from "@/test/render";
 import userEvent from "@testing-library/user-event";
 import { GuardStatusView } from "../HealthPill";
 import { setMediaQueryMatches } from "@/test/setup";
@@ -15,7 +16,7 @@ const HEALTH: HealthResponse = {
 
 describe("GuardStatusView", () => {
   it("labels the chip per state", () => {
-    const { rerender } = render(
+    const { rerender } = renderWithProviders(
       <GuardStatusView
         state="ok"
         health={HEALTH}
@@ -40,7 +41,7 @@ describe("GuardStatusView", () => {
 
   it("opens the details popover with a verified on-chain match", async () => {
     const user = userEvent.setup();
-    render(
+    renderWithProviders(
       <GuardStatusView
         state="ok"
         health={HEALTH}
@@ -57,7 +58,7 @@ describe("GuardStatusView", () => {
 
   it("surfaces key drift as a warning", async () => {
     const user = userEvent.setup();
-    render(
+    renderWithProviders(
       <GuardStatusView
         state="mismatch"
         health={{ ...HEALTH, servicePubkey: "DriftKey1111111111111111111111111111111111" }}
@@ -73,7 +74,7 @@ describe("GuardStatusView", () => {
   it("renders the details as a bottom sheet below the md breakpoint", async () => {
     setMediaQueryMatches(false);
     const user = userEvent.setup();
-    render(
+    renderWithProviders(
       <GuardStatusView
         state="ok"
         health={HEALTH}
@@ -92,7 +93,7 @@ describe("GuardStatusView", () => {
 
   it("prompts to connect when Config is not loaded", async () => {
     const user = userEvent.setup();
-    render(
+    renderWithProviders(
       <GuardStatusView
         state="ok"
         health={HEALTH}

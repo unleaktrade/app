@@ -106,6 +106,7 @@ export const router = createBrowserRouter([
     ? [
         {
           path: "/dev/stories",
+          HydrateFallback: RouteFallback,
           lazy: lazyScreen(
             () => import("@/app/components/ComponentStories"),
             (m) => m.ComponentStories,

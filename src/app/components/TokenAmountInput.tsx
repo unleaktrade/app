@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Input } from "@/app/components/ui/input";
-import { useClusterState } from "@/chain/cluster";
+import { useCluster } from "@/app/providers/ClusterProvider";
 import { useTokenMeta, useUsdPrice } from "@/app/lib/jupiter";
 import { formatTokenAmount, parseTokenAmount } from "@/app/lib/format";
 import { cn } from "@/app/components/ui/utils";
@@ -37,7 +37,7 @@ export function TokenAmountInput({
   disabled,
   className,
 }: TokenAmountInputProps) {
-  const { cluster } = useClusterState();
+  const { cluster } = useCluster();
   const meta = useTokenMeta(mint, cluster);
   const decimals = meta.data?.decimals ?? fallbackDecimals;
   const symbol = meta.data?.symbol ?? fallbackSymbol;
@@ -46,6 +46,21 @@ export function TokenAmountInput({
     value === null ? "" : formatTokenAmount(value, decimals),
   );
   const [invalid, setInvalid] = useState(false);
+
+  // Prop → text sync without an effect ("adjust state during render"): when
+  // the parent sets `value` to something the current text doesn't already
+  // represent (modal prefill, ticket import, reset), re-derive the text. A
+  // user's in-progress "1." still parses to the same bigint, so it is kept.
+  const [syncedValue, setSyncedValue] = useState(value);
+  if (value !== syncedValue) {
+    setSyncedValue(value);
+    const textValue =
+      text.trim() === "" ? null : parseTokenAmount(text.replace(/,/g, ""), decimals);
+    if (textValue !== value) {
+      setText(value === null ? "" : formatTokenAmount(value, decimals));
+      setInvalid(false);
+    }
+  }
 
   // Metadata resolves async: if the user typed while the fallback decimals
   // were in effect, the emitted bigint was parsed at the wrong scale. Re-parse

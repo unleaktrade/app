@@ -1,10 +1,7 @@
 import type { Connection, Transaction, VersionedTransaction } from "@solana/web3.js";
 import type { WalletContextState } from "@solana/wallet-adapter-react";
 import { toast } from "sonner";
-
-function explorerLink(signature: string): string {
-  return `https://solscan.io/tx/${signature}?cluster=devnet`;
-}
+import { clusterFromEndpoint, solscanTxUrl } from "@/chain/cluster";
 
 export async function sendAndConfirmWithToast(
   connection: Connection,
@@ -25,7 +22,14 @@ export async function sendAndConfirmWithToast(
     );
     toast.success(opts?.successMessage ?? "Transaction confirmed", {
       id: toastId,
-      action: { label: "View", onClick: () => window.open(explorerLink(signature), "_blank") },
+      action: {
+        label: "View",
+        onClick: () =>
+          window.open(
+            solscanTxUrl(signature, clusterFromEndpoint(connection.rpcEndpoint)),
+            "_blank",
+          ),
+      },
     });
     return signature;
   } catch (err) {

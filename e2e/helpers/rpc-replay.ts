@@ -133,7 +133,15 @@ async function replayRpc(route: Route): Promise<void> {
 
   const results = items.map((item) => {
     const key = keyFor(item.method ?? "", item.params);
-    const result = key in cassette ? cassette[key] : benignDefault(item.method ?? "");
+    const hit = key in cassette;
+    if (!hit && process.env.REPLAY_RPC_LOG_MISSES === "1") {
+      // Maintainer aid: `REPLAY_RPC_LOG_MISSES=1 npm run test:e2e` prints every
+      // request the cassette does not cover (benign defaults are served for
+      // them). Per-run ephemeral-wallet scans are expected here; a missing
+      // account read is not.
+      console.warn(`[rpc-replay] cassette miss: ${key}`);
+    }
+    const result = hit ? cassette[key] : benignDefault(item.method ?? "");
     return { jsonrpc: "2.0", id: item.id ?? null, result };
   });
   return route.fulfill({

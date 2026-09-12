@@ -5,6 +5,7 @@ import type { RFQ } from "@/types/rfq";
 import { useRfqAccounts } from "@/chain/accounts/lists";
 import { toRfqViewModel } from "@/app/lib/rfq-view-model";
 import { computeMarketStats } from "@/app/lib/market-stats";
+import { useResolveTokenMeta } from "@/app/hooks/useResolveTokenMeta";
 import {
   getCardGradient,
   getCardBorder,
@@ -128,6 +129,7 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
   const currentUser = publicKey?.toBase58() ?? null;
   const { data: rfqRows, isLoading, isError, refetch, isFetching } = useRfqAccounts();
   const nowSecs = Math.floor(Date.now() / 1000);
+  const resolveToken = useResolveTokenMeta();
 
   // Decode → view-model only when the underlying rows change, not on every
   // keystroke. nowSecs is intentionally excluded from deps: it changes every
@@ -177,7 +179,12 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
 
   // Analytics over the RAW decoded rows (bigint amounts) — never the display
   // view-models, so per-mint sums stay exact and mints are never merged.
-  const stats = useMemo(() => computeMarketStats(rfqRows ?? []), [rfqRows]);
+  // Null until the first fetch lands so the header renders placeholders, not
+  // a flash of "0 RFQs / 0 Open" on a cold load.
+  const stats = useMemo(
+    () => (rfqRows ? computeMarketStats(rfqRows, resolveToken) : null),
+    [rfqRows, resolveToken],
+  );
 
   return (
     <PageShell>
@@ -188,7 +195,9 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
         className="mb-6 sm:mb-8"
       >
         <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">RFQ Marketplace</h1>
-        <p className="text-base sm:text-lg text-white/60">{sortedRFQs.length} RFQs available</p>
+        <p className="text-base sm:text-lg text-white/60">
+          {isLoading ? "Loading RFQs…" : `${sortedRFQs.length} RFQs available`}
+        </p>
       </motion.div>
 
       {/* Stats */}
@@ -199,7 +208,11 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
         <Suspense
           fallback={<div className="skeleton-shimmer h-[220px] rounded-2xl" aria-hidden="true" />}
         >
-          <OpenInterestByToken buckets={stats.openByQuoteMint} />
+          {stats === null ? (
+            <div className="skeleton-shimmer h-[220px] rounded-2xl" aria-hidden="true" />
+          ) : (
+            <OpenInterestByToken buckets={stats.openByQuoteMint} />
+          )}
         </Suspense>
         <MarketOverview stats={stats} now={nowSecs} />
       </div>

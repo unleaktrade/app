@@ -1,4 +1,5 @@
 import { Activity, BadgeCheck, Clock, Shield } from "lucide-react";
+import type { ComponentType } from "react";
 import type { MarketStats } from "@/app/lib/market-stats";
 import { formatTokenAmount } from "@/app/lib/format";
 
@@ -6,30 +7,36 @@ import { formatTokenAmount } from "@/app/lib/format";
 const USDC_DECIMALS = 6;
 
 interface MarketStatsCardsProps {
-  stats: MarketStats;
+  /** Null while the RFQ list is still loading — renders placeholders, never zeros. */
+  stats: MarketStats | null;
 }
 
 /** The 4-up headline stat band above the analytics section, fed by live chain data. */
 export function MarketStatsCards({ stats }: MarketStatsCardsProps) {
+  const loading = stats === null;
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+    <div
+      className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8"
+      aria-label="Market statistics"
+      aria-busy={loading}
+    >
       <StatCard
         label="Open"
-        value={stats.openCount.toString()}
+        value={stats ? stats.openCount.toString() : null}
         subtext="Ready to quote"
         icon={Activity}
         gradient="from-green-500 to-emerald-500"
       />
       <StatCard
         label="Committed"
-        value={stats.committedCount.toString()}
+        value={stats ? stats.committedCount.toString() : null}
         subtext="Awaiting reveals"
         icon={Clock}
         gradient="from-blue-500 to-cyan-500"
       />
       <StatCard
         label="Settled"
-        value={stats.settledCount.toString()}
+        value={stats ? stats.settledCount.toString() : null}
         subtext="All time"
         icon={BadgeCheck}
         gradient="from-cyan-500 to-blue-500"
@@ -37,7 +44,11 @@ export function MarketStatsCards({ stats }: MarketStatsCardsProps) {
       <StatCard
         label="Avg bond"
         value={
-          stats.avgBondUsdc === null ? "—" : formatTokenAmount(stats.avgBondUsdc, USDC_DECIMALS)
+          stats
+            ? stats.avgBondUsdc === null
+              ? "—"
+              : formatTokenAmount(stats.avgBondUsdc, USDC_DECIMALS)
+            : null
         }
         subtext="USDC"
         icon={Shield}
@@ -49,9 +60,10 @@ export function MarketStatsCards({ stats }: MarketStatsCardsProps) {
 
 interface StatCardProps {
   label: string;
-  value: string;
+  /** Null renders a shimmering placeholder while the source list loads. */
+  value: string | null;
   subtext: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: ComponentType<{ className?: string }>;
   gradient: string;
 }
 
@@ -65,7 +77,11 @@ function StatCard({ label, value, subtext, icon: Icon, gradient }: StatCardProps
         <div className={`p-2 rounded-lg bg-gradient-to-br ${gradient} w-fit mb-2 sm:mb-3`}>
           <Icon className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
         </div>
-        <div className="text-xl sm:text-2xl font-bold text-white mb-1">{value}</div>
+        <div
+          className={`text-xl sm:text-2xl font-bold text-white mb-1 ${value === null ? "skeleton-shimmer w-12 rounded text-white/30" : ""}`}
+        >
+          {value ?? "—"}
+        </div>
         <div className="text-xs text-white/50 mb-0.5 sm:mb-1">{label}</div>
         <div className="text-xs text-white/40">{subtext}</div>
       </div>

@@ -21,7 +21,7 @@ import { commitHash } from "@/chain/commitHash";
 import { deriveSalt } from "@/chain/liquidityGuard";
 import { buildRevealQuoteTx } from "@/chain/instructions/taker";
 import { submitRfqTx } from "@/chain/instructions/shared";
-import { resolveTokenMeta } from "@/app/lib/tokens";
+import { useResolveTokenMeta } from "@/app/hooks/useResolveTokenMeta";
 import {
   hexToBytes,
   bytesToHex,
@@ -36,6 +36,7 @@ import { DeadlineRing } from "@/app/components/DeadlineRing";
 import { AddressDisplay } from "@/app/components/AddressDisplay";
 import { Button } from "@/app/components/ui/button";
 import { toast } from "sonner";
+import { useNowSecs } from "@/app/hooks/useNowSecs";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -70,9 +71,10 @@ export function RevealQuote({ quote, rfqPda, rfq, onDone, onBack }: RevealQuoteP
   const [busy, setBusy] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const resolveToken = useResolveTokenMeta();
 
   const onchainHashHex = useMemo(() => bytesToHex(quote.commitHash), [quote.commitHash]);
-  const quoteMeta = resolveTokenMeta(rfq.quoteMint.toBase58());
+  const quoteMeta = resolveToken(rfq.quoteMint.toBase58());
 
   // Prefill from the localStorage ticket on mount.
   useEffect(() => {
@@ -111,7 +113,7 @@ export function RevealQuote({ quote, rfqPda, rfq, onDone, onBack }: RevealQuoteP
   }, [salt, amount, rfqPda, quote.taker, rfq.quoteMint, rfq.bondAmount, rfq.takerFeeBps]);
 
   const matches = localHashHex !== null && localHashHex === onchainHashHex;
-  const now = Math.floor(Date.now() / 1000);
+  const now = useNowSecs();
   const inWindow = canRevealQuote(
     rfq,
     {

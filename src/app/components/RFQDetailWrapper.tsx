@@ -1,4 +1,4 @@
-import { useParams, useNavigate, useOutletContext, useSearchParams } from "react-router";
+import { Navigate, useParams, useNavigate, useOutletContext, useSearchParams } from "react-router";
 import { AdaptiveRFQDetail } from "@/app/components/AdaptiveRFQDetail";
 import { parseRequestedAction } from "@/app/lib/share-links";
 import type { RFQ } from "@/types/rfq";
@@ -13,8 +13,7 @@ export function RFQDetailWrapper() {
     useOutletContext<DashboardOutletContext>();
 
   if (!rfqId) {
-    navigate("/dashboard");
-    return null;
+    return <Navigate to="/dashboard" replace />;
   }
 
   const handleQuoteRFQ = (rfq: RFQ) => {

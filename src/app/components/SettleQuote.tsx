@@ -12,11 +12,13 @@ import type { RfqAccount } from "@/chain/accounts/rfq";
 import type { QuoteAccount } from "@/chain/accounts/quote";
 import { useSettlementProgram } from "@/chain/program";
 import { useCluster } from "@/app/providers/ClusterProvider";
+import { useNowSecs } from "@/app/hooks/useNowSecs";
+import { solscanTxUrl } from "@/chain/cluster";
 import { canCompleteSettlement, fundingDeadline } from "@/chain/state-machine";
 import { totalToFund } from "@/chain/math";
 import { buildCompleteSettlementTx } from "@/chain/instructions/taker";
 import { submitRfqTx } from "@/chain/instructions/shared";
-import { resolveTokenMeta } from "@/app/lib/tokens";
+import { useResolveTokenMeta } from "@/app/hooks/useResolveTokenMeta";
 import { formatTokenAmount } from "@/app/lib/format";
 import { useTokenBalanceState } from "@/app/hooks/useTokenBalanceState";
 import { BetaTokenNotice } from "@/app/components/BetaTokenNotice";
@@ -28,7 +30,6 @@ import { DeadlineRing } from "@/app/components/DeadlineRing";
 import { AddressDisplay } from "@/app/components/AddressDisplay";
 import { Button } from "@/app/components/ui/button";
 import { ArrowLeft, Loader2, AlertTriangle } from "lucide-react";
-import type { Cluster } from "@/chain/env";
 
 interface SettleQuoteProps {
   quote: QuoteAccount;
@@ -37,12 +38,6 @@ interface SettleQuoteProps {
   facilitatorFeeBps: number;
   onDone: () => void;
   onBack: () => void;
-}
-
-function solscanTx(sig: string, cluster: Cluster): string {
-  const suffix =
-    cluster === "devnet" ? "?cluster=devnet" : cluster === "localnet" ? "?cluster=custom" : "";
-  return `https://solscan.io/tx/${sig}${suffix}`;
 }
 
 export function SettleQuote({
@@ -58,13 +53,14 @@ export function SettleQuote({
   const wallet = useWallet();
   const queryClient = useQueryClient();
   const { cluster } = useCluster();
+  const resolveToken = useResolveTokenMeta();
 
   const connected = wallet.publicKey?.toBase58() ?? null;
   const isOwner = connected !== null && connected === quote.taker.toBase58();
 
-  const quoteMeta = resolveTokenMeta(rfq.quoteMint.toBase58());
-  const baseMeta = resolveTokenMeta(rfq.baseMint.toBase58());
-  const usdcMeta = resolveTokenMeta(rfq.usdcMint.toBase58());
+  const quoteMeta = resolveToken(rfq.quoteMint.toBase58());
+  const baseMeta = resolveToken(rfq.baseMint.toBase58());
+  const usdcMeta = resolveToken(rfq.usdcMint.toBase58());
 
   const quoteAmount = quote.quoteAmount ?? 0n;
   const required = useMemo(
@@ -83,7 +79,7 @@ export function SettleQuote({
   // generic top-up note.
   const isBetaMint = rfq.quoteMint.equals(rfq.usdcMint);
 
-  const now = Math.floor(Date.now() / 1000);
+  const now = useNowSecs();
   const canSettle = canCompleteSettlement(
     rfq,
     {
@@ -133,7 +129,7 @@ export function SettleQuote({
           receivedAmount={formatTokenAmount(rfq.baseAmount, baseMeta.decimals)}
           receivedSymbol={baseMeta.symbol}
           txSignature={receipt}
-          solscanUrl={solscanTx(receipt, cluster)}
+          solscanUrl={solscanTxUrl(receipt, cluster)}
           cluster={cluster}
           onDone={onDone}
         />

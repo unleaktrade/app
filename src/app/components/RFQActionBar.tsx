@@ -35,7 +35,7 @@ import {
   type RfqActionTone,
 } from "@/app/lib/rfq-actions";
 import { findQuoteByPda } from "@/app/lib/quote-lookup";
-import { resolveTokenMeta } from "@/app/lib/tokens";
+import { useResolveTokenMeta } from "@/app/hooks/useResolveTokenMeta";
 import { formatTokenAmount } from "@/app/lib/format";
 import { useCluster } from "@/app/providers/ClusterProvider";
 import { useTokenBalanceState } from "@/app/hooks/useTokenBalanceState";
@@ -99,6 +99,7 @@ export function RFQActionBar({
   const connected = wallet.publicKey?.toBase58() ?? null;
   // Recompute per render so the countdown-driven guards flip exactly on deadline.
   const now = useNowSecs();
+  const resolveToken = useResolveTokenMeta();
 
   const selectedQuoteFacilitator = useMemo(() => {
     const winning = findQuoteByPda(quotes, rfq.selectedQuote?.toBase58() ?? null);
@@ -141,8 +142,8 @@ export function RFQActionBar({
       ? "Connect a wallet to see what you can do here."
       : "No pending action for your wallet on this RFQ.";
 
-  const quoteMeta = resolveTokenMeta(rfq.quoteMint.toBase58());
-  const usdcMeta = resolveTokenMeta(rfq.usdcMint.toBase58());
+  const quoteMeta = resolveToken(rfq.quoteMint.toBase58());
+  const usdcMeta = resolveToken(rfq.usdcMint.toBase58());
 
   // Bond-funding check for the "open" confirm (#67). Only reads while the
   // action is actually on offer (draft + connected maker); hard-blocks the

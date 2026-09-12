@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion } from "motion/react";
 import { useNavigate, useOutletContext } from "react-router";
 import { PublicKey } from "@solana/web3.js";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
@@ -18,6 +18,7 @@ import { buildOpenRfqTx, buildWithdrawRewardTx } from "@/chain/instructions/make
 import { submitRfqTx } from "@/chain/instructions/shared";
 import { toRfqViewModel, toQuoteViewModel } from "@/app/lib/rfq-view-model";
 import { resolveTokenMeta } from "@/app/lib/tokens";
+import { useResolveTokenMeta } from "@/app/hooks/useResolveTokenMeta";
 import { formatTokenAmount } from "@/app/lib/format";
 import { fetchTokenBalance } from "@/app/lib/token-balance-state";
 import {
@@ -32,13 +33,12 @@ import { Button } from "@/app/components/ui/button";
 import { PageShell } from "@/app/components/PageShell";
 import { StatusBadge } from "@/app/components/StatusBadge";
 import { SkeletonList } from "@/app/components/SkeletonList";
+import { CollapsibleSection } from "@/app/components/CollapsibleSection";
 import { SeedlingIllustration } from "@/app/components/illustrations";
 import { ErrorRetry } from "@/app/components/ErrorRetry";
 import type { DashboardOutletContext } from "@/app/components/DashboardLayout";
 import {
-  AlertCircle,
   CheckCircle2,
-  ChevronDown,
   Clock,
   Coins,
   Edit,
@@ -91,13 +91,14 @@ export function MyActivity() {
   const [batch, setBatch] = useState<{ done: number; total: number } | null>(null);
 
   const nowSecs = Math.floor(Date.now() / 1000);
+  const resolveToken = useResolveTokenMeta();
 
   const allRFQs = useMemo(
-    () => (rfqQuery.data ?? []).map((row) => toRfqViewModel(row, nowSecs)),
+    () => (rfqQuery.data ?? []).map((row) => toRfqViewModel(row, nowSecs, resolveToken)),
     // nowSecs intentionally excluded — re-deriving every second churns identity
     // for no benefit; expiresIn refreshes on the next data refetch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rfqQuery.data],
+    [rfqQuery.data, resolveToken],
   );
   const rfqByKey = useMemo(() => new Map(allRFQs.map((r) => [r.publicKey, r])), [allRFQs]);
 
@@ -110,10 +111,10 @@ export function MyActivity() {
     () =>
       (quoteQuery.data ?? []).map((row) => {
         const parent = rfqByKey.get(row.account.rfq.toBase58());
-        const decimals = parent ? resolveTokenMeta(parent.quoteMint).decimals : 0;
+        const decimals = parent ? resolveToken(parent.quoteMint).decimals : 0;
         return toQuoteViewModel(row, decimals);
       }),
-    [quoteQuery.data, rfqByKey],
+    [quoteQuery.data, rfqByKey, resolveToken],
   );
 
   // Rewards (Phase 5 #15). Candidates are Settled RFQs where I'm the recorded
@@ -156,8 +157,16 @@ export function MyActivity() {
             quotes: winningQuotesQuery.data ?? new Map(),
             trackers: rewardQuery.data ?? [],
             me: meStr,
+            resolve: resolveToken,
           }),
-    [meStr, rfqQuery.data, settlementsQuery.data, winningQuotesQuery.data, rewardQuery.data],
+    [
+      meStr,
+      rfqQuery.data,
+      settlementsQuery.data,
+      winningQuotesQuery.data,
+      rewardQuery.data,
+      resolveToken,
+    ],
   );
   const claimedRewards = useMemo(
     () => toClaimedRewards(rewardQuery.data ?? [], rfqQuery.data),
@@ -780,86 +789,6 @@ function AttentionChip({ item }: { item: Attention }) {
       >
         {item.cta}
       </Button>
-    </div>
-  );
-}
-
-interface CollapsibleSectionProps {
-  id: string;
-  title: string;
-  count: number;
-  needsAttentionCount?: number;
-  icon: typeof FileText;
-  defaultOpen: boolean;
-  action?: ReactNode;
-  children: ReactNode;
-}
-
-function CollapsibleSection({
-  id,
-  title,
-  count,
-  needsAttentionCount = 0,
-  icon: Icon,
-  defaultOpen,
-  action,
-  children,
-}: CollapsibleSectionProps) {
-  const [open, setOpen] = useState(defaultOpen);
-
-  return (
-    <div
-      id={id}
-      className="rounded-lg sm:rounded-xl border border-white/10 bg-gradient-to-br from-white/[0.04] to-white/[0.02] backdrop-blur-sm"
-    >
-      <div className="flex items-center justify-between gap-3 p-4 sm:p-5">
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          className="flex items-center gap-3 min-w-0 flex-1 text-left group"
-          aria-expanded={open}
-          aria-controls={`${id}-body`}
-        >
-          <div className="p-2 rounded-lg bg-white/10 flex-shrink-0">
-            <Icon className="h-4 w-4 text-white/80" />
-          </div>
-          <div className="flex items-baseline gap-2 min-w-0">
-            <h3 className="text-base sm:text-lg font-bold text-white truncate group-hover:text-white/90">
-              {title} <span className="text-white/40 font-normal">({count})</span>
-            </h3>
-            {needsAttentionCount > 0 && (
-              <span className="hidden sm:inline-flex items-center gap-1 text-xs text-amber-400 font-medium">
-                <AlertCircle className="h-3 w-3" />
-                {needsAttentionCount} need action
-              </span>
-            )}
-          </div>
-          <motion.div
-            animate={{ rotate: open ? 180 : 0 }}
-            transition={{ duration: 0.2 }}
-            className="ml-2 flex-shrink-0"
-          >
-            <ChevronDown className="h-5 w-5 text-white/60" />
-          </motion.div>
-        </button>
-        {action && <div className="flex-shrink-0">{action}</div>}
-      </div>
-
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            key="content"
-            id={`${id}-body`}
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: "easeInOut" }}
-            className="overflow-hidden"
-          >
-            <div className="px-4 sm:px-5 pb-4 sm:pb-5 pt-1">{children}</div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

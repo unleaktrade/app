@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+import { screen, within } from "@testing-library/react";
+import { renderWithProviders } from "@/test/render";
 import { TransparencyTable, type TransparencyRow } from "../TransparencyTable";
 
 // Known-mint fixtures so resolveTokenMeta yields real symbols/decimals.
@@ -24,7 +25,7 @@ const ROWS: TransparencyRow[] = [
 
 describe("TransparencyTable", () => {
   it("renders per-mint amounts with symbols, never USD", () => {
-    const { container } = render(<TransparencyTable rows={ROWS} dateLabel="Seized" />);
+    const { container } = renderWithProviders(<TransparencyTable rows={ROWS} dateLabel="Seized" />);
     const table = screen.getByRole("table");
     expect(within(table).getByText("25")).toBeInTheDocument();
     expect(within(table).getAllByText("USDC").length).toBeGreaterThan(0);
@@ -32,22 +33,24 @@ describe("TransparencyTable", () => {
   });
 
   it("renders null amounts as pending and null dates as —", () => {
-    render(<TransparencyTable rows={ROWS} dateLabel="Seized" />);
+    renderWithProviders(<TransparencyTable rows={ROWS} dateLabel="Seized" />);
     const table = screen.getByRole("table");
     expect(within(table).getByText("pending")).toBeInTheDocument();
     expect(within(table).getByText("—")).toBeInTheDocument();
   });
 
   it("uses the provided date column label", () => {
-    render(<TransparencyTable rows={ROWS} dateLabel="Paid" />);
+    renderWithProviders(<TransparencyTable rows={ROWS} dateLabel="Paid" />);
     expect(screen.getByRole("columnheader", { name: "Paid" })).toBeInTheDocument();
   });
 
-  it("navigates via the RFQ cell when onViewRfq is provided", () => {
-    const onViewRfq = vi.fn();
-    render(<TransparencyTable rows={ROWS} dateLabel="Seized" onViewRfq={onViewRfq} />);
+  it("links each RFQ cell to the detail route without nesting interactive elements", () => {
+    const { container } = renderWithProviders(<TransparencyTable rows={ROWS} dateLabel="Seized" />);
     const table = screen.getByRole("table");
-    within(table).getAllByRole("button")[0]?.click();
-    expect(onViewRfq).toHaveBeenCalledWith(ROWS[0]?.rfq);
+    const link = within(table).getAllByRole("link", { name: /7Xg9/ })[0];
+    expect(link).toHaveAttribute("href", `/dashboard/rfq/${ROWS[0]?.rfq}`);
+    // React DOM rejects <button> inside <button> (and <a> inside <a>); the
+    // copy control next to the address must not be wrapped by another control.
+    expect(container.querySelectorAll("button button, a a, a button, button a")).toHaveLength(0);
   });
 });

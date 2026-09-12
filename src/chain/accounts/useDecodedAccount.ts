@@ -1,9 +1,11 @@
 import { useMemo } from "react";
 import type { PublicKey } from "@solana/web3.js";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { useConnection } from "@solana/wallet-adapter-react";
 import { env } from "@/chain/env";
 import { useSettlementProgram } from "@/chain/program";
 import { useAccountSubscription } from "@/chain/accountSubscription";
+import { accountKey } from "./queryKeys";
 
 export interface AccountCodec<TRaw, T> {
   /**
@@ -19,7 +21,7 @@ export interface AccountCodec<TRaw, T> {
 /**
  * Shared fetch + live-subscription plumbing for every settlement-engine
  * account hook. Mirrors the pattern established by useConfigAccount in
- * Phase 1: TanStack query keyed by [account, programId, address] kept fresh
+ * Phase 1: TanStack query keyed by [account, programId, endpoint, address] kept fresh
  * by a websocket account subscription — no polling.
  */
 export function useDecodedAccount<TRaw, T>(
@@ -27,12 +29,14 @@ export function useDecodedAccount<TRaw, T>(
   address: PublicKey | null,
 ): UseQueryResult<T | null> {
   const program = useSettlementProgram();
-  const { accountKey, normalise } = codec;
+  const { connection } = useConnection();
+  const { accountKey: accountName, normalise } = codec;
 
   const address58 = address?.toBase58() ?? null;
+  const endpoint = connection.rpcEndpoint;
   const queryKey = useMemo(
-    () => [accountKey, env.programId.toBase58(), address58],
-    [accountKey, address58],
+    () => accountKey(accountName, env.programId.toBase58(), endpoint, address58),
+    [accountName, endpoint, address58],
   );
 
   const query = useQuery<T | null>({
@@ -44,8 +48,8 @@ export function useDecodedAccount<TRaw, T>(
         string,
         { fetchNullable(address: PublicKey): Promise<TRaw | null> } | undefined
       >;
-      const api = accountsApi[accountKey];
-      if (!api) throw new Error(`Unknown account namespace: ${accountKey}`);
+      const api = accountsApi[accountName];
+      if (!api) throw new Error(`Unknown account namespace: ${accountName}`);
       const raw = await api.fetchNullable(address);
       return raw ? normalise(raw) : null;
     },
@@ -61,9 +65,9 @@ export function useDecodedAccount<TRaw, T>(
       const coder = program.coder as unknown as {
         accounts: { decode<TDecoded>(name: string, data: Buffer): TDecoded };
       };
-      return normalise(coder.accounts.decode<TRaw>(accountKey, data));
+      return normalise(coder.accounts.decode<TRaw>(accountName, data));
     };
-  }, [program, accountKey, normalise]);
+  }, [program, accountName, normalise]);
 
   useAccountSubscription(program && address ? address : null, decoder, queryKey);
 

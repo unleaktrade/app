@@ -23,7 +23,7 @@ import { buildSelectQuoteTx } from "@/chain/instructions/maker";
 import { submitRfqTx } from "@/chain/instructions/shared";
 import { toRfqViewModel } from "@/app/lib/rfq-view-model";
 import { findQuoteByPda } from "@/app/lib/quote-lookup";
-import { resolveTokenMeta } from "@/app/lib/tokens";
+import { useResolveTokenMeta } from "@/app/hooks/useResolveTokenMeta";
 import { formatTokenAmount, truncateAddress } from "@/app/lib/format";
 import { useNowSecs } from "@/app/hooks/useNowSecs";
 import { toast } from "sonner";
@@ -76,6 +76,7 @@ export function AdaptiveRFQDetail({
   const quotesQuery = useQuoteAccountsForRfq(pda);
   const { publicKey } = useWallet();
   const nowSecs = useNowSecs();
+  const resolveToken = useResolveTokenMeta();
 
   if (rfqQuery.isLoading) {
     return (
@@ -106,7 +107,7 @@ export function AdaptiveRFQDetail({
   }
 
   const account = rfqQuery.data;
-  const rfq = toRfqViewModel({ publicKey: pda, account }, nowSecs);
+  const rfq = toRfqViewModel({ publicKey: pda, account }, nowSecs, resolveToken);
   const quoteRows = quotesQuery.data ?? [];
   const connected = publicKey?.toBase58() ?? null;
 
@@ -120,7 +121,7 @@ export function AdaptiveRFQDetail({
   };
 
   const [base = rfq.baseMint, quote = rfq.quoteMint] = rfq.pair.split("/");
-  const quoteMeta = resolveTokenMeta(rfq.quoteMint);
+  const quoteMeta = resolveToken(rfq.quoteMint);
   const usdcSymbol = "USDC";
 
   return (

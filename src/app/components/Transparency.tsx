@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { useNavigate } from "react-router";
 import { ShieldCheck, Landmark } from "lucide-react";
 import { PageShell } from "@/app/components/PageShell";
 import { SkeletonList } from "@/app/components/SkeletonList";
@@ -9,7 +8,7 @@ import { ShieldIllustration } from "@/app/components/illustrations";
 import { TransparencyTable, type TransparencyRow } from "@/app/components/TransparencyTable";
 import { useFeesTrackerAccounts, useSlashedBondsTrackerAccounts } from "@/chain/accounts/lists";
 import { totalsByMint, sortLedger } from "@/app/lib/transparency";
-import { resolveTokenMeta } from "@/app/lib/tokens";
+import { useResolveTokenMeta } from "@/app/hooks/useResolveTokenMeta";
 import { formatTokenAmount } from "@/app/lib/format";
 
 /**
@@ -19,9 +18,9 @@ import { formatTokenAmount } from "@/app/lib/format";
  * per-mint counts and totals — never a USD aggregate.
  */
 export function Transparency() {
-  const navigate = useNavigate();
   const slashedQuery = useSlashedBondsTrackerAccounts();
   const feesQuery = useFeesTrackerAccounts();
+  const resolveToken = useResolveTokenMeta();
 
   const slashedRows = useMemo<TransparencyRow[]>(
     () =>
@@ -78,8 +77,8 @@ export function Transparency() {
           <SummaryTile
             key={`s-${t.mint}`}
             label="Total seized"
-            value={formatTokenAmount(t.total, resolveTokenMeta(t.mint).decimals)}
-            hint={resolveTokenMeta(t.mint).symbol}
+            value={formatTokenAmount(t.total, resolveToken(t.mint).decimals)}
+            hint={resolveToken(t.mint).symbol}
           />
         ))}
         <SummaryTile label="Fee payments" value={String(feeRows.length)} hint="settlements" />
@@ -87,8 +86,8 @@ export function Transparency() {
           <SummaryTile
             key={`f-${t.mint}`}
             label="Top fee mint"
-            value={formatTokenAmount(t.total, resolveTokenMeta(t.mint).decimals)}
-            hint={resolveTokenMeta(t.mint).symbol}
+            value={formatTokenAmount(t.total, resolveToken(t.mint).decimals)}
+            hint={resolveToken(t.mint).symbol}
           />
         ))}
       </div>
@@ -115,11 +114,7 @@ export function Transparency() {
         ) : (
           <>
             <MintTotalsRow totals={slashedTotals} />
-            <TransparencyTable
-              rows={slashedRows}
-              dateLabel="Seized"
-              onViewRfq={(rfq) => navigate(`/dashboard/rfq/${rfq}`)}
-            />
+            <TransparencyTable rows={slashedRows} dateLabel="Seized" />
           </>
         )}
       </Section>
@@ -146,11 +141,7 @@ export function Transparency() {
         ) : (
           <>
             <MintTotalsRow totals={feeTotals} />
-            <TransparencyTable
-              rows={feeRows}
-              dateLabel="Paid"
-              onViewRfq={(rfq) => navigate(`/dashboard/rfq/${rfq}`)}
-            />
+            <TransparencyTable rows={feeRows} dateLabel="Paid" />
           </>
         )}
       </Section>
@@ -169,11 +160,12 @@ function SummaryTile({ label, value, hint }: { label: string; value: string; hin
 }
 
 function MintTotalsRow({ totals }: { totals: ReturnType<typeof totalsByMint> }) {
+  const resolveToken = useResolveTokenMeta();
   if (totals.length === 0) return null;
   return (
     <div className="mb-3 flex flex-wrap gap-2">
       {totals.map((t) => {
-        const meta = resolveTokenMeta(t.mint);
+        const meta = resolveToken(t.mint);
         return (
           <span
             key={t.mint}
