@@ -7,4 +7,4 @@
 // An Open RFQ seeded with a 24h commit window (`--only open` uses the LONG
 // TTLs), so the commit CTA is live under the pinned clock. Used by the
 // commit-modal + mobile action-sheet specs.
-export const OPEN_RFQ_WITH_COMMIT_WINDOW = "CQ1NZW1PuxgQY74ds27dsmD3JDNu2Vewv5r2Wj3da8hK";
+export const OPEN_RFQ_WITH_COMMIT_WINDOW = "29rk4xDDxXnreDm5FMnmZnG1JyoYz7KfG3zHkRdvtSX4";
