@@ -7,18 +7,16 @@
 // submitRfqTx (build → toast + Solscan link → invalidate). select_quote is not
 // here: picking a winner needs the comparison table, so it lives per-row there.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
-import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import type { RfqAccount } from "@/chain/accounts/rfq";
 import type { QuoteAccount } from "@/chain/accounts/quote";
 import type { ProgramAccount } from "@/chain/accounts/lists";
 import { useSettlementProgram } from "@/chain/program";
-import { submitRfqTx } from "@/chain/instructions/shared";
 import {
   buildCancelRfqTx,
   buildCloseExpiredTx,
@@ -49,6 +47,7 @@ import { RFQActionSheet } from "@/app/components/RFQActionSheet";
 import { BondBreakdown } from "@/app/components/BondBreakdown";
 import { cn } from "@/app/components/ui/utils";
 import { useNowSecs } from "@/app/hooks/useNowSecs";
+import { useSubmitRfqTx } from "@/app/hooks/useSubmitRfqTx";
 
 interface RFQActionBarProps {
   rfqPda: PublicKey;
@@ -87,12 +86,11 @@ export function RFQActionBar({
   onRequestedActionConsumed,
 }: RFQActionBarProps) {
   const program = useSettlementProgram();
-  const { connection } = useConnection();
   const wallet = useWallet();
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  const [busy, setBusy] = useState(false);
+  const submit = useSubmitRfqTx();
+  const busy = submit.isPending;
   const [confirm, setConfirm] = useState<RfqActionId | null>(null);
   const [facilitatorInput, setFacilitatorInput] = useState("");
 
@@ -166,12 +164,8 @@ export function RFQActionBar({
       toast.error("Connect a wallet to continue");
       return;
     }
-    setBusy(true);
     try {
-      await submitRfqTx({
-        connection,
-        wallet,
-        queryClient,
+      await submit.mutateAsync({
         rfq: rfqPda,
         build,
         pendingMessage: messages.pending,
@@ -181,8 +175,6 @@ export function RFQActionBar({
       opts?.onDone?.();
     } catch {
       // sendAndConfirmWithToast already surfaced the error toast.
-    } finally {
-      setBusy(false);
     }
   }
 
@@ -190,13 +182,18 @@ export function RFQActionBar({
   // action set (data may still be loading on first renders). Never legal ⇒
   // never fires, and the URL param is left untouched.
   const requestedFired = useRef(false);
+  // The handler is an Effect Event: it always sees the latest onActionClick /
+  // callback without being a dependency, so the effect re-runs only when the
+  // requested id or the legal action set changes.
+  const fireRequestedAction = useEffectEvent((id: RfqActionId) => {
+    onActionClick(id);
+    onRequestedActionConsumed?.();
+  });
   useEffect(() => {
     if (requestedAction === null || requestedFired.current) return;
     if (!actions.some((a) => a.id === requestedAction)) return;
     requestedFired.current = true;
-    onActionClick(requestedAction);
-    onRequestedActionConsumed?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fire-once guard; onActionClick identity churns per render
+    fireRequestedAction(requestedAction);
   }, [requestedAction, actions]);
 
   function onActionClick(id: RfqActionId) {

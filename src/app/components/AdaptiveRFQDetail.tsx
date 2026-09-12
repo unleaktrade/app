@@ -1,7 +1,6 @@
 import { motion } from "motion/react";
 import { PublicKey } from "@solana/web3.js";
-import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useWallet } from "@solana/wallet-adapter-react";
 import type { RFQ } from "@/types/rfq";
 import { Button } from "@/app/components/ui/button";
 import { PageShell } from "@/app/components/PageShell";
@@ -20,7 +19,6 @@ import type { QuoteAccount } from "@/chain/accounts/quote";
 import { useSettlementProgram } from "@/chain/program";
 import { canSelectQuote } from "@/chain/state-machine";
 import { buildSelectQuoteTx } from "@/chain/instructions/maker";
-import { submitRfqTx } from "@/chain/instructions/shared";
 import { toRfqViewModel } from "@/app/lib/rfq-view-model";
 import { findQuoteByPda } from "@/app/lib/quote-lookup";
 import { useResolveTokenMeta } from "@/app/hooks/useResolveTokenMeta";
@@ -39,6 +37,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useSubmitRfqTx } from "@/app/hooks/useSubmitRfqTx";
 
 interface AdaptiveRFQDetailProps {
   rfqId: string;
@@ -457,10 +456,10 @@ function SelectionTable({
   rfqPda: PublicKey;
 }) {
   const program = useSettlementProgram();
-  const { connection } = useConnection();
   const wallet = useWallet();
-  const queryClient = useQueryClient();
-  const [busyPda, setBusyPda] = useState<string | null>(null);
+  const submit = useSubmitRfqTx();
+  // Per-row busy indicator: the mutation carries the quote PDA as its tag.
+  const busyPda = submit.isPending ? (submit.variables?.tag ?? null) : null;
   const [inspecting, setInspecting] = useState<ProgramAccount<QuoteAccount> | null>(null);
   const connected = wallet.publicKey?.toBase58() ?? null;
 
@@ -481,19 +480,16 @@ function SelectionTable({
         bondsRefundedAt: quoteRow.account.bondsRefundedAt,
         selected: quoteRow.account.selected,
       },
-      Math.floor(Date.now() / 1000),
+      nowSecs,
     );
     if (!legal) {
       toast.error("This quote can no longer be selected");
       return;
     }
-    setBusyPda(quoteRow.publicKey.toBase58());
     try {
-      await submitRfqTx({
-        connection,
-        wallet,
-        queryClient,
+      await submit.mutateAsync({
         rfq: rfqPda,
+        tag: quoteRow.publicKey.toBase58(),
         build: () =>
           buildSelectQuoteTx({
             program,
@@ -508,8 +504,6 @@ function SelectionTable({
       });
     } catch {
       // toast already surfaced
-    } finally {
-      setBusyPda(null);
     }
   }
 

@@ -5,8 +5,7 @@
 // shareable receipt with the Solscan link.
 
 import { useMemo, useState } from "react";
-import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useWallet } from "@solana/wallet-adapter-react";
 import type { PublicKey } from "@solana/web3.js";
 import type { RfqAccount } from "@/chain/accounts/rfq";
 import type { QuoteAccount } from "@/chain/accounts/quote";
@@ -17,7 +16,6 @@ import { solscanTxUrl } from "@/chain/cluster";
 import { canCompleteSettlement, fundingDeadline } from "@/chain/state-machine";
 import { totalToFund } from "@/chain/math";
 import { buildCompleteSettlementTx } from "@/chain/instructions/taker";
-import { submitRfqTx } from "@/chain/instructions/shared";
 import { useResolveTokenMeta } from "@/app/hooks/useResolveTokenMeta";
 import { formatTokenAmount } from "@/app/lib/format";
 import { useTokenBalanceState } from "@/app/hooks/useTokenBalanceState";
@@ -30,6 +28,7 @@ import { DeadlineRing } from "@/app/components/DeadlineRing";
 import { AddressDisplay } from "@/app/components/AddressDisplay";
 import { Button } from "@/app/components/ui/button";
 import { ArrowLeft, Loader2, AlertTriangle } from "lucide-react";
+import { useSubmitRfqTx } from "@/app/hooks/useSubmitRfqTx";
 
 interface SettleQuoteProps {
   quote: QuoteAccount;
@@ -49,9 +48,7 @@ export function SettleQuote({
   onBack,
 }: SettleQuoteProps) {
   const program = useSettlementProgram();
-  const { connection } = useConnection();
   const wallet = useWallet();
-  const queryClient = useQueryClient();
   const { cluster } = useCluster();
   const resolveToken = useResolveTokenMeta();
 
@@ -68,7 +65,8 @@ export function SettleQuote({
     [quoteAmount, rfq.takerFeeBps],
   );
 
-  const [busy, setBusy] = useState(false);
+  const submit = useSubmitRfqTx();
+  const busy = submit.isPending;
   const [receipt, setReceipt] = useState<string | null>(null);
 
   // Balance check on the taker's quote-mint ATA — through the shared hook so a
@@ -98,12 +96,8 @@ export function SettleQuote({
 
   async function settle() {
     if (!program || !wallet.publicKey) return;
-    setBusy(true);
     try {
-      const sig = await submitRfqTx({
-        connection,
-        wallet,
-        queryClient,
+      const sig = await submit.mutateAsync({
         rfq: rfqPda,
         build: () => buildCompleteSettlementTx({ program, taker: wallet.publicKey!, rfqPda, rfq }),
         pendingMessage: "Settling…",
@@ -113,8 +107,6 @@ export function SettleQuote({
       fireSettlementConfetti();
     } catch {
       // toast already surfaced
-    } finally {
-      setBusy(false);
     }
   }
 

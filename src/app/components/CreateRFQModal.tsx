@@ -4,14 +4,13 @@
 
 import { useState } from "react";
 import { PublicKey } from "@solana/web3.js";
-import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { ResponsiveModal } from "@/app/components/ResponsiveModal";
 import { RFQForm, type RFQFormValues } from "@/app/components/RFQForm";
 import { useSettlementProgram } from "@/chain/program";
 import { useConfigAccount } from "@/chain/accounts/config";
 import { buildInitRfqTx } from "@/chain/instructions/maker";
-import { newRfqUuid, submitRfqTx } from "@/chain/instructions/shared";
+import { newRfqUuid } from "@/chain/instructions/shared";
 import { parseTokenAmount } from "@/app/lib/format";
 import { resolveTokenMeta } from "@/app/lib/tokens";
 import { useResolveTokenMeta } from "@/app/hooks/useResolveTokenMeta";
@@ -19,6 +18,7 @@ import { useCluster } from "@/app/providers/ClusterProvider";
 import { useTokenBalanceState, type TokenBalanceState } from "@/app/hooks/useTokenBalanceState";
 import { BetaTokenNotice } from "@/app/components/BetaTokenNotice";
 import { toast } from "sonner";
+import { useSubmitRfqTx } from "@/app/hooks/useSubmitRfqTx";
 
 interface CreateRFQModalProps {
   open: boolean;
@@ -27,13 +27,12 @@ interface CreateRFQModalProps {
 
 export function CreateRFQModal({ open, onOpenChange }: CreateRFQModalProps) {
   const program = useSettlementProgram();
-  const { connection } = useConnection();
   const wallet = useWallet();
-  const queryClient = useQueryClient();
   const configQuery = useConfigAccount();
   const { cluster } = useCluster();
 
-  const [submitting, setSubmitting] = useState(false);
+  const submit = useSubmitRfqTx();
+  const submitting = submit.isPending;
   // Bond amount (base units) that a blocked submit needed — renders the beta
   // token notice above the form until funding lands or the modal closes.
   const [bondGate, setBondGate] = useState<bigint | null>(null);
@@ -91,13 +90,9 @@ export function CreateRFQModal({ open, onOpenChange }: CreateRFQModalProps) {
       return void toast.error("Invalid token mint or facilitator address");
     }
 
-    setSubmitting(true);
     try {
       const uuid = newRfqUuid();
-      await submitRfqTx({
-        connection,
-        wallet,
-        queryClient,
+      await submit.mutateAsync({
         build: () =>
           buildInitRfqTx({
             program,
@@ -123,8 +118,6 @@ export function CreateRFQModal({ open, onOpenChange }: CreateRFQModalProps) {
       onOpenChange(false);
     } catch {
       // sendAndConfirmWithToast already surfaced the error toast.
-    } finally {
-      setSubmitting(false);
     }
   };
 
