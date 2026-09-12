@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Input } from "@/app/components/ui/input";
-import { useClusterState } from "@/chain/cluster";
+import { useCluster } from "@/app/providers/ClusterProvider";
 import { useTokenMeta, useUsdPrice } from "@/app/lib/jupiter";
 import { formatTokenAmount, parseTokenAmount } from "@/app/lib/format";
 import { cn } from "@/app/components/ui/utils";
@@ -37,7 +37,7 @@ export function TokenAmountInput({
   disabled,
   className,
 }: TokenAmountInputProps) {
-  const { cluster } = useClusterState();
+  const { cluster } = useCluster();
   const meta = useTokenMeta(mint, cluster);
   const decimals = meta.data?.decimals ?? fallbackDecimals;
   const symbol = meta.data?.symbol ?? fallbackSymbol;

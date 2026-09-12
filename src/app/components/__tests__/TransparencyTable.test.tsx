@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
+import { renderWithProviders } from "@/test/render";
 import { TransparencyTable, type TransparencyRow } from "../TransparencyTable";
 
 // Known-mint fixtures so resolveTokenMeta yields real symbols/decimals.
@@ -24,7 +25,7 @@ const ROWS: TransparencyRow[] = [
 
 describe("TransparencyTable", () => {
   it("renders per-mint amounts with symbols, never USD", () => {
-    const { container } = render(<TransparencyTable rows={ROWS} dateLabel="Seized" />);
+    const { container } = renderWithProviders(<TransparencyTable rows={ROWS} dateLabel="Seized" />);
     const table = screen.getByRole("table");
     expect(within(table).getByText("25")).toBeInTheDocument();
     expect(within(table).getAllByText("USDC").length).toBeGreaterThan(0);
@@ -32,20 +33,20 @@ describe("TransparencyTable", () => {
   });
 
   it("renders null amounts as pending and null dates as —", () => {
-    render(<TransparencyTable rows={ROWS} dateLabel="Seized" />);
+    renderWithProviders(<TransparencyTable rows={ROWS} dateLabel="Seized" />);
     const table = screen.getByRole("table");
     expect(within(table).getByText("pending")).toBeInTheDocument();
     expect(within(table).getByText("—")).toBeInTheDocument();
   });
 
   it("uses the provided date column label", () => {
-    render(<TransparencyTable rows={ROWS} dateLabel="Paid" />);
+    renderWithProviders(<TransparencyTable rows={ROWS} dateLabel="Paid" />);
     expect(screen.getByRole("columnheader", { name: "Paid" })).toBeInTheDocument();
   });
 
   it("navigates via the RFQ cell when onViewRfq is provided", () => {
     const onViewRfq = vi.fn();
-    render(<TransparencyTable rows={ROWS} dateLabel="Seized" onViewRfq={onViewRfq} />);
+    renderWithProviders(<TransparencyTable rows={ROWS} dateLabel="Seized" onViewRfq={onViewRfq} />);
     const table = screen.getByRole("table");
     within(table).getAllByRole("button")[0]?.click();
     expect(onViewRfq).toHaveBeenCalledWith(ROWS[0]?.rfq);

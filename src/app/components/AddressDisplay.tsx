@@ -1,7 +1,7 @@
 import { Check, Copy, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useClusterState } from "@/chain/cluster";
+import { useCluster } from "@/app/providers/ClusterProvider";
 import { truncateAddress } from "@/app/lib/format";
 import { cn } from "@/app/components/ui/utils";
 
@@ -17,7 +17,7 @@ interface AddressDisplayProps {
  * link (devnet adds ?cluster=devnet; localnet gets no explorer link).
  */
 export function AddressDisplay({ address, visible = 4, className }: AddressDisplayProps) {
-  const { cluster } = useClusterState();
+  const { cluster } = useCluster();
   const [copied, setCopied] = useState(false);
 
   const solscanUrl =
