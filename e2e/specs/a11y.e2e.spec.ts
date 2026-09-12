@@ -69,11 +69,17 @@ test.describe("axe-core accessibility audit", () => {
   });
 
   test("transparency ledger", async ({ makerPage }, testInfo) => {
-    // Hermetic replay serves no tracker accounts — the page must render its
-    // empty states gracefully (that IS the assertion; populated rows are
-    // covered by the RTL fixture tests).
+    // The cassette (re-recorded 2026-09-12) carries the real devnet tracker
+    // accounts, so the page renders both populated ledgers; the audit runs
+    // over the real tables + per-row links. Empty states are covered by the
+    // RTL suites (Transparency / EmptyState).
     await makerPage.goto("/dashboard/transparency");
-    await expect(makerPage.getByText("No slashed bonds")).toBeVisible({ timeout: 15_000 });
+    await expect(makerPage.getByRole("heading", { name: "Slashed bonds" })).toBeVisible({
+      timeout: 15_000,
+    });
+    const tables = makerPage.getByRole("table");
+    await expect(tables.first()).toBeVisible();
+    expect(await tables.first().getByRole("row").count()).toBeGreaterThan(1);
     await auditCritical(makerPage, testInfo);
   });
 
