@@ -179,3 +179,18 @@ test.describe("Mobile viewport @mobile", () => {
   // ephemeral + uninvolved. Its mobile bottom-sheet behaviour is the same
   // ResponsiveModal exercised by the commit-modal and token-selector cases.
 });
+
+test.describe("Mobile menu keyboard dismissal @mobile", () => {
+  test("Escape closes the mobile menu and the backdrop is decorative", async ({ makerPage }) => {
+    await makerPage.goto("/dashboard");
+    await makerPage.getByRole("button", { name: "Toggle menu" }).click();
+    const menu = makerPage.getByRole("dialog", { name: "Menu" });
+    await expect(menu).toBeVisible();
+    await expectInViewport(makerPage, menu);
+
+    await makerPage.keyboard.press("Escape");
+
+    await expect(menu).toBeHidden();
+    await expectNoHorizontalOverflow(makerPage);
+  });
+});
