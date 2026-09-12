@@ -3,7 +3,8 @@ import { defineConfig, loadEnv, type ProxyOptions } from "vite";
 import path from "path";
 import fs from "fs";
 import tailwindcss from "@tailwindcss/vite";
-import react from "@vitejs/plugin-react";
+import react, { reactCompilerPreset } from "@vitejs/plugin-react";
+import babel from "@rolldown/plugin-babel";
 
 // Dev-only keypair-backed wallets (src/dev/devWallet.ts) so Claude / local dev
 // can drive wallet-gated flows without a real Phantom-style extension. Only
@@ -105,13 +106,17 @@ export default defineConfig(({ mode, command }) => {
   };
 
   return {
-    plugins: [react(), tailwindcss(), cspPlugin],
+    // React Compiler (babel-plugin-react-compiler via the rolldown babel bridge)
+    // runs right after the JSX transform; automatic memoisation replaces the
+    // manual useMemo/useCallback discipline, and the compiler-prep lint rules
+    // in eslint.config.js keep components within the Rules of React.
+    plugins: [react(), babel({ presets: [reactCompilerPreset()] }), tailwindcss(), cspPlugin],
     resolve: {
       alias: {
         // Support Figma Make asset imports in Vite
-        "figma:asset": path.resolve(__dirname, "./src/assets"),
+        "figma:asset": path.resolve(import.meta.dirname, "./src/assets"),
         // Alias @ to the src directory
-        "@": path.resolve(__dirname, "./src"),
+        "@": path.resolve(import.meta.dirname, "./src"),
         // Force the npm `buffer` / `process` packages for browser use instead of Node's built-ins
         buffer: "buffer/",
         process: "process/browser",
