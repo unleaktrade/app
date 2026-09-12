@@ -127,14 +127,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState({ status: "disconnected" });
   }, [disconnect]);
 
+  // The wallet disconnected out from under a pending / authenticated / error
+  // session: drop to `disconnected` during render (React's sanctioned "state
+  // depends on props" reset) rather than syncing it from an effect. `restoring`
+  // is deliberately kept — the connecting-resolution effect below decides when
+  // an eager reconnect has given up.
+  const walletGone = !connected || !publicKey;
+  if (walletGone && state.status !== "disconnected" && state.status !== "restoring") {
+    setState({ status: "disconnected" });
+  }
+
+  // Sign-in challenge. This effect mirrors an EXTERNAL state machine (the
+  // wallet adapter's connection) into ours: the synchronous transitions below
+  // (cached signature → authenticated, no signMessage → error, otherwise →
+  // pending before the async prompt) are the documented CLAUDE.md flow and
+  // are covered by the auth e2e specs, so the compiler-prep rule is disabled
+  // for this one effect rather than restructuring the gate.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     let cancelled = false;
 
     if (!connected || !publicKey) {
       lastPendingKey.current = null;
-      // Don't clobber an in-flight eager reconnect; the connecting-resolution
-      // effect below decides when to give up and fall to disconnected.
-      setState((prev) => (prev.status === "restoring" ? prev : { status: "disconnected" }));
       return;
     }
 
@@ -191,6 +205,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, [connected, publicKey, signMessage, disconnect, retryToken]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Resolve the restore window. Once SWA has actually attempted an eager
   // reconnect (connecting went true) and settled without connecting, stop

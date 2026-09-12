@@ -1,19 +1,13 @@
 import { motion } from "motion/react";
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useMemo } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import type { RFQ } from "@/types/rfq";
 import { useRfqAccounts } from "@/chain/accounts/lists";
 import { toRfqViewModel } from "@/app/lib/rfq-view-model";
 import { computeMarketStats } from "@/app/lib/market-stats";
 import { useResolveTokenMeta } from "@/app/hooks/useResolveTokenMeta";
-import {
-  getCardGradient,
-  getCardBorder,
-  getStateSectionGradient,
-  getStateTitleColor,
-  getStateSubtitle,
-  getOwnedHighlight,
-} from "@/app/lib/rfq-visuals";
+import { useNowSecs } from "@/app/hooks/useNowSecs";
+import { useMarketplaceFilters } from "@/app/hooks/useMarketplaceFilters";
 import { PageShell } from "@/app/components/PageShell";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
@@ -24,31 +18,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/app/components/ui/select";
-import { StatusBadge } from "@/app/components/StatusBadge";
 import { SkeletonList } from "@/app/components/SkeletonList";
 import { EmptyState } from "@/app/components/EmptyState";
 import { RadarIllustration } from "@/app/components/illustrations";
 import { ErrorRetry } from "@/app/components/ErrorRetry";
 import { MarketStatsCards } from "@/app/components/marketplace/MarketStatsCards";
 import { MarketOverview } from "@/app/components/marketplace/MarketOverview";
-import {
-  Search,
-  Filter,
-  Activity,
-  Clock,
-  Shield,
-  Coins,
-  ChevronDown,
-  LayoutGrid,
-  List,
-  Eye,
-  Columns3,
-  Rows3,
-  ChevronUp,
-  MousePointerClick,
-  BadgeCheck,
-  Edit3,
-} from "lucide-react";
+import { CardGridView } from "@/app/components/marketplace/CardGridView";
+import { ListView } from "@/app/components/marketplace/ListView";
+import { SwimlaneView } from "@/app/components/marketplace/SwimlaneView";
+import { HorizontalGroupsView } from "@/app/components/marketplace/HorizontalGroupsView";
+import { Search, Filter, LayoutGrid, List, Columns3, Rows3 } from "lucide-react";
 
 // Lazy so recharts (its only other importer, RewardsSection, is on the lazy
 // My-Activity route) stays out of the entry chunk — see routes.tsx / A2.
@@ -64,118 +44,34 @@ interface MarketplaceProps {
   onEditRFQ?: (rfq: RFQ) => void;
 }
 
-// The 9 RFQ lifecycle states, in display order (mirrors the Rust discriminants).
-const ALL_STATES = [
-  "Draft",
-  "Open",
-  "Committed",
-  "Revealed",
-  "Selected",
-  "Settled",
-  "Expired",
-  "Ignored",
-  "Incomplete",
-] as const;
-
-// Sort a group so the connected wallet's own RFQs come first, then by recency.
-function sortByOwnership(rfqs: RFQ[], currentUser: string | null): RFQ[] {
-  return [...rfqs].sort((a, b) => {
-    const aIsMine = currentUser !== null && a.maker === currentUser;
-    const bIsMine = currentUser !== null && b.maker === currentUser;
-    if (aIsMine && !bIsMine) return -1;
-    if (!aIsMine && bIsMine) return 1;
-    return (b.createdAt || 0) - (a.createdAt || 0);
-  });
-}
-
 export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplaceProps) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [stateFilter, setStateFilter] = useState<
-    | "all"
-    | "draft"
-    | "open"
-    | "committed"
-    | "revealed"
-    | "selected"
-    | "settled"
-    | "expired"
-    | "ignored"
-    | "incomplete"
-  >("all");
-  const [sortBy] = useState<"newest" | "expiring" | "volume">("newest");
-  const [viewMode, setViewMode] = useState<"card" | "list" | "swimlane" | "horizontal">(
-    "horizontal",
-  );
-
-  // Expansion state for horizontal view - Closed by default
-  const [expandedStates, setExpandedStates] = useState<Set<string>>(new Set());
-
-  // Toggle a single state
-  const toggleStateExpansion = (state: string) => {
-    setExpandedStates((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(state)) {
-        newSet.delete(state);
-      } else {
-        newSet.add(state);
-      }
-      return newSet;
-    });
-  };
-
   // Live on-chain RFQs → UI view-model. Lists refetch on focus (no websocket);
   // detail pages keep the per-account subscription.
   const { publicKey } = useWallet();
   const currentUser = publicKey?.toBase58() ?? null;
   const { data: rfqRows, isLoading, isError, refetch, isFetching } = useRfqAccounts();
-  const nowSecs = Math.floor(Date.now() / 1000);
+  const nowSecs = useNowSecs(60_000);
   const resolveToken = useResolveTokenMeta();
 
-  // Decode → view-model only when the underlying rows change, not on every
-  // keystroke. nowSecs is intentionally excluded from deps: it changes every
-  // render, and the list's deadline strings only need to be fresh as of the
-  // last data fetch (there is no per-second timer on this screen).
+  // Decode → view-model when the rows, the mint registry, or the once-a-minute
+  // clock change — never on every keystroke.
   const allRFQs = useMemo<RFQ[]>(
-    () => (rfqRows ?? []).map((row) => toRfqViewModel(row, nowSecs)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rfqRows],
+    () => (rfqRows ?? []).map((row) => toRfqViewModel(row, nowSecs, resolveToken)),
+    [rfqRows, nowSecs, resolveToken],
   );
 
-  // Filter → sort → group in one memo so typing in the search box no longer
-  // re-runs the full view-model map + 9× filter/sort on every render.
-  const { sortedRFQs, rfqsByState } = useMemo(() => {
-    const available = allRFQs.filter((rfq) => {
-      if (stateFilter === "draft" && rfq.state !== "Draft") return false;
-      if (stateFilter === "open" && rfq.state !== "Open") return false;
-      if (stateFilter === "committed" && rfq.state !== "Committed") return false;
-      if (stateFilter === "revealed" && rfq.state !== "Revealed") return false;
-      if (stateFilter === "selected" && rfq.state !== "Selected") return false;
-      if (stateFilter === "settled" && rfq.state !== "Settled") return false;
-      if (stateFilter === "expired" && rfq.state !== "Expired") return false;
-      if (stateFilter === "ignored" && rfq.state !== "Ignored") return false;
-      if (stateFilter === "incomplete" && rfq.state !== "Incomplete") return false;
-      if (searchQuery && !rfq.pair.toLowerCase().includes(searchQuery.toLowerCase())) {
-        return false;
-      }
-      return true;
-    });
-
-    const sorted = [...available].sort((a, b) =>
-      sortBy === "newest" ? (b.createdAt || 0) - (a.createdAt || 0) : 0,
-    );
-
-    const byState = Object.fromEntries(
-      ALL_STATES.map((state) => [
-        state,
-        sortByOwnership(
-          sorted.filter((r) => r.state === state),
-          currentUser,
-        ),
-      ]),
-    ) as Record<(typeof ALL_STATES)[number], RFQ[]>;
-
-    return { sortedRFQs: sorted, rfqsByState: byState };
-  }, [allRFQs, searchQuery, stateFilter, sortBy, currentUser]);
+  const {
+    searchQuery,
+    setSearchQuery,
+    stateFilter,
+    setStateFilter,
+    viewMode,
+    setViewMode,
+    expandedStates,
+    toggleStateExpansion,
+    sortedRFQs,
+    rfqsByState,
+  } = useMarketplaceFilters(allRFQs, currentUser);
 
   // Analytics over the RAW decoded rows (bigint amounts) — never the display
   // view-models, so per-mint sums stay exact and mints are never merged.
@@ -185,6 +81,8 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
     () => (rfqRows ? computeMarketStats(rfqRows, resolveToken) : null),
     [rfqRows, resolveToken],
   );
+
+  const viewProps = { currentUser, onQuoteRFQ, onViewRFQ, onEditRFQ };
 
   return (
     <PageShell>
@@ -338,151 +236,18 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
           />
         ) : sortedRFQs.length > 0 ? (
           viewMode === "card" ? (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {sortedRFQs.map((rfq, index) => (
-                <RFQMarketplaceCard
-                  key={rfq.publicKey}
-                  index={index}
-                  rfq={rfq}
-                  currentUser={currentUser}
-                  onQuote={() => onQuoteRFQ(rfq)}
-                  onView={() => onViewRFQ(rfq.publicKey)}
-                  onEdit={onEditRFQ ? () => onEditRFQ(rfq) : undefined}
-                />
-              ))}
-            </div>
+            <CardGridView rfqs={sortedRFQs} {...viewProps} />
           ) : viewMode === "list" ? (
-            <div className="space-y-3">
-              {sortedRFQs.map((rfq, index) => (
-                <RFQMarketplaceListItem
-                  key={rfq.publicKey}
-                  index={index}
-                  rfq={rfq}
-                  currentUser={currentUser}
-                  onQuote={() => onQuoteRFQ(rfq)}
-                  onView={() => onViewRFQ(rfq.publicKey)}
-                  onEdit={onEditRFQ ? () => onEditRFQ(rfq) : undefined}
-                />
-              ))}
-            </div>
+            <ListView rfqs={sortedRFQs} {...viewProps} />
           ) : viewMode === "horizontal" ? (
-            <div className="space-y-6">
-              {ALL_STATES.map((state) => {
-                const stateRFQs = rfqsByState[state];
-                const stateCount = stateRFQs.length;
-
-                // Skip empty states in horizontal view
-                if (stateCount === 0) return null;
-
-                return (
-                  <motion.div
-                    key={state}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className={`bg-gradient-to-br ${getStateSectionGradient(state)} backdrop-blur-sm border border-white/10 rounded-xl overflow-hidden`}
-                  >
-                    {/* Section Header - Clickable */}
-                    <button
-                      onClick={() => toggleStateExpansion(state)}
-                      aria-expanded={expandedStates.has(state)}
-                      className="w-full p-5 flex items-center justify-between transition-all group/header border-b border-white/5"
-                    >
-                      <div>
-                        <h3
-                          className={`text-lg font-semibold ${getStateTitleColor(state)} mb-1 text-left group-hover/header:text-opacity-80 transition-all`}
-                        >
-                          {state} ({stateCount})
-                        </h3>
-                        <p className="text-sm text-white/50 text-left">{getStateSubtitle(state)}</p>
-                      </div>
-                      <div className="flex-shrink-0 ml-4">
-                        {expandedStates.has(state) ? (
-                          <ChevronUp className="h-5 w-5 text-white/60 group-hover/header:text-white/80 transition-colors" />
-                        ) : (
-                          <ChevronDown className="h-5 w-5 text-white/60 group-hover/header:text-white/80 transition-colors" />
-                        )}
-                      </div>
-                    </button>
-
-                    {/* Horizontal scrolling cards - Collapsible */}
-                    {expandedStates.has(state) && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="overflow-hidden"
-                      >
-                        <div className="overflow-x-auto snap-x snap-proximity px-5 pb-5 pt-4">
-                          <div className="flex gap-3 pb-2">
-                            {stateRFQs.map((rfq) => (
-                              <div
-                                key={rfq.publicKey}
-                                className="flex-shrink-0 snap-start w-72 sm:w-80"
-                              >
-                                <RFQMarketplaceCard
-                                  rfq={rfq}
-                                  currentUser={currentUser}
-                                  onQuote={() => onQuoteRFQ(rfq)}
-                                  onView={() => onViewRFQ(rfq.publicKey)}
-                                  onEdit={onEditRFQ ? () => onEditRFQ(rfq) : undefined}
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-                  </motion.div>
-                );
-              })}
-            </div>
+            <HorizontalGroupsView
+              rfqsByState={rfqsByState}
+              expandedStates={expandedStates}
+              onToggleState={toggleStateExpansion}
+              {...viewProps}
+            />
           ) : (
-            <div className="md:overflow-x-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
-              <div className="flex flex-col md:flex-row gap-4 pb-4 md:min-w-max">
-                {ALL_STATES.map((state) => {
-                  const stateRFQs = rfqsByState[state];
-                  const stateCount = stateRFQs.length;
-
-                  // Skip empty states in swimlane view
-                  if (stateCount === 0) return null;
-
-                  return (
-                    <motion.div
-                      key={state}
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      className="flex-shrink-0 w-full md:w-80"
-                    >
-                      {/* Column Header */}
-                      <div
-                        className={`${getCardGradient(state)} border ${getCardBorder(state)} rounded-t-xl p-4 backdrop-blur-sm`}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <h3 className="font-semibold text-white">{state}</h3>
-                          <span className="text-sm text-white/60">{stateCount}</span>
-                        </div>
-                        <StatusBadge status={state} />
-                      </div>
-
-                      {/* Column Content */}
-                      <div className="bg-white/5 border-x border-b border-white/10 rounded-b-xl p-3 space-y-3 max-h-[600px] overflow-y-auto">
-                        {stateRFQs.map((rfq) => (
-                          <RFQMarketplaceCard
-                            key={rfq.publicKey}
-                            rfq={rfq}
-                            currentUser={currentUser}
-                            onQuote={() => onQuoteRFQ(rfq)}
-                            onView={() => onViewRFQ(rfq.publicKey)}
-                            onEdit={onEditRFQ ? () => onEditRFQ(rfq) : undefined}
-                          />
-                        ))}
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            </div>
+            <SwimlaneView rfqsByState={rfqsByState} {...viewProps} />
           )
         ) : (
           <EmptyState
@@ -494,304 +259,5 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
         )}
       </div>
     </PageShell>
-  );
-}
-
-// Helper Components
-
-interface RFQMarketplaceCardProps {
-  rfq: RFQ;
-  currentUser: string | null;
-  onQuote: () => void;
-  onView: () => void;
-  onEdit?: () => void;
-  /** Position in the rendered list — drives the capped entrance stagger. */
-  index?: number;
-}
-
-function RFQMarketplaceCard({
-  rfq,
-  currentUser,
-  onQuote,
-  onView,
-  onEdit,
-  index = 0,
-}: RFQMarketplaceCardProps) {
-  const [base, quote] = rfq.pair.split("/");
-  const isCommitted = rfq.state === "Committed";
-  const canQuote = rfq.state === "Open" || rfq.state === "Committed";
-
-  // Check if this RFQ belongs to current user
-  const isMyRFQ = currentUser !== null && rfq.maker === currentUser;
-
-  // Get state-based styling
-  const cardGradient = getCardGradient(rfq.state);
-  const cardBorder = getCardBorder(rfq.state);
-
-  // Get state color classes for MY RFQ badge and border
-  const myRFQStyles = getOwnedHighlight(rfq.state);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -3, scale: 1.01 }}
-      transition={{ duration: 0.25, ease: "easeOut", delay: Math.min(index, 12) * 0.04 }}
-      className={`group relative ${cardGradient} backdrop-blur-sm border ${
-        isMyRFQ ? `${myRFQStyles.border} animate-pulse-glow` : cardBorder
-      } rounded-lg sm:rounded-xl p-4 sm:p-5 transition-all`}
-    >
-      {/* MY RFQ Badge Ribbon with state color */}
-      {isMyRFQ && (
-        <div className="absolute -top-2 -left-2 z-10">
-          <div className="relative">
-            <div
-              className={`${myRFQStyles.badge} text-[10px] font-bold px-3 py-1 rounded-md flex items-center gap-1.5`}
-            >
-              <BadgeCheck className="h-3 w-3 animate-pulse" />
-              <span>MY RFQ</span>
-            </div>
-            {/* Triangle for ribbon effect */}
-            <div
-              className={`absolute -bottom-1 left-0 w-0 h-0 border-l-[6px] border-l-transparent border-t-[4px] ${myRFQStyles.triangle} border-r-[6px] border-r-transparent`}
-            ></div>
-          </div>
-        </div>
-      )}
-
-      {/* Header */}
-      <div className="flex items-start justify-between mb-3 sm:mb-4">
-        <div className="flex items-center gap-2">
-          <Coins className="h-4 w-4 sm:h-5 sm:w-5 text-cyan-400" />
-          <span className="font-semibold text-base sm:text-lg text-white">{rfq.pair}</span>
-        </div>
-        <StatusBadge status={rfq.state} />
-      </div>
-
-      {/* Amounts */}
-      <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-3 sm:mb-4">
-        <div className="bg-white/5 rounded-lg p-2 sm:p-3">
-          <div className="text-xs text-white/50 mb-1">Base Amount</div>
-          <div className="text-xs sm:text-sm font-bold text-white truncate">
-            {rfq.baseAmount.toLocaleString()}
-          </div>
-          <div className="text-xs text-white/40">{base}</div>
-        </div>
-        <div className="bg-white/5 rounded-lg p-2 sm:p-3">
-          <div className="text-xs text-white/50 mb-1">Min Quote</div>
-          <div className="text-xs sm:text-sm font-bold text-white truncate">
-            {rfq.minQuoteAmount.toLocaleString()}
-          </div>
-          <div className="text-xs text-white/40">{quote}</div>
-        </div>
-      </div>
-
-      {/* Bond & Expiry */}
-      <div className="space-y-2 mb-3 sm:mb-4">
-        <div className="flex items-center justify-between text-xs bg-white/5 rounded p-2">
-          <div className="flex items-center gap-2 text-white/50">
-            <Shield className="h-3 w-3 text-cyan-400" />
-            <span>Bond Required</span>
-          </div>
-          <span className="font-semibold text-white">{rfq.bondAmount.toLocaleString()} USDC</span>
-        </div>
-
-        {rfq.expiresIn && (
-          <div className="flex items-center justify-between text-xs bg-orange-500/10 border border-orange-500/20 rounded p-2">
-            <div className="flex items-center gap-2 text-orange-400">
-              <Clock className="h-3 w-3" />
-              <span>Expires in</span>
-            </div>
-            <span className="font-semibold text-orange-400">{rfq.expiresIn}</span>
-          </div>
-        )}
-
-        {isCommitted && (
-          <div className="flex items-center justify-between text-xs bg-blue-500/10 border border-blue-500/20 rounded p-2">
-            <div className="flex items-center gap-2 text-blue-400">
-              <Activity className="h-3 w-3" />
-              <span>Commitments</span>
-            </div>
-            <span className="font-semibold text-blue-400">{rfq.committedCount}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Actions */}
-      <div className="flex gap-2">
-        <Button
-          onClick={onView}
-          variant="outline"
-          size="sm"
-          className="flex-1 bg-white/5 border-white/20 text-white hover:bg-white/10 hover:border-white/30 text-xs sm:text-sm"
-        >
-          View
-        </Button>
-        {isMyRFQ && rfq.state === "Draft" && onEdit && (
-          <Button
-            onClick={onEdit}
-            size="sm"
-            className="flex-1 bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white font-semibold shadow-lg shadow-purple-500/20 text-xs sm:text-sm"
-          >
-            <Edit3 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-            Edit
-          </Button>
-        )}
-        {canQuote && !isMyRFQ && (
-          <Button
-            onClick={onQuote}
-            size="sm"
-            className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-semibold shadow-lg shadow-cyan-500/20 text-xs sm:text-sm"
-          >
-            <MousePointerClick className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-            Quote
-          </Button>
-        )}
-      </div>
-    </motion.div>
-  );
-}
-
-interface RFQMarketplaceListItemProps {
-  rfq: RFQ;
-  currentUser: string | null;
-  onQuote: () => void;
-  onView: () => void;
-  onEdit?: () => void;
-  /** Position in the rendered list — drives the capped entrance stagger. */
-  index?: number;
-}
-
-function RFQMarketplaceListItem({
-  rfq,
-  currentUser,
-  onQuote,
-  onView,
-  onEdit,
-  index = 0,
-}: RFQMarketplaceListItemProps) {
-  const [base, quote] = rfq.pair.split("/");
-  const isCommitted = rfq.state === "Committed";
-  const canQuote = rfq.state === "Open" || rfq.state === "Committed";
-
-  // Check if this RFQ belongs to current user
-  const isMyRFQ = currentUser !== null && rfq.maker === currentUser;
-
-  // Get state-based styling
-  const cardGradient = getCardGradient(rfq.state);
-  const cardBorder = getCardBorder(rfq.state);
-
-  // Get state color classes for MY RFQ badge and border
-  const myRFQStyles = getOwnedHighlight(rfq.state);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -2, scale: 1.005 }}
-      transition={{ duration: 0.2, ease: "easeOut", delay: Math.min(index, 12) * 0.04 }}
-      className={`relative ${cardGradient} backdrop-blur-sm border ${
-        isMyRFQ ? `${myRFQStyles.border} animate-pulse-glow` : cardBorder
-      } rounded-lg p-4 transition-all hover:border-opacity-60`}
-    >
-      {/* MY RFQ Badge Ribbon with state color */}
-      {isMyRFQ && (
-        <div className="absolute -top-2 -left-2 z-10">
-          <div className="relative">
-            <div
-              className={`${myRFQStyles.badge} text-[10px] font-bold px-3 py-1 rounded-md flex items-center gap-1.5`}
-            >
-              <BadgeCheck className="h-3 w-3 animate-pulse" />
-              <span>MY RFQ</span>
-            </div>
-            <div
-              className={`absolute -bottom-1 left-0 w-0 h-0 border-l-[6px] border-l-transparent border-t-[4px] ${myRFQStyles.triangle} border-r-[6px] border-r-transparent`}
-            ></div>
-          </div>
-        </div>
-      )}
-
-      <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-        {/* Left: Pair + Status */}
-        <div className="flex items-center gap-3 lg:w-48">
-          <Coins className="h-5 w-5 text-cyan-400 flex-shrink-0" />
-          <div>
-            <div className="font-semibold text-base text-white">{rfq.pair}</div>
-            <StatusBadge status={rfq.state} />
-          </div>
-        </div>
-
-        {/* Amounts */}
-        <div className="flex gap-4 lg:flex-1">
-          <div className="flex-1">
-            <div className="text-xs text-white/50 mb-1">Base Amount</div>
-            <div className="text-sm font-semibold text-white">
-              {rfq.baseAmount.toLocaleString()} {base}
-            </div>
-          </div>
-          <div className="flex-1">
-            <div className="text-xs text-white/50 mb-1">Min Quote</div>
-            <div className="text-sm font-semibold text-white">
-              {rfq.minQuoteAmount.toLocaleString()} {quote}
-            </div>
-          </div>
-        </div>
-
-        {/* Bond & Expiry */}
-        <div className="flex gap-4 lg:w-80">
-          <div className="flex-1">
-            <div className="text-xs text-white/50 mb-1">Bond Required</div>
-            <div className="text-sm font-semibold text-white">
-              {rfq.bondAmount.toLocaleString()} USDC
-            </div>
-          </div>
-          {rfq.expiresIn && (
-            <div className="flex-1">
-              <div className="text-xs text-orange-400 mb-1">Expires In</div>
-              <div className="text-sm font-semibold text-orange-400">{rfq.expiresIn}</div>
-            </div>
-          )}
-          {isCommitted && (
-            <div className="flex-1">
-              <div className="text-xs text-blue-400 mb-1">Commitments</div>
-              <div className="text-sm font-semibold text-blue-400">{rfq.committedCount}</div>
-            </div>
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-2 lg:w-48">
-          <Button
-            onClick={onView}
-            variant="outline"
-            size="sm"
-            className="flex-1 bg-white/5 border-white/20 text-white hover:bg-white/10 hover:border-white/30 text-sm"
-          >
-            <Eye className="mr-1 h-3 w-3" />
-            View
-          </Button>
-          {isMyRFQ && rfq.state === "Draft" && onEdit && (
-            <Button
-              onClick={onEdit}
-              size="sm"
-              className="flex-1 bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white font-semibold shadow-lg shadow-purple-500/20 text-sm"
-            >
-              <Edit3 className="mr-1 h-3 w-3" />
-              Edit
-            </Button>
-          )}
-          {canQuote && !isMyRFQ && (
-            <Button
-              onClick={onQuote}
-              size="sm"
-              className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-semibold shadow-lg shadow-cyan-500/20 text-sm"
-            >
-              <MousePointerClick className="mr-1 h-3 w-3" />
-              Quote
-            </Button>
-          )}
-        </div>
-      </div>
-    </motion.div>
   );
 }

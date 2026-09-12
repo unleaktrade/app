@@ -5,10 +5,9 @@
 // with the Ed25519 verify preinstruction. An invalid proof (or a commit-hash
 // that doesn't match our own derivation) aborts BEFORE any transaction is built.
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { PublicKey } from "@solana/web3.js";
-import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { Button } from "@/app/components/ui/button";
 import { ResponsiveModal } from "@/app/components/ResponsiveModal";
 import { ProofInspector } from "@/app/components/ProofInspector";
@@ -32,11 +31,12 @@ import {
   LiquidityGuardError,
 } from "@/chain/liquidityGuard";
 import { buildCommitQuoteTx } from "@/chain/instructions/taker";
-import { submitRfqTx } from "@/chain/instructions/shared";
 import { useResolveTokenMeta } from "@/app/hooks/useResolveTokenMeta";
+import { useNowSecs } from "@/app/hooks/useNowSecs";
 import { bytesToHex, downloadTicket, saveTicket, type RevealTicket } from "@/app/lib/reveal-ticket";
 import { toast } from "sonner";
 import { AlertCircle, Download, Loader2, ShieldCheck } from "lucide-react";
+import { useSubmitRfqTx } from "@/app/hooks/useSubmitRfqTx";
 
 interface SubmitQuoteModalProps {
   rfq: RFQ;
@@ -53,10 +53,47 @@ function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
 }
 
 export function SubmitQuoteModal({ rfq, open, onOpenChange }: SubmitQuoteModalProps) {
+  // The in-flight phase lives in the shell so closing can be blocked while a
+  // commit is running; everything else is per-open state owned by the body,
+  // which is keyed on `open` so closing/reopening starts from a clean slate
+  // (no reset effect).
+  const [phase, setPhase] = useState<Phase>("idle");
+  const busy = phase !== "idle";
+  const [base, quote] = rfq.pair.split("/");
+
+  return (
+    <ResponsiveModal
+      open={open}
+      onOpenChange={(o) => !busy && onOpenChange(o)}
+      title={<span className="text-2xl font-bold">Commit a quote</span>}
+      description={
+        <>
+          {rfq.pair} · you deliver {rfq.baseAmount.toLocaleString()} {base}, quote in {quote}
+        </>
+      }
+      contentClassName="max-w-xl"
+    >
+      <SubmitQuoteBody
+        key={open ? "open" : "closed"}
+        rfq={rfq}
+        phase={phase}
+        setPhase={setPhase}
+        onClose={() => onOpenChange(false)}
+      />
+    </ResponsiveModal>
+  );
+}
+
+interface SubmitQuoteBodyProps {
+  rfq: RFQ;
+  phase: Phase;
+  setPhase: (phase: Phase) => void;
+  onClose: () => void;
+}
+
+function SubmitQuoteBody({ rfq, phase, setPhase, onClose }: SubmitQuoteBodyProps) {
   const program = useSettlementProgram();
-  const { connection } = useConnection();
   const wallet = useWallet();
-  const queryClient = useQueryClient();
   const { cluster } = useCluster();
 
   const pda = useMemo(() => {
@@ -71,9 +108,16 @@ export function SubmitQuoteModal({ rfq, open, onOpenChange }: SubmitQuoteModalPr
   const configQuery = useConfigAccount();
   const config = configQuery.data ?? null;
   const resolveToken = useResolveTokenMeta();
+  const now = useNowSecs();
+  const submit = useSubmitRfqTx();
 
-  const [amount, setAmount] = useState<bigint | null>(null);
-  const [phase, setPhase] = useState<Phase>("idle");
+  // The amount is the RFQ minimum until the user edits it; a "touched" draft
+  // keeps an explicitly cleared field empty instead of snapping back.
+  const [draft, setDraft] = useState<{ touched: boolean; value: bigint | null }>({
+    touched: false,
+    value: null,
+  });
+  const amount = draft.touched ? draft.value : (account?.minQuoteAmount ?? null);
   const [error, setError] = useState<string | null>(null);
   // Set when a commit attempt was aborted on the local bond-balance read (#67).
   const [bondGated, setBondGated] = useState(false);
@@ -100,20 +144,6 @@ export function SubmitQuoteModal({ rfq, open, onOpenChange }: SubmitQuoteModalPr
     liquidityProof: Uint8Array;
   } | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(false);
-
-  // Seed the amount input with the RFQ minimum on open.
-  useEffect(() => {
-    if (open && account && amount === null) setAmount(account.minQuoteAmount);
-    if (!open) {
-      setAmount(null);
-      setPhase("idle");
-      setError(null);
-      setBondGated(false);
-      setGuardShortfall(null);
-      setTicket(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, account]);
 
   const quoteMeta = account ? resolveToken(account.quoteMint.toBase58()) : null;
   const usdcMeta = account ? resolveToken(account.usdcMint.toBase58()) : null;
@@ -192,10 +222,7 @@ export function SubmitQuoteModal({ rfq, open, onOpenChange }: SubmitQuoteModalPr
 
       // 6. Submit commit_quote (Ed25519 verify preinstruction + the ix).
       setPhase("submitting");
-      await submitRfqTx({
-        connection,
-        wallet,
-        queryClient,
+      await submit.mutateAsync({
         rfq: pda,
         build: () =>
           buildCommitQuoteTx({
@@ -241,20 +268,10 @@ export function SubmitQuoteModal({ rfq, open, onOpenChange }: SubmitQuoteModalPr
     }
   }
 
-  const [base, quote] = rfq.pair.split("/");
+  const quote = rfq.pair.split("/")[1];
 
   return (
-    <ResponsiveModal
-      open={open}
-      onOpenChange={(o) => !busy && onOpenChange(o)}
-      title={<span className="text-2xl font-bold">Commit a quote</span>}
-      description={
-        <>
-          {rfq.pair} · you deliver {rfq.baseAmount.toLocaleString()} {base}, quote in {quote}
-        </>
-      }
-      contentClassName="max-w-xl"
-    >
+    <>
       {!account ? (
         <div className="py-8 text-center text-white/50">Loading RFQ…</div>
       ) : (
@@ -264,7 +281,7 @@ export function SubmitQuoteModal({ rfq, open, onOpenChange }: SubmitQuoteModalPr
             <TokenAmountInput
               mint={account.quoteMint.toBase58()}
               value={amount}
-              onChange={setAmount}
+              onChange={(v) => setDraft({ touched: true, value: v })}
             />
             <p className="text-xs text-white/40">
               Minimum {account.minQuoteAmount.toString()} base units. Higher is more competitive.
@@ -290,7 +307,6 @@ export function SubmitQuoteModal({ rfq, open, onOpenChange }: SubmitQuoteModalPr
               Committing signs a message, runs a funds check, and posts your bond. You'll reveal the
               amount later — keep the reveal ticket.
               {(() => {
-                const now = Math.floor(Date.now() / 1000);
                 const commitBy = commitDeadline(account);
                 const revealBy = revealDeadline(account);
                 if (commitBy === null || revealBy === null) return null;
@@ -373,7 +389,7 @@ export function SubmitQuoteModal({ rfq, open, onOpenChange }: SubmitQuoteModalPr
           <div className="flex gap-3">
             <Button
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={onClose}
               disabled={busy}
               className="flex-1 border-white/30 bg-white/10 text-white/90 hover:bg-white/15"
             >
@@ -396,6 +412,6 @@ export function SubmitQuoteModal({ rfq, open, onOpenChange }: SubmitQuoteModalPr
           </div>
         </div>
       )}
-    </ResponsiveModal>
+    </>
   );
 }
