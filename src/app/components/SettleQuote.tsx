@@ -18,7 +18,7 @@ import { canCompleteSettlement, fundingDeadline } from "@/chain/state-machine";
 import { totalToFund } from "@/chain/math";
 import { buildCompleteSettlementTx } from "@/chain/instructions/taker";
 import { submitRfqTx } from "@/chain/instructions/shared";
-import { resolveTokenMeta } from "@/app/lib/tokens";
+import { useResolveTokenMeta } from "@/app/hooks/useResolveTokenMeta";
 import { formatTokenAmount } from "@/app/lib/format";
 import { useTokenBalanceState } from "@/app/hooks/useTokenBalanceState";
 import { BetaTokenNotice } from "@/app/components/BetaTokenNotice";
@@ -53,13 +53,14 @@ export function SettleQuote({
   const wallet = useWallet();
   const queryClient = useQueryClient();
   const { cluster } = useCluster();
+  const resolveToken = useResolveTokenMeta();
 
   const connected = wallet.publicKey?.toBase58() ?? null;
   const isOwner = connected !== null && connected === quote.taker.toBase58();
 
-  const quoteMeta = resolveTokenMeta(rfq.quoteMint.toBase58());
-  const baseMeta = resolveTokenMeta(rfq.baseMint.toBase58());
-  const usdcMeta = resolveTokenMeta(rfq.usdcMint.toBase58());
+  const quoteMeta = resolveToken(rfq.quoteMint.toBase58());
+  const baseMeta = resolveToken(rfq.baseMint.toBase58());
+  const usdcMeta = resolveToken(rfq.usdcMint.toBase58());
 
   const quoteAmount = quote.quoteAmount ?? 0n;
   const required = useMemo(

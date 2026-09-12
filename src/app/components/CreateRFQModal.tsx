@@ -14,6 +14,7 @@ import { buildInitRfqTx } from "@/chain/instructions/maker";
 import { newRfqUuid, submitRfqTx } from "@/chain/instructions/shared";
 import { parseTokenAmount } from "@/app/lib/format";
 import { resolveTokenMeta } from "@/app/lib/tokens";
+import { useResolveTokenMeta } from "@/app/hooks/useResolveTokenMeta";
 import { useCluster } from "@/app/providers/ClusterProvider";
 import { useTokenBalanceState, type TokenBalanceState } from "@/app/hooks/useTokenBalanceState";
 import { BetaTokenNotice } from "@/app/components/BetaTokenNotice";
@@ -40,6 +41,7 @@ export function CreateRFQModal({ open, onOpenChange }: CreateRFQModalProps) {
   // The maker bond is posted in the Config's USDC mint — the beta token.
   const usdcMint = configQuery.data?.usdcMint ?? null;
   const usdcState = useTokenBalanceState(usdcMint);
+  const resolveToken = useResolveTokenMeta();
 
   const handleCreate = async (values: RFQFormValues) => {
     if (!program || !wallet.publicKey) {
@@ -159,7 +161,7 @@ export function CreateRFQModal({ open, onOpenChange }: CreateRFQModalProps) {
               ? usdcState
               : null;
         if (gateState === null) return null;
-        const meta = resolveTokenMeta(usdcMint.toBase58());
+        const meta = resolveToken(usdcMint.toBase58());
         return (
           <div className="mb-4">
             <BetaTokenNotice

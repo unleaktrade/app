@@ -1,5 +1,6 @@
 // resolveTokenMeta fallback order + the #67 drift diagnostics: seed-manifest
-// membership (isKnownSeededMint) and the DEV-only one-shot unknown-mint warn.
+// membership (isKnownSeededMint) and the DEV-only one-shot unknown-mint debug log (the mint registry
+// fills the decimals in from chain afterwards — see mint-registry.test.ts).
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import seedManifest from "../seed-manifest.devnet.json";
@@ -38,20 +39,20 @@ describe("resolveTokenMeta fallback order", () => {
   });
 
   it("renders unknown mints truncated with 0 decimals (raw base units)", () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const warn = vi.spyOn(console, "debug").mockImplementation(() => {});
     expect(resolveTokenMeta(UNKNOWN_MINT)).toEqual({ symbol: "4zMM…ncDU", decimals: 0 });
     warn.mockRestore();
   });
 });
 
-describe("unknown-mint one-shot warn (DEV)", () => {
+describe("unknown-mint one-shot debug log (DEV)", () => {
   // Mints reserved for this suite — the one-shot Set is module-level, so they
   // must not be resolved anywhere else in this file.
   const WARN_MINT_A = "WarnMintAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
   const WARN_MINT_B = "WarnMintBbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
-  it("warns once per mint, mentioning the seed manifest, then stays quiet", () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  it("logs once per mint, mentioning the seed manifest, then stays quiet", () => {
+    const warn = vi.spyOn(console, "debug").mockImplementation(() => {});
     resolveTokenMeta(WARN_MINT_A);
     resolveTokenMeta(WARN_MINT_A);
     expect(warn).toHaveBeenCalledTimes(1);

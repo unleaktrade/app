@@ -3,6 +3,7 @@
 // can resolve symbols/decimals without importing the picker UI.
 
 import seedManifestDevnet from "./seed-manifest.devnet.json";
+import { getMintRegistrySnapshot, type MintRegistrySnapshot } from "./mint-registry";
 
 export interface Token {
   symbol: string;
@@ -295,13 +296,17 @@ export function isKnownSeededMint(mint: string): boolean {
 const warnedUnknownMints = new Set<string>();
 
 /**
- * Resolve a mint to its display symbol + decimals synchronously. Falls back to
- * a truncated address with 0 decimals for mints not in the manifest or catalog
- * (which on a seeded devnet should never happen — seeded mints are committed to
- * the manifest). Decimals drive base-unit → display scaling, so an unknown mint
- * renders raw rather than mis-scaled.
+ * Resolve a mint to its display symbol + decimals synchronously. Order: seed
+ * manifest → static catalog → on-chain decimals published to the mint registry
+ * (useMintRegistryWarmup) → truncated address with 0 decimals. Decimals drive
+ * base-unit → display scaling, so a still-unknown mint renders raw rather than
+ * mis-scaled; components read this through useResolveTokenMeta so they
+ * re-render once the registry fills.
  */
-export function resolveTokenMeta(mint: string): ResolvedToken {
+export function resolveTokenMeta(
+  mint: string,
+  registry: MintRegistrySnapshot = getMintRegistrySnapshot(),
+): ResolvedToken {
   const fromManifest = SEED_MANIFEST[mint];
   if (fromManifest) return fromManifest;
   const fromCatalog = findTokenByMint(mint);
@@ -312,12 +317,13 @@ export function resolveTokenMeta(mint: string): ResolvedToken {
       ...(fromCatalog.logoURI !== undefined ? { logoURI: fromCatalog.logoURI } : {}),
     };
   }
+  const fromChain = registry.get(mint);
+  if (fromChain) return { symbol: shortMint(mint), decimals: fromChain.decimals };
   if (import.meta.env.DEV && !warnedUnknownMints.has(mint)) {
     warnedUnknownMints.add(mint);
-    console.warn(
+    console.debug(
       `[tokens] Mint ${mint} is not in seed-manifest.devnet.json or the static catalog — ` +
-        "rendering it with 0 decimals (raw base units). If Config.usdcMint rotated, regenerate " +
-        "the seed manifest (npm run seed) and verify against waitlist#18.",
+        "rendering raw until its decimals are read from chain (mint registry).",
     );
   }
   return { symbol: shortMint(mint), decimals: 0 };

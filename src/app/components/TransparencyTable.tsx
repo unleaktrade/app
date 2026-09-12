@@ -1,5 +1,5 @@
 import { AddressDisplay } from "@/app/components/AddressDisplay";
-import { resolveTokenMeta } from "@/app/lib/tokens";
+import { useResolveTokenMeta } from "@/app/hooks/useResolveTokenMeta";
 import { formatTokenAmount } from "@/app/lib/format";
 
 export interface TransparencyRow {
@@ -97,7 +97,8 @@ export function TransparencyTable({ rows, dateLabel }: TransparencyTableProps) {
 }
 
 function Amount({ mint, amount }: { mint: string; amount: bigint | null }) {
-  const meta = resolveTokenMeta(mint);
+  const resolveToken = useResolveTokenMeta();
+  const meta = resolveToken(mint);
   if (amount === null) {
     return <span className="text-white/40">pending</span>;
   }

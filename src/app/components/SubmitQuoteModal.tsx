@@ -33,7 +33,7 @@ import {
 } from "@/chain/liquidityGuard";
 import { buildCommitQuoteTx } from "@/chain/instructions/taker";
 import { submitRfqTx } from "@/chain/instructions/shared";
-import { resolveTokenMeta } from "@/app/lib/tokens";
+import { useResolveTokenMeta } from "@/app/hooks/useResolveTokenMeta";
 import { bytesToHex, downloadTicket, saveTicket, type RevealTicket } from "@/app/lib/reveal-ticket";
 import { toast } from "sonner";
 import { AlertCircle, Download, Loader2, ShieldCheck } from "lucide-react";
@@ -70,6 +70,7 @@ export function SubmitQuoteModal({ rfq, open, onOpenChange }: SubmitQuoteModalPr
   const account = accountQuery.data ?? null;
   const configQuery = useConfigAccount();
   const config = configQuery.data ?? null;
+  const resolveToken = useResolveTokenMeta();
 
   const [amount, setAmount] = useState<bigint | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -114,8 +115,8 @@ export function SubmitQuoteModal({ rfq, open, onOpenChange }: SubmitQuoteModalPr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, account]);
 
-  const quoteMeta = account ? resolveTokenMeta(account.quoteMint.toBase58()) : null;
-  const usdcMeta = account ? resolveTokenMeta(account.usdcMint.toBase58()) : null;
+  const quoteMeta = account ? resolveToken(account.quoteMint.toBase58()) : null;
+  const usdcMeta = account ? resolveToken(account.usdcMint.toBase58()) : null;
   const busy = phase !== "idle";
 
   async function handleCommit() {

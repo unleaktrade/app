@@ -6,7 +6,8 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import { useCluster } from "@/app/providers/ClusterProvider";
 import { useConfigAccount } from "@/chain/accounts/config";
 import { useTokenBalanceState } from "@/app/hooks/useTokenBalanceState";
-import { resolveTokenMeta } from "@/app/lib/tokens";
+import { useResolveTokenMeta } from "@/app/hooks/useResolveTokenMeta";
+import { MintRegistryWarmer } from "@/app/components/MintRegistryWarmer";
 import { AuthGate } from "@/app/components/AuthGate";
 import { MainNavbar, type DashboardView } from "@/app/components/MainNavbar";
 import { CreateRFQModal } from "@/app/components/CreateRFQModal";
@@ -17,6 +18,24 @@ import { BetaTokenNotice } from "@/app/components/BetaTokenNotice";
 import type { RFQ } from "@/types/rfq";
 
 const BETA_NOTICE_DISMISSED_KEY = "unleak.betaTokenNotice.dismissed";
+
+// sessionStorage throws when storage is blocked (private mode / policy); a
+// blocked read must degrade to "not dismissed", never white-screen the layout.
+function readSessionFlag(key: string): boolean {
+  try {
+    return sessionStorage.getItem(key) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeSessionFlag(key: string): void {
+  try {
+    sessionStorage.setItem(key, "1");
+  } catch {
+    // Storage blocked — the in-memory dismissal still applies for this mount.
+  }
+}
 
 /**
  * Slim dismissible strip (#67) shown when the connected wallet holds no beta
@@ -30,17 +49,16 @@ function BetaTokenBanner() {
   const { connected } = useWallet();
   const { cluster } = useCluster();
   const configQuery = useConfigAccount();
-  const [dismissed, setDismissed] = useState(
-    () => sessionStorage.getItem(BETA_NOTICE_DISMISSED_KEY) === "1",
-  );
+  const [dismissed, setDismissed] = useState(() => readSessionFlag(BETA_NOTICE_DISMISSED_KEY));
 
   const usdcMint = configQuery.data?.usdcMint ?? null;
   const state = useTokenBalanceState(cluster === "devnet" ? usdcMint : null);
+  const resolveToken = useResolveTokenMeta();
 
   if (dismissed || !connected || !usdcMint || cluster !== "devnet") return null;
   if (state.status !== "no-ata" && state.status !== "zero") return null;
 
-  const meta = resolveTokenMeta(usdcMint.toBase58());
+  const meta = resolveToken(usdcMint.toBase58());
   return (
     <div className="relative z-30 mx-auto mt-(--nav-h) -mb-(--nav-h) w-full max-w-7xl px-4 pt-3 sm:px-6 lg:px-8">
       <div className="relative">
@@ -56,7 +74,7 @@ function BetaTokenBanner() {
           type="button"
           aria-label="Dismiss beta token notice"
           onClick={() => {
-            sessionStorage.setItem(BETA_NOTICE_DISMISSED_KEY, "1");
+            writeSessionFlag(BETA_NOTICE_DISMISSED_KEY);
             setDismissed(true);
           }}
           className="absolute top-2 right-2 flex h-11 w-11 items-center justify-center rounded-md text-amber-200/70 hover:bg-amber-500/10 hover:text-amber-100"
@@ -126,6 +144,7 @@ export function DashboardLayout() {
 
       <DevConfigPanel />
 
+      <MintRegistryWarmer />
       <BetaTokenBanner />
 
       {/* Enter-only route transition. CSS-driven (tw-animate-css) on purpose:

@@ -8,7 +8,7 @@ import { ShieldIllustration } from "@/app/components/illustrations";
 import { TransparencyTable, type TransparencyRow } from "@/app/components/TransparencyTable";
 import { useFeesTrackerAccounts, useSlashedBondsTrackerAccounts } from "@/chain/accounts/lists";
 import { totalsByMint, sortLedger } from "@/app/lib/transparency";
-import { resolveTokenMeta } from "@/app/lib/tokens";
+import { useResolveTokenMeta } from "@/app/hooks/useResolveTokenMeta";
 import { formatTokenAmount } from "@/app/lib/format";
 
 /**
@@ -20,6 +20,7 @@ import { formatTokenAmount } from "@/app/lib/format";
 export function Transparency() {
   const slashedQuery = useSlashedBondsTrackerAccounts();
   const feesQuery = useFeesTrackerAccounts();
+  const resolveToken = useResolveTokenMeta();
 
   const slashedRows = useMemo<TransparencyRow[]>(
     () =>
@@ -76,8 +77,8 @@ export function Transparency() {
           <SummaryTile
             key={`s-${t.mint}`}
             label="Total seized"
-            value={formatTokenAmount(t.total, resolveTokenMeta(t.mint).decimals)}
-            hint={resolveTokenMeta(t.mint).symbol}
+            value={formatTokenAmount(t.total, resolveToken(t.mint).decimals)}
+            hint={resolveToken(t.mint).symbol}
           />
         ))}
         <SummaryTile label="Fee payments" value={String(feeRows.length)} hint="settlements" />
@@ -85,8 +86,8 @@ export function Transparency() {
           <SummaryTile
             key={`f-${t.mint}`}
             label="Top fee mint"
-            value={formatTokenAmount(t.total, resolveTokenMeta(t.mint).decimals)}
-            hint={resolveTokenMeta(t.mint).symbol}
+            value={formatTokenAmount(t.total, resolveToken(t.mint).decimals)}
+            hint={resolveToken(t.mint).symbol}
           />
         ))}
       </div>
@@ -159,11 +160,12 @@ function SummaryTile({ label, value, hint }: { label: string; value: string; hin
 }
 
 function MintTotalsRow({ totals }: { totals: ReturnType<typeof totalsByMint> }) {
+  const resolveToken = useResolveTokenMeta();
   if (totals.length === 0) return null;
   return (
     <div className="mb-3 flex flex-wrap gap-2">
       {totals.map((t) => {
-        const meta = resolveTokenMeta(t.mint);
+        const meta = resolveToken(t.mint);
         return (
           <span
             key={t.mint}

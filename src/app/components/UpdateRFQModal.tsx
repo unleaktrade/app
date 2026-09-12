@@ -18,6 +18,7 @@ import { buildUpdateRfqTx, type UpdateRfqFields } from "@/chain/instructions/mak
 import { submitRfqTx } from "@/chain/instructions/shared";
 import { formatTokenAmount, parseTokenAmount } from "@/app/lib/format";
 import { resolveTokenMeta } from "@/app/lib/tokens";
+import { useResolveTokenMeta } from "@/app/hooks/useResolveTokenMeta";
 import type { FacilitatorUpdate, RFQ } from "@/types/rfq";
 import { toast } from "sonner";
 import { AlertCircle } from "lucide-react";
@@ -47,6 +48,7 @@ export function UpdateRFQModal({ open, onOpenChange, rfq }: UpdateRFQModalProps)
   const isDraft = account !== null && canUpdateRfq(account);
 
   const [submitting, setSubmitting] = useState(false);
+  const resolveToken = useResolveTokenMeta();
 
   // Pre-fill from the decoded account (correct decimals + bps). RFQForm reads
   // these once at mount; the `key` below only changes when the account first
@@ -55,9 +57,9 @@ export function UpdateRFQModal({ open, onOpenChange, rfq }: UpdateRFQModalProps)
   const initialValues = useMemo<Partial<RFQFormValues> | undefined>(() => {
     if (!account) return undefined;
 
-    const baseMeta = resolveTokenMeta(account.baseMint.toBase58());
-    const quoteMeta = resolveTokenMeta(account.quoteMint.toBase58());
-    const usdcMeta = resolveTokenMeta(account.usdcMint.toBase58());
+    const baseMeta = resolveToken(account.baseMint.toBase58());
+    const quoteMeta = resolveToken(account.quoteMint.toBase58());
+    const usdcMeta = resolveToken(account.usdcMint.toBase58());
 
     return {
       baseToken: {
@@ -84,7 +86,7 @@ export function UpdateRFQModal({ open, onOpenChange, rfq }: UpdateRFQModalProps)
       fundTtlSecs: String(account.fundTtlSecs),
       facilitatorAddress: account.facilitator?.toBase58() ?? "",
     };
-  }, [account]);
+  }, [account, resolveToken]);
 
   const handleUpdate = async (values: RFQFormValues) => {
     const { baseToken, quoteToken } = values;
