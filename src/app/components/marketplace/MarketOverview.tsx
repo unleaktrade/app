@@ -1,4 +1,5 @@
 import { Activity, Clock, Coins, Eye, Target, TrendingUp, Users } from "lucide-react";
+import type { ComponentType } from "react";
 import type { MarketStats, RecentEvent } from "@/app/lib/market-stats";
 import { formatDuration, formatTokenAmount } from "@/app/lib/format";
 
@@ -15,7 +16,8 @@ const EVENT_DOT_CLASSES: Record<RecentEvent["kind"], string> = {
 };
 
 interface MarketOverviewProps {
-  stats: MarketStats;
+  /** Null while the RFQ list loads — placeholders, never zeros or "No activity yet". */
+  stats: MarketStats | null;
   /** Current unix seconds — drives the relative "ago" labels. */
   now: number;
 }
@@ -31,26 +33,26 @@ export function MarketOverview({ stats, now }: MarketOverviewProps) {
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
           <MiniCard
             label="Open"
-            value={stats.openCount.toString()}
+            value={stats?.openCount.toString() ?? "—"}
             subtext="Accepting quotes"
             icon={TrendingUp}
             tone="green"
           />
           <MiniCard
             label="Awaiting reveal"
-            value={stats.committedCount.toString()}
+            value={stats?.committedCount.toString() ?? "—"}
             subtext="Committed quotes"
             icon={Clock}
             tone="blue"
           />
           <MiniCard
             label="Awaiting selection"
-            value={stats.revealedCount.toString()}
+            value={stats?.revealedCount.toString() ?? "—"}
             subtext="Revealed quotes"
             icon={Eye}
             tone="cyan"
           />
-          {stats.settlementRatePct !== null && (
+          {stats !== null && stats.settlementRatePct !== null && (
             <MiniCard
               label="Settlement rate"
               value={`${stats.settlementRatePct}%`}
@@ -61,12 +63,12 @@ export function MarketOverview({ stats, now }: MarketOverviewProps) {
           )}
           <MiniCard
             label="Participants"
-            value={stats.distinctMakers.toString()}
+            value={stats?.distinctMakers.toString() ?? "—"}
             subtext="Unique wallets"
             icon={Users}
             tone="orange"
           />
-          {stats.avgFillSecs !== null && (
+          {stats !== null && stats.avgFillSecs !== null && (
             <MiniCard
               label="Avg fill time"
               value={formatDuration(stats.avgFillSecs)}
@@ -85,7 +87,9 @@ export function MarketOverview({ stats, now }: MarketOverviewProps) {
               <TrendingUp className="h-3.5 w-3.5 text-cyan-400" />
               Top Pairs
             </div>
-            {stats.topPairs.length === 0 ? (
+            {stats === null ? (
+              <ListPlaceholder />
+            ) : stats.topPairs.length === 0 ? (
               <div className="text-xs text-white/40">No settled RFQs yet.</div>
             ) : (
               <div className="space-y-2">
@@ -116,7 +120,9 @@ export function MarketOverview({ stats, now }: MarketOverviewProps) {
               <Activity className="h-3.5 w-3.5 text-cyan-400" />
               Recent Activity
             </div>
-            {stats.recent.length === 0 ? (
+            {stats === null ? (
+              <ListPlaceholder />
+            ) : stats.recent.length === 0 ? (
               <div className="text-xs text-white/40">No activity yet.</div>
             ) : (
               <div className="space-y-2.5">
@@ -141,6 +147,16 @@ export function MarketOverview({ stats, now }: MarketOverviewProps) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Two shimmer rows standing in for a list while stats load. */
+function ListPlaceholder() {
+  return (
+    <div className="space-y-2" aria-hidden="true">
+      <div className="skeleton-shimmer h-4 w-3/4 rounded" />
+      <div className="skeleton-shimmer h-4 w-1/2 rounded" />
     </div>
   );
 }
@@ -193,7 +209,7 @@ interface MiniCardProps {
   label: string;
   value: string;
   subtext: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: ComponentType<{ className?: string }>;
   tone: MiniCardTone;
 }
 
