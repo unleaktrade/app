@@ -4,7 +4,7 @@
 // states, the Phase 6 theme tokens/glass/typography, and every new Phase 6
 // component with deterministic fixtures.
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { RFQState } from "@/types/rfq";
 import { RFQStatePipeline } from "@/app/components/RFQStatePipeline";
 import { DeadlineRing } from "@/app/components/DeadlineRing";
@@ -153,7 +153,7 @@ const STORY_HEALTH: HealthResponse = {
   skipFundChecks: false,
 };
 
-function Story({ title, children }: { title: string; children: React.ReactNode }) {
+function Story({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="rounded-xl border border-white/10 bg-white/[0.02] p-5">
       <h2 className="mb-4 text-sm font-semibold text-white/80">{title}</h2>

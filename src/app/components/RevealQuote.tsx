@@ -9,7 +9,7 @@
 // deterministic signature over the public RFQ pubkey, so signing again yields
 // the same 64 bytes — but the amount still has to be supplied).
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import type { PublicKey } from "@solana/web3.js";
 import type { RfqAccount } from "@/chain/accounts/rfq";
@@ -47,7 +47,6 @@ import {
 import { useSubmitRfqTx } from "@/app/hooks/useSubmitRfqTx";
 
 interface RevealQuoteProps {
-  quotePda: PublicKey;
   quote: QuoteAccount;
   rfqPda: PublicKey;
   rfq: RfqAccount;
@@ -159,7 +158,8 @@ export function RevealQuote({ quote, rfqPda, rfq, onDone, onBack }: RevealQuoteP
   }
 
   async function reveal() {
-    if (!program || !wallet.publicKey || salt === null || amount === null) return;
+    const taker = wallet.publicKey;
+    if (!program || !taker || salt === null || amount === null) return;
     if (!matches) {
       toast.error("Commit hash doesn't match — check your salt and amount");
       return;
@@ -170,7 +170,7 @@ export function RevealQuote({ quote, rfqPda, rfq, onDone, onBack }: RevealQuoteP
         build: () =>
           buildRevealQuoteTx({
             program,
-            taker: wallet.publicKey!,
+            taker,
             rfq: rfqPda,
             salt,
             quoteAmount: amount,
@@ -323,7 +323,7 @@ function HashRow({ label, hex }: { label: string; hex: string }) {
   );
 }
 
-function Note({ tone, children }: { tone: "red" | "amber"; children: React.ReactNode }) {
+function Note({ tone, children }: { tone: "red" | "amber"; children: ReactNode }) {
   const cls =
     tone === "red"
       ? "border-red-500/30 bg-red-500/10 text-red-200"

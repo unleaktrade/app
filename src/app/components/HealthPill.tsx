@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ShieldCheck, ShieldAlert, ShieldX, RefreshCw } from "lucide-react";
 import { fetchHealth, type HealthResponse } from "@/chain/liquidityGuard";
@@ -230,7 +230,7 @@ function StatusRow({
   warn = false,
 }: {
   label: string;
-  children: React.ReactNode;
+  children: ReactNode;
   ok?: boolean;
   warn?: boolean;
 }) {

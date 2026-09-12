@@ -90,13 +90,15 @@ export function CreateRFQModal({ open, onOpenChange }: CreateRFQModalProps) {
       return void toast.error("Invalid token mint or facilitator address");
     }
 
+    const maker = wallet.publicKey;
+    if (!maker) return void toast.error("Connect a wallet to continue");
     try {
       const uuid = newRfqUuid();
       await submit.mutateAsync({
         build: () =>
           buildInitRfqTx({
             program,
-            maker: wallet.publicKey!,
+            maker,
             usdcMint: config.usdcMint,
             uuid,
             baseMint,

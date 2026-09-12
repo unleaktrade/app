@@ -5,7 +5,7 @@
 // cache entry per (mint, owner) and an RPC failure surfaces as `error`, never
 // as an empty balance.
 
-import { useQuery } from "@tanstack/react-query";
+import { skipToken, useQuery } from "@tanstack/react-query";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import type { PublicKey } from "@solana/web3.js";
 import { useCluster } from "@/app/providers/ClusterProvider";
@@ -28,9 +28,10 @@ export function useTokenBalanceState(
 
   const query = useQuery({
     queryKey: ["token-balance", cluster, mint?.toBase58() ?? null, owner?.toBase58() ?? null],
-    enabled: !!mint && !!owner,
     refetchInterval: 15_000,
-    queryFn: () => fetchTokenBalance(connection, mint!, owner!),
+    // skipToken (not `enabled: false`) keeps the query disabled AND lets
+    // TypeScript narrow mint/owner inside queryFn — no non-null assertions.
+    queryFn: mint && owner ? () => fetchTokenBalance(connection, mint, owner) : skipToken,
   });
 
   return deriveTokenBalanceState(

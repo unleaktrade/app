@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router";
 import { PublicKey } from "@solana/web3.js";
 import { useQuoteAccount } from "@/chain/accounts/quote";
@@ -64,7 +64,6 @@ export function RevealQuoteWrapper() {
 
   return (
     <RevealQuote
-      quotePda={quotePda}
       quote={quoteQuery.data}
       rfqPda={rfqPda}
       rfq={rfqQuery.data}
@@ -74,7 +73,7 @@ export function RevealQuoteWrapper() {
   );
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({ children }: { children: ReactNode }) {
   return (
     <PageShell variant="detail" orbs={false} containerClassName="max-w-3xl py-6 sm:py-8">
       {children}
