@@ -36,7 +36,7 @@ import {
   Trophy,
   ShieldCheck,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useSubmitRfqTx } from "@/app/hooks/useSubmitRfqTx";
 
 interface AdaptiveRFQDetailProps {
@@ -204,7 +204,7 @@ export function AdaptiveRFQDetail({
   );
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({ children }: { children: ReactNode }) {
   return (
     <PageShell variant="detail" orbs="purple" containerClassName="max-w-5xl py-6 sm:py-8">
       {children}
@@ -400,11 +400,11 @@ function Panel({
   tone,
   children,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
   subtitle: string;
   tone: keyof typeof toneBg | string;
-  children?: React.ReactNode;
+  children?: ReactNode;
 }) {
   return (
     <motion.div

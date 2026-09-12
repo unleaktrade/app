@@ -1,4 +1,4 @@
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import type { RFQ } from "@/types/rfq";
@@ -103,7 +103,6 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
     | "ignored"
     | "incomplete"
   >("all");
-  const [sortBy] = useState<"newest" | "expiring" | "volume">("newest");
   const [viewMode, setViewMode] = useState<"card" | "list" | "swimlane" | "horizontal">(
     "horizontal",
   );
@@ -158,9 +157,7 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
       return true;
     });
 
-    const sorted = [...available].sort((a, b) =>
-      sortBy === "newest" ? (b.createdAt || 0) - (a.createdAt || 0) : 0,
-    );
+    const sorted = [...available].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
     const byState = Object.fromEntries(
       ALL_STATES.map((state) => [
@@ -173,7 +170,7 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
     ) as Record<(typeof ALL_STATES)[number], RFQ[]>;
 
     return { sortedRFQs: sorted, rfqsByState: byState };
-  }, [allRFQs, searchQuery, stateFilter, sortBy, currentUser]);
+  }, [allRFQs, searchQuery, stateFilter, currentUser]);
 
   // Analytics over the RAW decoded rows (bigint amounts) — never the display
   // view-models, so per-mint sums stay exact and mints are never merged.
@@ -403,34 +400,39 @@ export function Marketplace({ onQuoteRFQ, onViewRFQ, onEditRFQ }: MarketplacePro
                     </button>
 
                     {/* Horizontal scrolling cards - Collapsible */}
-                    {expandedStates.has(state) && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="overflow-hidden"
-                      >
-                        <div className="overflow-x-auto snap-x snap-proximity px-5 pb-5 pt-4">
-                          <div className="flex gap-3 pb-2">
-                            {stateRFQs.map((rfq) => (
-                              <div
-                                key={rfq.publicKey}
-                                className="flex-shrink-0 snap-start w-72 sm:w-80"
-                              >
-                                <RFQMarketplaceCard
-                                  rfq={rfq}
-                                  currentUser={currentUser}
-                                  onQuote={() => onQuoteRFQ(rfq)}
-                                  onView={() => onViewRFQ(rfq.publicKey)}
-                                  onEdit={onEditRFQ ? () => onEditRFQ(rfq) : undefined}
-                                />
-                              </div>
-                            ))}
+                    {/* AnimatePresence keeps the panel mounted through its exit
+                        animation; without it the `exit` below never played. */}
+                    <AnimatePresence initial={false}>
+                      {expandedStates.has(state) && (
+                        <motion.div
+                          key="cards"
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="overflow-x-auto snap-x snap-proximity px-5 pb-5 pt-4">
+                            <div className="flex gap-3 pb-2">
+                              {stateRFQs.map((rfq) => (
+                                <div
+                                  key={rfq.publicKey}
+                                  className="flex-shrink-0 snap-start w-72 sm:w-80"
+                                >
+                                  <RFQMarketplaceCard
+                                    rfq={rfq}
+                                    currentUser={currentUser}
+                                    onQuote={() => onQuoteRFQ(rfq)}
+                                    onView={() => onViewRFQ(rfq.publicKey)}
+                                    onEdit={onEditRFQ ? () => onEditRFQ(rfq) : undefined}
+                                  />
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      </motion.div>
-                    )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </motion.div>
                 );
               })}

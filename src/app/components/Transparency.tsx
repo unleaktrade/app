@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { ShieldCheck, Landmark } from "lucide-react";
 import { PageShell } from "@/app/components/PageShell";
 import { SkeletonList } from "@/app/components/SkeletonList";
@@ -186,10 +186,10 @@ function Section({
   subtitle,
   children,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
   subtitle: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <section className="mb-10">

@@ -4,7 +4,7 @@
 // complete_settlement (bonds refund, base delivers, fee routes) and show a
 // shareable receipt with the Solscan link.
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import type { PublicKey } from "@solana/web3.js";
 import type { RfqAccount } from "@/chain/accounts/rfq";
@@ -95,11 +95,12 @@ export function SettleQuote({
     balanceState.status === "insufficient";
 
   async function settle() {
-    if (!program || !wallet.publicKey) return;
+    const taker = wallet.publicKey;
+    if (!program || !taker) return;
     try {
       const sig = await submit.mutateAsync({
         rfq: rfqPda,
-        build: () => buildCompleteSettlementTx({ program, taker: wallet.publicKey!, rfqPda, rfq }),
+        build: () => buildCompleteSettlementTx({ program, taker, rfqPda, rfq }),
         pendingMessage: "Settling…",
         successMessage: "Settlement complete",
       });
@@ -242,7 +243,7 @@ export function SettleQuote({
   );
 }
 
-function Shell({ children, onBack }: { children: React.ReactNode; onBack: () => void }) {
+function Shell({ children, onBack }: { children: ReactNode; onBack: () => void }) {
   return (
     <PageShell variant="detail" orbs={false} containerClassName="max-w-3xl py-6 sm:py-8">
       <Button
@@ -258,7 +259,7 @@ function Shell({ children, onBack }: { children: React.ReactNode; onBack: () => 
   );
 }
 
-function Note({ tone, children }: { tone: "red" | "amber"; children: React.ReactNode }) {
+function Note({ tone, children }: { tone: "red" | "amber"; children: ReactNode }) {
   const cls =
     tone === "red"
       ? "border-red-500/30 bg-red-500/10 text-red-200"

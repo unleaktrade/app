@@ -155,19 +155,22 @@ export function RFQActionBar({
     bondState.status === "zero" ||
     bondState.status === "insufficient";
 
+  // `build` receives the narrowed signer so builders never need a non-null
+  // assertion on wallet.publicKey inside a deferred closure.
   async function run(
-    build: () => Promise<import("@solana/web3.js").Transaction>,
+    build: (owner: PublicKey) => Promise<import("@solana/web3.js").Transaction>,
     messages: { pending: string; success: string },
     opts?: { onDone?: () => void },
   ) {
-    if (!program || !wallet.publicKey) {
+    const owner = wallet.publicKey;
+    if (!program || !owner) {
       toast.error("Connect a wallet to continue");
       return;
     }
     try {
       await submit.mutateAsync({
         rfq: rfqPda,
-        build,
+        build: () => build(owner),
         pendingMessage: messages.pending,
         successMessage: messages.success,
       });
@@ -271,10 +274,10 @@ export function RFQActionBar({
           return;
         }
         void run(
-          () =>
+          (owner) =>
             buildWithdrawRewardTx({
               program,
-              facilitator: wallet.publicKey!,
+              facilitator: owner,
               rfq: rfqPda,
               quote: selected,
               quoteMint: rfq.quoteMint,
@@ -309,17 +312,17 @@ export function RFQActionBar({
           );
         } else {
           void run(
-            () => buildSetQuoteFacilitatorTx({ program, taker: wallet.publicKey!, rfqPda, update }),
+            (owner) => buildSetQuoteFacilitatorTx({ program, taker: owner, rfqPda, update }),
             messages,
           );
         }
         break;
       }
       case "refundBond":
-        void run(
-          () => buildRefundQuoteBondsTx({ program, taker: wallet.publicKey!, rfqPda, rfq }),
-          { pending: "Reclaiming bond…", success: "Bond reclaimed to your wallet" },
-        );
+        void run((owner) => buildRefundQuoteBondsTx({ program, taker: owner, rfqPda, rfq }), {
+          pending: "Reclaiming bond…",
+          success: "Bond reclaimed to your wallet",
+        });
         break;
       default:
         break;
