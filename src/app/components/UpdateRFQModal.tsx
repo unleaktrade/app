@@ -5,23 +5,22 @@
 // changed fields are sent to update_rfq (null = keep). Every update_rfq arg is
 // optional-updatable on-chain, so no fields are locked.
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { PublicKey } from "@solana/web3.js";
-import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { ResponsiveModal } from "@/app/components/ResponsiveModal";
 import { RFQForm, type RFQFormValues } from "@/app/components/RFQForm";
 import { useSettlementProgram } from "@/chain/program";
 import { useRfqAccount } from "@/chain/accounts/rfq";
 import { canUpdateRfq } from "@/chain/state-machine";
 import { buildUpdateRfqTx, type UpdateRfqFields } from "@/chain/instructions/maker";
-import { submitRfqTx } from "@/chain/instructions/shared";
 import { formatTokenAmount, parseTokenAmount } from "@/app/lib/format";
 import { resolveTokenMeta } from "@/app/lib/tokens";
 import { useResolveTokenMeta } from "@/app/hooks/useResolveTokenMeta";
 import type { FacilitatorUpdate, RFQ } from "@/types/rfq";
 import { toast } from "sonner";
 import { AlertCircle } from "lucide-react";
+import { useSubmitRfqTx } from "@/app/hooks/useSubmitRfqTx";
 
 interface UpdateRFQModalProps {
   open: boolean;
@@ -31,9 +30,7 @@ interface UpdateRFQModalProps {
 
 export function UpdateRFQModal({ open, onOpenChange, rfq }: UpdateRFQModalProps) {
   const program = useSettlementProgram();
-  const { connection } = useConnection();
   const wallet = useWallet();
-  const queryClient = useQueryClient();
 
   const pda = useMemo(() => {
     if (!rfq) return null;
@@ -47,7 +44,8 @@ export function UpdateRFQModal({ open, onOpenChange, rfq }: UpdateRFQModalProps)
   const account = accountQuery.data ?? null;
   const isDraft = account !== null && canUpdateRfq(account);
 
-  const [submitting, setSubmitting] = useState(false);
+  const submit = useSubmitRfqTx();
+  const submitting = submit.isPending;
   const resolveToken = useResolveTokenMeta();
 
   // Pre-fill from the decoded account (correct decimals + bps). RFQForm reads
@@ -152,12 +150,8 @@ export function UpdateRFQModal({ open, onOpenChange, rfq }: UpdateRFQModalProps)
       return;
     }
 
-    setSubmitting(true);
     try {
-      await submitRfqTx({
-        connection,
-        wallet,
-        queryClient,
+      await submit.mutateAsync({
         rfq: pda,
         build: () => buildUpdateRfqTx({ program, maker: account.maker, rfq: pda, ...fields }),
         pendingMessage: "Updating RFQ…",
@@ -167,8 +161,6 @@ export function UpdateRFQModal({ open, onOpenChange, rfq }: UpdateRFQModalProps)
       onOpenChange(false);
     } catch {
       // sendAndConfirmWithToast already surfaced the error toast.
-    } finally {
-      setSubmitting(false);
     }
   };
 

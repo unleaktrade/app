@@ -10,8 +10,7 @@
 // the same 64 bytes — but the amount still has to be supplied).
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useWallet } from "@solana/wallet-adapter-react";
 import type { PublicKey } from "@solana/web3.js";
 import type { RfqAccount } from "@/chain/accounts/rfq";
 import type { QuoteAccount } from "@/chain/accounts/quote";
@@ -20,7 +19,6 @@ import { canRevealQuote, revealDeadline } from "@/chain/state-machine";
 import { commitHash } from "@/chain/commitHash";
 import { deriveSalt } from "@/chain/liquidityGuard";
 import { buildRevealQuoteTx } from "@/chain/instructions/taker";
-import { submitRfqTx } from "@/chain/instructions/shared";
 import { useResolveTokenMeta } from "@/app/hooks/useResolveTokenMeta";
 import {
   hexToBytes,
@@ -46,6 +44,7 @@ import {
   PenLine,
   ShieldCheck,
 } from "lucide-react";
+import { useSubmitRfqTx } from "@/app/hooks/useSubmitRfqTx";
 
 interface RevealQuoteProps {
   quotePda: PublicKey;
@@ -58,17 +57,40 @@ interface RevealQuoteProps {
 
 export function RevealQuote({ quote, rfqPda, rfq, onDone, onBack }: RevealQuoteProps) {
   const program = useSettlementProgram();
-  const { connection } = useConnection();
   const wallet = useWallet();
-  const queryClient = useQueryClient();
 
   const connected = wallet.publicKey?.toBase58() ?? null;
   const isOwner = connected !== null && connected === quote.taker.toBase58();
 
-  const [salt, setSalt] = useState<Uint8Array | null>(null);
-  const [amount, setAmount] = useState<bigint | null>(null);
-  const [localHashHex, setLocalHashHex] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  // Prefill from the localStorage reveal ticket. Lazy initialisers, not an
+  // effect: the cockpit is mounted per quote route, so the ticket for this
+  // RFQ is fixed for the component's lifetime.
+  const [salt, setSalt] = useState<Uint8Array | null>(() => {
+    const t = loadTicket(rfqPda.toBase58());
+    try {
+      return t ? hexToBytes(t.salt) : null;
+    } catch {
+      return null; // corrupt ticket — user can import / re-sign
+    }
+  });
+  const [amount, setAmount] = useState<bigint | null>(() => {
+    const t = loadTicket(rfqPda.toBase58());
+    try {
+      return t ? BigInt(t.quoteAmount) : null;
+    } catch {
+      return null;
+    }
+  });
+  // The locally recomputed commit hash is stored together with the inputs it
+  // was computed from, so the displayed value is derived (null whenever the
+  // inputs moved on) instead of being cleared from an effect.
+  const [computed, setComputed] = useState<{
+    salt: Uint8Array;
+    amount: bigint;
+    hex: string;
+  } | null>(null);
+  const submit = useSubmitRfqTx();
+  const busy = submit.isPending;
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const resolveToken = useResolveTokenMeta();
@@ -76,26 +98,11 @@ export function RevealQuote({ quote, rfqPda, rfq, onDone, onBack }: RevealQuoteP
   const onchainHashHex = useMemo(() => bytesToHex(quote.commitHash), [quote.commitHash]);
   const quoteMeta = resolveToken(rfq.quoteMint.toBase58());
 
-  // Prefill from the localStorage ticket on mount.
-  useEffect(() => {
-    const t = loadTicket(rfqPda.toBase58());
-    if (t) {
-      try {
-        setSalt(hexToBytes(t.salt));
-        setAmount(BigInt(t.quoteAmount));
-      } catch {
-        /* corrupt ticket — user can import / re-sign */
-      }
-    }
-  }, [rfqPda]);
-
   // Re-derive the commit hash whenever salt/amount change so the diff is live.
   useEffect(() => {
+    if (!salt || amount === null) return;
     let cancelled = false;
-    if (!salt || amount === null) {
-      setLocalHashHex(null);
-      return;
-    }
+    const inputs = { salt, amount };
     void commitHash({
       salt,
       rfq: rfqPda,
@@ -105,12 +112,14 @@ export function RevealQuote({ quote, rfqPda, rfq, onDone, onBack }: RevealQuoteP
       bondAmount: rfq.bondAmount,
       takerFeeBps: rfq.takerFeeBps,
     }).then((r) => {
-      if (!cancelled) setLocalHashHex(bytesToHex(r.hash));
+      if (!cancelled) setComputed({ ...inputs, hex: bytesToHex(r.hash) });
     });
     return () => {
       cancelled = true;
     };
   }, [salt, amount, rfqPda, quote.taker, rfq.quoteMint, rfq.bondAmount, rfq.takerFeeBps]);
+  const localHashHex =
+    computed !== null && computed.salt === salt && computed.amount === amount ? computed.hex : null;
 
   const matches = localHashHex !== null && localHashHex === onchainHashHex;
   const now = useNowSecs();
@@ -155,12 +164,8 @@ export function RevealQuote({ quote, rfqPda, rfq, onDone, onBack }: RevealQuoteP
       toast.error("Commit hash doesn't match — check your salt and amount");
       return;
     }
-    setBusy(true);
     try {
-      await submitRfqTx({
-        connection,
-        wallet,
-        queryClient,
+      await submit.mutateAsync({
         rfq: rfqPda,
         build: () =>
           buildRevealQuoteTx({
@@ -179,8 +184,6 @@ export function RevealQuote({ quote, rfqPda, rfq, onDone, onBack }: RevealQuoteP
       onDone();
     } catch {
       // toast already surfaced
-    } finally {
-      setBusy(false);
     }
   }
 
