@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { screen, within } from "@testing-library/react";
 import { renderWithProviders } from "@/test/render";
 import { TransparencyTable, type TransparencyRow } from "../TransparencyTable";
@@ -44,11 +44,13 @@ describe("TransparencyTable", () => {
     expect(screen.getByRole("columnheader", { name: "Paid" })).toBeInTheDocument();
   });
 
-  it("navigates via the RFQ cell when onViewRfq is provided", () => {
-    const onViewRfq = vi.fn();
-    renderWithProviders(<TransparencyTable rows={ROWS} dateLabel="Seized" onViewRfq={onViewRfq} />);
+  it("links each RFQ cell to the detail route without nesting interactive elements", () => {
+    const { container } = renderWithProviders(<TransparencyTable rows={ROWS} dateLabel="Seized" />);
     const table = screen.getByRole("table");
-    within(table).getAllByRole("button")[0]?.click();
-    expect(onViewRfq).toHaveBeenCalledWith(ROWS[0]?.rfq);
+    const link = within(table).getAllByRole("link", { name: /7Xg9/ })[0];
+    expect(link).toHaveAttribute("href", `/dashboard/rfq/${ROWS[0]?.rfq}`);
+    // React DOM rejects <button> inside <button> (and <a> inside <a>); the
+    // copy control next to the address must not be wrapped by another control.
+    expect(container.querySelectorAll("button button, a a, a button, button a")).toHaveLength(0);
   });
 });

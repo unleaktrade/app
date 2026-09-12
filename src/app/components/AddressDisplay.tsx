@@ -1,6 +1,7 @@
 import { Check, Copy, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Link } from "react-router";
 import { useCluster } from "@/app/providers/ClusterProvider";
 import { truncateAddress } from "@/app/lib/format";
 import { cn } from "@/app/components/ui/utils";
@@ -9,6 +10,12 @@ interface AddressDisplayProps {
   address: string;
   /** Visible characters on each side of the ellipsis. */
   visible?: number;
+  /**
+   * In-app route the address text links to (e.g. the RFQ detail). Rendered as
+   * a real router <Link>, so it composes with the copy / explorer buttons
+   * without nesting interactive elements.
+   */
+  to?: string;
   className?: string;
 }
 
@@ -16,7 +23,7 @@ interface AddressDisplayProps {
  * Truncated mono address with copy-to-clipboard and a cluster-aware Solscan
  * link (devnet adds ?cluster=devnet; localnet gets no explorer link).
  */
-export function AddressDisplay({ address, visible = 4, className }: AddressDisplayProps) {
+export function AddressDisplay({ address, visible = 4, to, className }: AddressDisplayProps) {
   const { cluster } = useCluster();
   const [copied, setCopied] = useState(false);
 
@@ -38,9 +45,15 @@ export function AddressDisplay({ address, visible = 4, className }: AddressDispl
 
   return (
     <span className={cn("inline-flex items-center gap-1.5", className)}>
-      <span className="font-mono text-sm text-white/70" title={address}>
-        {truncateAddress(address, visible)}
-      </span>
+      {to ? (
+        <Link to={to} className="font-mono text-sm text-state-open hover:underline" title={address}>
+          {truncateAddress(address, visible)}
+        </Link>
+      ) : (
+        <span className="font-mono text-sm text-white/70" title={address}>
+          {truncateAddress(address, visible)}
+        </span>
+      )}
       <button
         type="button"
         onClick={copy}

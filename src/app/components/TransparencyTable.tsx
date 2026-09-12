@@ -19,14 +19,17 @@ interface TransparencyTableProps {
   rows: TransparencyRow[];
   /** Column header for the timestamp (e.g. "Seized" / "Paid"). */
   dateLabel: string;
-  onViewRfq?: (rfq: string) => void;
+}
+
+function rfqHref(rfq: string): string {
+  return `/dashboard/rfq/${rfq}`;
 }
 
 /**
  * Ledger rows for the transparency page: a real table on ≥md, stacked cards
  * below. Amounts always render as `{amount} {symbol}` in the row's own mint.
  */
-export function TransparencyTable({ rows, dateLabel, onViewRfq }: TransparencyTableProps) {
+export function TransparencyTable({ rows, dateLabel }: TransparencyTableProps) {
   return (
     <>
       {/* Desktop table */}
@@ -52,17 +55,7 @@ export function TransparencyTable({ rows, dateLabel, onViewRfq }: TransparencyTa
             {rows.map((row) => (
               <tr key={`${row.rfq}-${row.at ?? "pending"}`} className="border-t border-white/5">
                 <td className="px-4 py-3">
-                  {onViewRfq ? (
-                    <button
-                      type="button"
-                      onClick={() => onViewRfq(row.rfq)}
-                      className="text-state-open hover:underline"
-                    >
-                      <AddressDisplay address={row.rfq} />
-                    </button>
-                  ) : (
-                    <AddressDisplay address={row.rfq} />
-                  )}
+                  <AddressDisplay address={row.rfq} to={rfqHref(row.rfq)} />
                 </td>
                 <td className="px-4 py-3">
                   <Amount mint={row.mint} amount={row.amount} />
@@ -87,7 +80,7 @@ export function TransparencyTable({ rows, dateLabel, onViewRfq }: TransparencyTa
             className="glass-card rounded-xl p-4 text-sm"
           >
             <div className="mb-2 flex items-center justify-between gap-3">
-              <AddressDisplay address={row.rfq} />
+              <AddressDisplay address={row.rfq} to={rfqHref(row.rfq)} />
               <Amount mint={row.mint} amount={row.amount} />
             </div>
             <div className="flex items-center justify-between gap-3 text-xs text-white/40">

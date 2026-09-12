@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { useNavigate } from "react-router";
 import { ShieldCheck, Landmark } from "lucide-react";
 import { PageShell } from "@/app/components/PageShell";
 import { SkeletonList } from "@/app/components/SkeletonList";
@@ -19,7 +18,6 @@ import { formatTokenAmount } from "@/app/lib/format";
  * per-mint counts and totals — never a USD aggregate.
  */
 export function Transparency() {
-  const navigate = useNavigate();
   const slashedQuery = useSlashedBondsTrackerAccounts();
   const feesQuery = useFeesTrackerAccounts();
 
@@ -115,11 +113,7 @@ export function Transparency() {
         ) : (
           <>
             <MintTotalsRow totals={slashedTotals} />
-            <TransparencyTable
-              rows={slashedRows}
-              dateLabel="Seized"
-              onViewRfq={(rfq) => navigate(`/dashboard/rfq/${rfq}`)}
-            />
+            <TransparencyTable rows={slashedRows} dateLabel="Seized" />
           </>
         )}
       </Section>
@@ -146,11 +140,7 @@ export function Transparency() {
         ) : (
           <>
             <MintTotalsRow totals={feeTotals} />
-            <TransparencyTable
-              rows={feeRows}
-              dateLabel="Paid"
-              onViewRfq={(rfq) => navigate(`/dashboard/rfq/${rfq}`)}
-            />
+            <TransparencyTable rows={feeRows} dateLabel="Paid" />
           </>
         )}
       </Section>
