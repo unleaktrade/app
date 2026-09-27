@@ -110,9 +110,7 @@ const summary = {
   budget,
   headroom: {
     entryKb:
-      budget.entryGzipKb != null
-        ? Math.round((budget.entryGzipKb - entryGzipKb) * 10) / 10
-        : null,
+      budget.entryGzipKb != null ? Math.round((budget.entryGzipKb - entryGzipKb) * 10) / 10 : null,
     initialLoadKb:
       budget.initialLoadGzipKb != null
         ? Math.round((budget.initialLoadGzipKb - initialLoadGzipKb) * 10) / 10
