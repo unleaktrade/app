@@ -5,7 +5,7 @@
 
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { renderWithProviders } from "@/test/render";
 import { TokenAmountInput } from "../TokenAmountInput";
 
@@ -110,5 +110,33 @@ describe("TokenAmountInput", () => {
 
     expect(input.value).toBe("");
     expect(screen.getByTestId("value")).toHaveTextContent("null");
+  });
+
+  it("is read-only until a known mint's decimals resolve, then parses at the real scale", async () => {
+    // Seeded devnet sALT has 6 decimals; the fallback is 9. Typing before the
+    // metadata resolved used to parse "11.041" as 11_041 sALT (e2e @tx: the
+    // guard then refused a quote the wallet could not fund).
+    function Modal() {
+      const [value, setValue] = useState<bigint | null>(null);
+      return (
+        <>
+          <TokenAmountInput
+            mint="GNfESHwdaSQ9pZ3wScMSWgA5spEcik36mRoc3YQYxiqt"
+            value={value}
+            onChange={setValue}
+          />
+          <output data-testid="value">{value === null ? "null" : value.toString()}</output>
+        </>
+      );
+    }
+    renderWithProviders(<Modal />);
+    const input = screen.getByRole("textbox") as HTMLInputElement;
+    expect(input).toBeDisabled();
+    expect(input).toHaveAttribute("aria-busy", "true");
+
+    await waitFor(() => expect(input).toBeEnabled());
+    expect(screen.getByText("6 decimals")).toBeInTheDocument();
+    fireEvent.change(input, { target: { value: "11.041" } });
+    expect(screen.getByTestId("value")).toHaveTextContent("11041000");
   });
 });

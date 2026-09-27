@@ -41,6 +41,13 @@ export function TokenAmountInput({
   const meta = useTokenMeta(mint, cluster);
   const decimals = meta.data?.decimals ?? fallbackDecimals;
   const symbol = meta.data?.symbol ?? fallbackSymbol;
+  // Until a known mint's metadata resolves, `decimals` is only the fallback
+  // guess: typing then would parse the amount at the wrong scale (11.041 sALT
+  // read as 11,041 when the 9-decimal fallback stands in for 6), and a
+  // remount can lose the later correction. So the field stays read-only until
+  // the real decimals are known — a few ms from the static catalog, one fetch
+  // on mainnet.
+  const metaLoading = mint !== null && meta.isPending;
 
   const [text, setText] = useState(() =>
     value === null ? "" : formatTokenAmount(value, decimals),
@@ -120,7 +127,8 @@ export function TokenAmountInput({
           value={text}
           onChange={(e) => handleChange(e.target.value)}
           placeholder={placeholder}
-          disabled={disabled}
+          disabled={disabled || metaLoading}
+          aria-busy={metaLoading || undefined}
           aria-invalid={invalid}
           className={cn(
             "bg-white/5 border-white/10 pr-16 font-mono text-white placeholder:text-white/30",

@@ -81,7 +81,11 @@ test.describe("Full RFQ lifecycle @tx", () => {
           .replace(/https?:\/\/\S+/g, "<url>")
           .replace(/\s+/g, " ")
           .slice(0, 800);
-        console.log(`[commit attempt failed] dialog: ${shown}`);
+        const typed = await commitDialog
+          .getByRole("textbox")
+          .inputValue()
+          .catch(() => "?");
+        console.log(`[commit attempt failed] field="${typed}" dialog: ${shown}`);
         throw err;
       }
     }).toPass({ timeout: 120_000, intervals: [8_000] });
