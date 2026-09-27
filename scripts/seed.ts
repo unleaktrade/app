@@ -10,7 +10,7 @@
  *
  *   npm run seed -- --cluster devnet  [--payer <id.json>] \
  *                   [--maker-keypair <id.json>] [--facilitator <pubkey>] \
- *                   [--liquidity-guard <url>] [--usdc-source <id.json>] \
+ *                   [--liquidity-guard <url>] [--api-key <key>] [--usdc-source <id.json>] \
  *                   [--only draft,open,committed,…]
  *
  * Time cannot be warped on a live cluster: interactive states (Draft/Open/
@@ -251,6 +251,7 @@ async function attest(
   quoteAmount: number,
   bondAmount: number,
   takerFeeBps: number,
+  apiKey: string | undefined,
 ): Promise<Attestation> {
   const salt = nacl.sign.detached(rfq.toBytes(), taker.secretKey); // 64-byte ed25519 sig
   const payload = {
@@ -262,11 +263,19 @@ async function attest(
     bond_amount_usdc: String(bondAmount),
     taker_fee_bps: String(takerFeeBps),
   };
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (apiKey) headers["X-API-Key"] = apiKey;
   const res = await fetch(`${lgUrl}/check`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(payload),
   });
+  if (res.status === 401) {
+    throw new Error(
+      `liquidity-guard /check returned 401: ${apiKey ? "the API key was rejected" : "an API key is required"}. ` +
+        `Pass --api-key <key> (or LG_API_KEY) with one of the guard's API_KEYS.`,
+    );
+  }
   const data = (await res.json()) as Record<string, string>;
   if (!res.ok || "error" in data) {
     throw new Error(`liquidity-guard /check failed: ${data.error ?? `HTTP ${res.status}`}`);
@@ -308,6 +317,8 @@ async function main() {
   // unless overridden. A wallet holding Config.usdc_mint funds the maker + taker
   // bonds; without it only Draft seeds (unless the maker already holds the USDC).
   const lgUrl = args["liquidity-guard"] ?? cfg.liquidityGuard;
+  // API key for /check when the guard runs with API_KEYS (never printed).
+  const lgApiKey = args["api-key"] ?? process.env.LG_API_KEY ?? undefined;
   const usdcSource = args["usdc-source"] ? loadKeypair(args["usdc-source"]) : null;
   // Public api.devnet.solana.com aggressively rate-limits (429) the burst of
   // funding/setup txns. Point --rpc (or RPC_URL) at a private devnet endpoint.
@@ -326,7 +337,7 @@ async function main() {
   console.log(`   payer           ${payer.publicKey.toBase58()}`);
   console.log(`   maker           ${maker.publicKey.toBase58()}`);
   console.log(`   facilitator     ${facilitator?.toBase58() ?? "(none)"}`);
-  console.log(`   liquidity-guard ${lgUrl}`);
+  console.log(`   liquidity-guard ${lgUrl}${lgApiKey ? " (with API key)" : ""}`);
   console.log(
     `   usdc-source     ${
       usdcSource?.publicKey.toBase58() ?? "(none → Draft only, unless the maker already holds USDC)"
@@ -569,7 +580,16 @@ async function main() {
   }
 
   async function commitQuote(taker: KeypairT, rfq: PublicKeyT, withFacilitator: boolean) {
-    const att = await attest(lgUrl, taker, rfq, QUOTE_MINT, MIN_QUOTE, BOND, TAKER_FEE_BPS);
+    const att = await attest(
+      lgUrl,
+      taker,
+      rfq,
+      QUOTE_MINT,
+      MIN_QUOTE,
+      BOND,
+      TAKER_FEE_BPS,
+      lgApiKey,
+    );
     const ed25519Ix = Ed25519Program.createInstructionWithPublicKey({
       publicKey: (config.liquidityGuard as PublicKeyT).toBytes(),
       message: att.commitHash,

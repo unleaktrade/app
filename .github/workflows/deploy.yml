@@ -40,6 +40,13 @@ jobs:
         # keyless public endpoint (env.ts falls back to clusterApiUrl); if a
         # dedicated RPC is ever needed for prod, front it with a same-origin
         # proxy that keeps the key server-side, never a VITE_* var.
+        # LG_API_KEY_* are the one deliberate exception: liquidity-guard client
+        # identifiers (revocable, per-app, rate-limited server-side) that the
+        # browser must send on /check. vite.config.ts inlines them via the
+        # __LG_API_KEYS__ define. Empty secrets = no header (guard open).
+        env:
+          LG_API_KEY_DEVNET: ${{ secrets.LG_API_KEY_DEVNET }}
+          LG_API_KEY_MAINNET: ${{ secrets.LG_API_KEY_MAINNET }}
         run: npm run build
 
       - name: Configure Pages

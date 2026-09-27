@@ -46,6 +46,11 @@ jobs:
 
       # Local build on the runner (deterministic & cached)
       - name: Build (preview)
+        # liquidity-guard client keys (public by design, see deploy.yml); the
+        # local `vercel build` passes the runner env through to `vite build`.
+        env:
+          LG_API_KEY_DEVNET: ${{ secrets.LG_API_KEY_DEVNET }}
+          LG_API_KEY_MAINNET: ${{ secrets.LG_API_KEY_MAINNET }}
         run: npx vercel build --token=$VERCEL_TOKEN
 
       # Upload prebuilt artifacts to Vercel (fast deploy)
