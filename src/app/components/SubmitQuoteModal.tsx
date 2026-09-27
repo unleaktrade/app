@@ -24,12 +24,8 @@ import { totalToFund } from "@/chain/math";
 import { formatDuration } from "@/app/lib/format";
 import { useTokenBalanceState } from "@/app/hooks/useTokenBalanceState";
 import { BetaTokenNotice } from "@/app/components/BetaTokenNotice";
-import {
-  deriveSalt,
-  fetchAttestation,
-  verifyAttestation,
-  LiquidityGuardError,
-} from "@/chain/liquidityGuard";
+import { deriveSalt, fetchAttestation, verifyAttestation } from "@/chain/liquidityGuard";
+import { describeGuardError } from "@/app/lib/guard-errors";
 import { buildCommitQuoteTx } from "@/chain/instructions/taker";
 import { useResolveTokenMeta } from "@/app/hooks/useResolveTokenMeta";
 import { useNowSecs } from "@/app/hooks/useNowSecs";
@@ -248,23 +244,12 @@ function SubmitQuoteBody({ rfq, phase, setPhase, onClose }: SubmitQuoteBodyProps
       // A guard rejection that reads like a funds shortfall gets the beta
       // token guidance (quote-mint context) instead of the raw string — the
       // raw message stays available behind the collapsed details line.
-      if (
-        err instanceof LiquidityGuardError &&
-        err.status !== 429 &&
-        /insufficient|balance|funds/i.test(err.message)
-      ) {
-        setGuardShortfall(err.message);
+      const view = describeGuardError(err);
+      if (view.kind === "shortfall") {
+        setGuardShortfall(view.message);
         return;
       }
-      const message =
-        err instanceof LiquidityGuardError
-          ? err.status === 429
-            ? "Liquidity-guard is rate-limited — wait a moment and retry."
-            : `Liquidity-guard rejected the quote: ${err.message}`
-          : err instanceof Error
-            ? err.message
-            : "Failed to commit quote";
-      setError(message);
+      setError(view.message);
     }
   }
 

@@ -13,6 +13,7 @@ npm run seed -- --cluster devnet \
   [--maker-keypair ~/maker.json] \
   [--facilitator <YOUR_WALLET_PUBKEY>] \
   [--liquidity-guard <url>] \
+  [--api-key <key>] \
   [--usdc-source ~/usdc-holder.json] \
   [--only draft,open,committed,revealed,selected,settled,expired,ignored,incomplete]
 ```
@@ -28,6 +29,10 @@ npm run seed -- --cluster devnet \
 from any other key. Override the URL with `--liquidity-guard` only if Config points elsewhere
 (the preflight cross-checks `Config.liquidity_guard` against the instance's `/health.service_pubkey`
 and aborts on drift).
+
+When the guard runs with `API_KEYS`, `/check` needs a key: pass `--api-key <key>` (or set
+`LG_API_KEY`). Use a key issued for scripts, not the one baked into the app bundle. Without
+it the seed aborts at the first commit with a 401 hint; `/health` never needs a key.
 
 > **Past Draft, the seed needs USDC.** Only `init_rfq` (Draft) moves no tokens. `open_rfq`
 > transfers the **maker's** USDC bond and `commit_quote` transfers each **taker's** — all in

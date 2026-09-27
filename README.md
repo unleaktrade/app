@@ -156,6 +156,7 @@ baked-in defaults unless overridden.
 | `VITE_RPC_URL_{DEVNET,MAINNET,LOCALNET}` | RPC endpoint overrides                                                                                           |
 | `VITE_SETTLEMENT_PROGRAM_ID`             | Override the committed IDL's program id                                                                          |
 | `VITE_LG_URL_{LOCALNET,DEVNET,MAINNET}`  | liquidity-guard upstreams, consumed **only** by the Vite dev proxy                                               |
+| `LG_API_KEY_{LOCALNET,DEVNET,MAINNET}`   | liquidity-guard API key sent as `X-API-Key` on `/check` (CI secrets; public client identifier once built)        |
 | `DEV_WALLET_KEYPAIR_DIR`                 | Dev-only: folder of Solana CLI keypairs registered as in-browser test wallets (dev server only, never in builds) |
 
 Note: the attestation service's ed25519 pubkey is deliberately **not** an env

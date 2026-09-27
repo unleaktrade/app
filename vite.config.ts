@@ -33,6 +33,13 @@ function loadDevWallets(dir: string | undefined): { label: string; secretKey: nu
 // cross-origin call safe. The resolved map is handed to the client verbatim via
 // the __LG_TARGETS__ define below — see src/chain/liquidityGuard.ts.
 // Defaults below can be overridden per env via VITE_LG_URL_{LOCALNET,DEVNET,MAINNET}.
+//
+// API keys: /check requires an `X-API-Key` when the guard runs with API_KEYS.
+// LG_API_KEY_{LOCALNET,DEVNET,MAINNET} (deliberately NOT VITE_-prefixed, so
+// they only reach the bundle through the explicit __LG_API_KEYS__ define
+// below) are injected by CI from GitHub secrets. They ship in the public
+// bundle: each is a revocable per-app client identifier, not a secret — never
+// reuse one of these values for a server-to-server consumer.
 const LG_DEFAULTS = {
   localnet: "http://localhost:8080",
   devnet: "https://liquidity-guard-devnet-e1779e87cf84.herokuapp.com",
@@ -84,6 +91,16 @@ export default defineConfig(({ mode, command }) => {
     devnet: env.VITE_LG_URL_DEVNET || LG_DEFAULTS.devnet,
     mainnet: env.VITE_LG_URL_MAINNET || LG_DEFAULTS.mainnet,
   };
+  // Tests get a fixed fixture (devnet keyed, localnet/mainnet not) so the
+  // header behaviour is asserted hermetically, whatever .env.local holds.
+  const lgApiKeys =
+    mode === "test"
+      ? { localnet: "", devnet: "test-devnet-api-key", mainnet: "" }
+      : {
+          localnet: env.LG_API_KEY_LOCALNET?.trim() ?? "",
+          devnet: env.LG_API_KEY_DEVNET?.trim() ?? "",
+          mainnet: env.LG_API_KEY_MAINNET?.trim() ?? "",
+        };
   // command === "serve" excludes `vite build` — dev wallets never ship.
   const devWallets = command === "serve" ? loadDevWallets(env.DEV_WALLET_KEYPAIR_DIR) : [];
   const lgProxy = (segment: string, target: string): ProxyOptions => ({
@@ -129,6 +146,9 @@ export default defineConfig(({ mode, command }) => {
       // production build (no dev proxy) can call the upstream directly. These
       // are public, keyless URLs — safe to inline into the bundle.
       __LG_TARGETS__: JSON.stringify(lgTarget),
+      // Per-cluster liquidity-guard API keys ("" = send none). Public client
+      // identifiers by design — see the LG_API_KEY_* note above LG_DEFAULTS.
+      __LG_API_KEYS__: JSON.stringify(lgApiKeys),
     },
     optimizeDeps: {
       include: ["buffer", "process"],
@@ -183,7 +203,6 @@ export default defineConfig(({ mode, command }) => {
           "src/chain/program.ts",
           "src/chain/tx.ts",
           "src/chain/accountSubscription.ts",
-          "src/chain/liquidityGuard.ts",
         ],
         reporter: ["text", "html", "json-summary"],
         thresholds: {

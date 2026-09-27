@@ -5,6 +5,9 @@
 // production build there is no dev server, so we call the upstream Heroku
 // instance directly — the Rust service at ../liquidity-guard now serves
 // permissive CORS (allow_any_origin), which makes the cross-origin call safe.
+//
+// /check sends `X-API-Key` when a key is configured for the cluster (the guard
+// answers 401 otherwise once its API_KEYS is set). /health stays keyless.
 
 import type { PublicKey } from "@solana/web3.js";
 import type { WalletContextState } from "@solana/wallet-adapter-react";
@@ -14,13 +17,21 @@ import type { Cluster } from "@/chain/env";
 // Resolved per-cluster upstream URLs, injected at build time by vite.config.ts
 // (env overrides merged over the Heroku defaults). Public, keyless URLs.
 declare const __LG_TARGETS__: Record<"localnet" | "devnet" | "mainnet", string>;
+// Per-cluster API keys injected at build time from LG_API_KEY_* (CI secrets).
+// "" means none. They end up in the public bundle: client identifiers the
+// guard can revoke, not secrets.
+declare const __LG_API_KEYS__: Record<"localnet" | "devnet" | "mainnet", string>;
 
 // Each cluster has its own liquidity-guard upstream. We route by the active
 // cluster so a devnet session hits the devnet guard, mainnet hits mainnet, etc.
 const BASE_PATH = "/liquidity-guard";
 
+function lgSegment(cluster: Cluster): "localnet" | "devnet" | "mainnet" {
+  return cluster === "mainnet-beta" ? "mainnet" : cluster;
+}
+
 function lgUrl(cluster: Cluster, endpoint: "health" | "check"): string {
-  const segment = cluster === "mainnet-beta" ? "mainnet" : cluster;
+  const segment = lgSegment(cluster);
   // Dev: same-origin proxy path. Prod: absolute upstream (no proxy exists).
   if (import.meta.env.DEV) {
     return `${BASE_PATH}/${segment}/${endpoint}`;
@@ -85,6 +96,14 @@ function fromHex(hex: string): Uint8Array {
 
 const RETRY_DELAYS_MS = [300, 900, 2700] as const;
 
+/** Headers for POST /check: JSON, plus `X-API-Key` when the cluster has one. */
+export function checkHeaders(cluster: Cluster): Record<string, string> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const key = __LG_API_KEYS__[lgSegment(cluster)];
+  if (key) headers["X-API-Key"] = key;
+  return headers;
+}
+
 export async function deriveSalt(wallet: WalletContextState, rfq: PublicKey): Promise<Uint8Array> {
   if (!wallet.signMessage) {
     throw new LiquidityGuardError(0, "Wallet does not support signMessage");
@@ -112,7 +131,7 @@ async function postCheckOnce(
   };
   return fetch(lgUrl(cluster, "check"), {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: checkHeaders(cluster),
     body: JSON.stringify(body),
     signal: opts?.signal,
   });
@@ -145,6 +164,8 @@ export async function fetchAttestation(
       };
     }
     lastResponse = res;
+    // Only 429 is worth retrying; a 401 (missing/revoked API key) or a 4xx
+    // validation error would fail identically on every attempt.
     if (res.status !== 429 || attempt === RETRY_DELAYS_MS.length) break;
     await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
   }

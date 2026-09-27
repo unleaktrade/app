@@ -60,6 +60,9 @@ jobs:
           # Public devnet RPC throttles getProgramAccounts from datacenter
           # IPs — a dedicated endpoint is required for the runner (see #34).
           VITE_RPC_URL_DEVNET: ${{ secrets.DEVNET_RPC_URL }}
+          # The lifecycle commits through the devnet guard's /check, which
+          # needs an API key once that guard runs with API_KEYS.
+          LG_API_KEY_DEVNET: ${{ secrets.LG_API_KEY_DEVNET }}
 
       - name: Upload Playwright report
         if: failure()
