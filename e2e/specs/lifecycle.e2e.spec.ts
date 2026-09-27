@@ -69,9 +69,21 @@ test.describe("Full RFQ lifecycle @tx", () => {
     // bounded re-click retries the whole check → attest → tx path.
     await expect(async () => {
       await commitDialog.getByRole("button", { name: "Commit quote" }).click();
-      await expect(taker1Page.getByText("Save your reveal ticket")).toBeVisible({
-        timeout: 60_000,
-      });
+      try {
+        await expect(taker1Page.getByText("Save your reveal ticket")).toBeVisible({
+          timeout: 60_000,
+        });
+      } catch (err) {
+        // Traces/screenshots are off under CI, so log what the dialog shows
+        // (the guard's rejection reason, the amount field) — user-facing text
+        // only, never URLs.
+        const shown = (await commitDialog.innerText().catch(() => ""))
+          .replace(/https?:\/\/\S+/g, "<url>")
+          .replace(/\s+/g, " ")
+          .slice(0, 800);
+        console.log(`[commit attempt failed] dialog: ${shown}`);
+        throw err;
+      }
     }).toPass({ timeout: 120_000, intervals: [8_000] });
     // Two "Close" buttons exist here: the ticket panel's explicit button and
     // the dialog's X — either works, take the first.
