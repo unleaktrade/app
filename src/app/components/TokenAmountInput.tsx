@@ -45,6 +45,12 @@ export function TokenAmountInput({
   const [text, setText] = useState(() =>
     value === null ? "" : formatTokenAmount(value, decimals),
   );
+  // Whether `text` holds what the user typed (true) or a rendering of the
+  // `value` prop (false). It decides what a decimals change means: typed text
+  // is kept and re-parsed; a prop-derived text is re-formatted from `value`,
+  // which stays the source of truth (re-parsing a prefill formatted at the
+  // fallback scale would silently rescale the amount).
+  const [typed, setTyped] = useState(false);
   // Validity is derived from the text and the current decimals — never stored,
   // so a decimals change re-validates in the same render.
   const invalid = text.trim() !== "" && parseTokenAmount(text.replace(/,/g, ""), decimals) === null;
@@ -60,21 +66,34 @@ export function TokenAmountInput({
       text.trim() === "" ? null : parseTokenAmount(text.replace(/,/g, ""), decimals);
     if (textValue !== value) {
       setText(value === null ? "" : formatTokenAmount(value, decimals));
+      setTyped(false);
+    }
+  }
+
+  // Decimals change (metadata resolved) on a prop-derived text: re-format it
+  // for the new scale during render. `value` itself is unchanged, so nothing
+  // is emitted.
+  const [syncedDecimals, setSyncedDecimals] = useState(decimals);
+  if (decimals !== syncedDecimals) {
+    setSyncedDecimals(decimals);
+    if (!typed && value !== null) {
+      setText(formatTokenAmount(value, decimals));
     }
   }
 
   // Metadata resolves async: if the user typed while the fallback decimals
   // were in effect, the emitted bigint was parsed at the wrong scale. Re-parse
   // the typed text whenever the resolved decimals change, so the base-unit
-  // value always matches what's on screen.
+  // value always matches what's on screen. Only typed text: a prop-derived
+  // text is re-formatted above instead.
   const lastDecimals = useRef(decimals);
   useEffect(() => {
     if (lastDecimals.current === decimals) return;
     lastDecimals.current = decimals;
-    if (text.trim() === "") return;
+    if (!typed || text.trim() === "") return;
     // Notify the parent of the re-scaled value; nothing of our own is set here.
     onChange(parseTokenAmount(text.replace(/,/g, ""), decimals));
-  }, [decimals, text, onChange]);
+  }, [decimals, text, typed, onChange]);
 
   const usd = useUsdPrice(mint, cluster, showUsdEstimate);
   const usdHint =
@@ -84,6 +103,7 @@ export function TokenAmountInput({
 
   const handleChange = (raw: string) => {
     setText(raw);
+    setTyped(true);
     if (raw.trim() === "") {
       onChange(null);
       return;
