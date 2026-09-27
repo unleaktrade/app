@@ -69,9 +69,25 @@ test.describe("Full RFQ lifecycle @tx", () => {
     // bounded re-click retries the whole check → attest → tx path.
     await expect(async () => {
       await commitDialog.getByRole("button", { name: "Commit quote" }).click();
-      await expect(taker1Page.getByText("Save your reveal ticket")).toBeVisible({
-        timeout: 60_000,
-      });
+      try {
+        await expect(taker1Page.getByText("Save your reveal ticket")).toBeVisible({
+          timeout: 60_000,
+        });
+      } catch (err) {
+        // Traces/screenshots are off under CI, so log what the dialog shows
+        // (the guard's rejection reason, the amount field) — user-facing text
+        // only, never URLs.
+        const shown = (await commitDialog.innerText().catch(() => ""))
+          .replace(/https?:\/\/\S+/g, "<url>")
+          .replace(/\s+/g, " ")
+          .slice(0, 800);
+        const typed = await commitDialog
+          .getByRole("textbox")
+          .inputValue()
+          .catch(() => "?");
+        console.log(`[commit attempt failed] field="${typed}" dialog: ${shown}`);
+        throw err;
+      }
     }).toPass({ timeout: 120_000, intervals: [8_000] });
     // Two "Close" buttons exist here: the ticket panel's explicit button and
     // the dialog's X — either works, take the first.
@@ -119,7 +135,13 @@ test.describe("Full RFQ lifecycle @tx", () => {
     await waitForActionWindow(taker1Page, "Settle now", 120_000);
     await taker1Page.getByRole("button", { name: "Settle now" }).click();
     // Same label pattern as reveal: the action bar navigates to the settle
-    // cockpit, which hosts its own "Settle now" submit.
+    // cockpit, which hosts its own "Settle now" submit. Wait for the cockpit
+    // first — clicking by label right away can hit the action-bar button again
+    // before the navigation lands, so the cockpit's submit is never clicked.
+    await taker1Page.waitForURL(/\/dashboard\/quote\/[^/]+\/settle$/, { timeout: 60_000 });
+    await expect(taker1Page.getByRole("heading", { name: "Complete settlement" })).toBeVisible({
+      timeout: 60_000,
+    });
     await taker1Page.getByRole("button", { name: "Settle now" }).click();
     // Heading-scoped: the success toast carries the same text for a moment.
     await expect(taker1Page.getByRole("heading", { name: "Settlement complete" })).toBeVisible({
