@@ -70,7 +70,7 @@ npm test              # vitest run — node (pure logic) + jsdom (RTL component)
 npm run test:coverage # vitest run --coverage — thresholds gate src/chain/ + src/app/lib/ logic
 npm run test:watch    # vitest watch mode
 npm run test:e2e      # HERMETIC read-only e2e (desktop+mobile, replays the RPC cassette; no devnet, no keys)
-npm run test:e2e:tx   # full lifecycle vs live devnet (needs funded DEV_WALLET_KEYPAIR_DIR + VITE_RPC_URL_DEVNET)
+npm run test:e2e:tx   # full lifecycle vs live devnet (needs funded DEV_WALLET_KEYPAIR_DIR + VITE_RPC_URL_DEVNET + LG_API_KEY_DEVNET)
 npm run test:e2e:record # re-capture e2e/fixtures/rpc-cassette.json from a working devnet
 npm run test:e2e:report # open the last Playwright HTML report
 npm run seed          # append devnet/localnet fixtures across all 9 states (never resets)

@@ -53,13 +53,14 @@ npm run test:e2e:report     # open the last HTML report
 # Full lifecycle against your own devnet (needs funded wallets + a real RPC):
 export DEV_WALLET_KEYPAIR_DIR=/abs/path/to/devnet-keypairs  # maker/taker1/taker2.json
 export VITE_RPC_URL_DEVNET=https://your-devnet-rpc          # public devnet 429s from CI IPs
+export LG_API_KEY_DEVNET=<app key of the devnet guard>      # its /check answers 401 without it
 npm run test:e2e:tx
 ```
 
 The `tx` keypairs must be **devnet-funded** (bonds + rent; `scripts/seed.ts`
 funds them) and must **never** hold mainnet assets. CI supplies them only to the
 on-demand `e2e.yml` run via `DEV_WALLET_{MAKER,TAKER1,TAKER2}_KEYPAIR` +
-`DEVNET_RPC_URL` — never to the per-PR gate.
+`DEVNET_RPC_URL` + `LG_API_KEY_DEVNET` — never to the per-PR gate.
 
 ## Docs screenshots
 
