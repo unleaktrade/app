@@ -119,7 +119,13 @@ test.describe("Full RFQ lifecycle @tx", () => {
     await waitForActionWindow(taker1Page, "Settle now", 120_000);
     await taker1Page.getByRole("button", { name: "Settle now" }).click();
     // Same label pattern as reveal: the action bar navigates to the settle
-    // cockpit, which hosts its own "Settle now" submit.
+    // cockpit, which hosts its own "Settle now" submit. Wait for the cockpit
+    // first — clicking by label right away can hit the action-bar button again
+    // before the navigation lands, so the cockpit's submit is never clicked.
+    await taker1Page.waitForURL(/\/dashboard\/quote\/[^/]+\/settle$/, { timeout: 60_000 });
+    await expect(taker1Page.getByRole("heading", { name: "Complete settlement" })).toBeVisible({
+      timeout: 60_000,
+    });
     await taker1Page.getByRole("button", { name: "Settle now" }).click();
     // Heading-scoped: the success toast carries the same text for a moment.
     await expect(taker1Page.getByRole("heading", { name: "Settlement complete" })).toBeVisible({
