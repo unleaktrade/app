@@ -5,12 +5,19 @@ Two very different modes:
 - **Read-only (`desktop` + `mobile`) — HERMETIC.** RPC is served from a
   committed cassette (`e2e/fixtures/rpc-cassette.json`) via `page.route`, the
   clock is pinned to capture time, and the wallets are **ephemeral + unfunded**.
-  No live devnet, no liquidity-guard, no secrets, no network. This is the
-  per-PR gate (`ci.yml`) and runs on forks too.
+  No live devnet, no liquidity-guard, no secrets, no network: the RPC origin is
+  pinned to the dummy `https://rpc.replay.test` and the guard's `/health` is
+  stubbed by `page.route`. This is the per-PR gate (`ci.yml`): it runs on every
+  PR, forks included, and on every push to `main`.
 - **`tx` — live devnet.** The full commit→reveal→select→settle→claim lifecycle
   actually submits transactions, so it needs a real chain, funded wallets, and
-  a working RPC. On-demand only (`e2e.yml`: `workflow_dispatch` or a `[full-e2e]`
-  commit).
+  a working RPC. On-demand only (`e2e.yml`: `workflow_dispatch`, or a push to
+  any branch whose head commit message contains `[full-e2e]`). One attempt, no
+  retries, 30-minute job cap.
+
+Everything runs with `workers: 1` and a 120 s test timeout. Under CI the
+read-only projects retry once, and trace/screenshot/video are off (they would
+capture served JS and request URLs into the uploaded report).
 
 ## Layout
 
@@ -26,12 +33,16 @@ e2e/
     rpc-replay.ts        # installRpcReplay() — record (passive) / replay (route)
     wallet.ts            # connectDevWallet()
     keys.ts              # devWalletAddress() (tx legs)
-    rfq.ts               # openFirstRfqInGroup(), createRfq(), waitForActionWindow()
+    env.ts               # devWalletKeypairDir() — env var, else parsed from .env.local
+    rfq.ts               # openFirstRfqInGroup(), createRfq(), waitForActionWindow(),
+                         # seededToken()
   specs/
     action-bar-empty-state.e2e.spec.ts   # read-only
     terminal-states.e2e.spec.ts          # read-only
     quote-modals.e2e.spec.ts             # read-only
+    a11y.e2e.spec.ts                     # read-only, axe-core audit (desktop + @mobile)
     responsive-mobile.e2e.spec.ts        # read-only, @mobile
+    docs-screenshots.e2e.spec.ts         # opt-in capture harness (see below)
     lifecycle.e2e.spec.ts                # @tx — full round trip incl. reward claim
 ```
 
@@ -39,8 +50,8 @@ e2e/
 
 | Project   | Selector            | Mode                    | When it runs                                              |
 | --------- | ------------------- | ----------------------- | --------------------------------------------------------- |
-| `desktop` | not `@tx`/`@mobile` | hermetic (cassette)     | every PR/push incl. forks (`ci.yml`)                      |
-| `mobile`  | `@mobile`           | hermetic, iPhone 13     | every PR/push incl. forks (`ci.yml`)                      |
+| `desktop` | not `@tx`/`@mobile` | hermetic (cassette)     | every PR (incl. forks) + push to `main` (`ci.yml`)        |
+| `mobile`  | `@mobile`           | hermetic, iPhone 13     | every PR (incl. forks) + push to `main` (`ci.yml`)        |
 | `tx`      | `@tx`               | live devnet + real txns | `workflow_dispatch`, or a `[full-e2e]` commit (`e2e.yml`) |
 
 ## Running locally
@@ -57,8 +68,15 @@ export LG_API_KEY_DEVNET=<app key of the devnet guard>      # its /check answers
 npm run test:e2e:tx
 ```
 
-The `tx` keypairs must be **devnet-funded** (bonds + rent; `scripts/seed.ts`
-funds them) and must **never** hold mainnet assets. CI supplies them only to the
+`DEV_WALLET_KEYPAIR_DIR` can also be set in `.env.local` instead of exported
+(`helpers/env.ts` reads it from there). The hermetic `npm run test:e2e` ignores
+it and always generates its own ephemeral wallets.
+
+The `tx` keypairs must be **devnet-funded** before the run: SOL for rent and
+fees, `Config.usdc_mint` USDC for the bonds, and the seeded `sBASE`/`sALT`
+test tokens. `scripts/seed.ts` only funds the maker passed as
+`--maker-keypair` and the takers it generates itself, not arbitrary taker
+keypairs. They must **never** hold mainnet assets. CI supplies them only to the
 on-demand `e2e.yml` run via `DEV_WALLET_{MAKER,TAKER1,TAKER2}_KEYPAIR` +
 `DEVNET_RPC_URL` + `LG_API_KEY_DEVNET` — never to the per-PR gate.
 
@@ -92,9 +110,9 @@ npm run seed -- --cluster devnet --maker-keypair <maker.json> \
   --facilitator <taker2-pubkey> --only open
 # 2. Record against a working devnet RPC (public works from a residential IP):
 DEV_WALLET_KEYPAIR_DIR=<funded-keys> npm run test:e2e:record
-# 3. Verify replay is green with ephemeral wallets (as CI runs it):
-node scripts/gen-dev-wallets.mjs /tmp/eph && \
-  DEV_WALLET_KEYPAIR_DIR=/tmp/eph npm run test:e2e
+# 3. Verify replay is green (as CI runs it; ephemeral wallets are generated
+#    automatically under REPLAY_RPC):
+npm run test:e2e
 ```
 
 The cassette key is `method + stable-stringified params` (the varying `id` is

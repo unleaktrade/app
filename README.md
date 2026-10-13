@@ -15,14 +15,16 @@ number they cannot see.
 The frontend is a pure consumer of on-chain state: React reads/decodes program
 accounts over RPC + websocket subscriptions and submits the program's
 instructions from the connected wallet. There is no backend of our own; the
-only service dependency is the liquidity-guard attestation microservice.
+only service dependencies are the liquidity-guard attestation microservice
+and, on the Mainnet cluster only, Jupiter's public token/price API
+(`lite-api.jup.ag`, token metadata and prices).
 
 ## Architecture
 
 ```mermaid
 flowchart LR
     subgraph browser [Browser app]
-        UI[React 19 + Vite<br/>Tailwind v4 + motion]
+        UI[React 19 + Vite 8<br/>react-router 8 · Tailwind v4 + motion]
         CHAIN[src/chain<br/>decoders · PDAs · state machine<br/>instruction builders]
         SWA[Solana Wallet Adapter<br/>Wallet Standard auto-discovery]
     end
@@ -40,12 +42,17 @@ flowchart LR
   program accounts, PDA derivation, deadline math and instruction guards
   ported 1:1 from the Rust (`state-machine.ts`), fee math (`math.ts`), one
   transaction builder per instruction (`instructions/`), and the
-  liquidity-guard client. Reads go through TanStack Query with websocket
-  account subscriptions — no polling.
+  liquidity-guard client. Reads go through TanStack Query: single-account
+  reads add a websocket account subscription, list reads
+  (`getProgramAccounts`) refresh on write-path invalidation with a 10 s
+  `staleTime`, and token balances plus the guard `/health` check refetch
+  every 15 s.
 - **`src/app/`** — the UI: routes, providers (cluster → connection → wallet →
   query → auth), screens, and shared primitives.
 - **Program id** (devnet + localnet):
-  `7wrjbU1NbVtUCUGP1obi3aiT6QrjXZnH5XJDXMsKtkPG`.
+  `7wrjbU1NbVtUCUGP1obi3aiT6QrjXZnH5XJDXMsKtkPG`. The program is **not
+  deployed on mainnet yet**: the cluster picker offers Mainnet Beta, but
+  there is nothing to read there today.
 - **Commit-hash preimage** (178 bytes:
   `salt[64] ‖ rfq[32] ‖ taker[32] ‖ quote_mint[32] ‖ quote_amount_LE[8] ‖ bond_amount_LE[8] ‖ taker_fee_bps_LE[2]`)
   is byte-identical across three repos — the program verifies it, the
@@ -78,7 +85,7 @@ asserting decoder ↔ IDL parity.
 
 ## Quickstart — devnet (default)
 
-Requires Node ≥ 22.
+Requires Node ≥ 22 (`.nvmrc`; npm 11 is the pinned `packageManager`).
 
 ```bash
 git clone <this repo> && cd app
@@ -126,8 +133,11 @@ Behavior notes:
   (`src/app/lib/seed-manifest.devnet.json`) must be regenerated so symbols /
   decimals resolve; until then `DevConfigPanel` (`/dashboard?debug=1`) shows a
   drift warning and unknown mints render raw with a DEV console warning.
-- **Localnet** — `npm run seed` creates its own USDC mint (see `scripts/seed.ts`
-  `--usdc-source`); waitlist distribution does not apply.
+- **Localnet** — bonds use whatever mint the local `Config.usdc_mint` points
+  at. `npm run seed` never creates a USDC mint: pass `--usdc-source <keypair
+holding that mint>` or it seeds Draft RFQs only (see
+  [`scripts/README.md`](scripts/README.md)). Waitlist distribution does not
+  apply.
 - **Future mainnet** — the Config account would point at real USDC; the
   waitlist token guidance is N/A there and the app makes no balance claims
   off-devnet.
@@ -140,65 +150,125 @@ Needs the sibling repos checked out next to this one (`../settlement-engine`,
 ```bash
 bash scripts/dev-localnet.sh    # anchor localnet + program deploy
 npm run copy-idl                # refresh src/chain/idl/ after anchor build
-# run liquidity-guard on :8080 (see its README)
-npm run seed                    # seed RFQs in every lifecycle state
+# run liquidity-guard on :8080 (see its README; needs SIGNING_KEY + USDC_MINT)
+# initialise Config once on the local validator, from ../settlement-engine:
+#   ANCHOR_PROVIDER_URL=localnet LIQUIDITY_GUARD=<guard /health service_pubkey> \
+#   USDC_MINT=<your local USDC mint> yarn init-config
+npm run seed -- --cluster localnet --usdc-source <keypair holding that mint>
 npm run dev                     # switch the navbar cluster picker to Localnet
 ```
+
+`npm run seed` aborts when the `Config` account does not exist, and
+`dev-localnet.sh` does not create it (the `anchor run init-config` hint it
+prints is stale: the script alias is `init-config-devnet`, or `yarn
+init-config`). Without `--usdc-source` the seed creates Draft RFQs only.
+Localnet works in `npm run dev` only: the production CSP does not allow
+`localhost` (see below).
 
 ## Environment variables
 
 All optional — `.env.example` documents every knob. Values fall back to
 baked-in defaults unless overridden.
 
-| Variable                                 | Purpose                                                                                                          |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `VITE_SOLANA_CLUSTER`                    | Default cluster (`devnet`)                                                                                       |
-| `VITE_RPC_URL_{DEVNET,MAINNET,LOCALNET}` | RPC endpoint overrides                                                                                           |
-| `VITE_SETTLEMENT_PROGRAM_ID`             | Override the committed IDL's program id                                                                          |
-| `VITE_LG_URL_{LOCALNET,DEVNET,MAINNET}`  | liquidity-guard upstreams, consumed **only** by the Vite dev proxy                                               |
-| `LG_API_KEY_{LOCALNET,DEVNET,MAINNET}`   | liquidity-guard API key sent as `X-API-Key` on `/check` (CI secrets; public client identifier once built)        |
-| `DEV_WALLET_KEYPAIR_DIR`                 | Dev-only: folder of Solana CLI keypairs registered as in-browser test wallets (dev server only, never in builds) |
+| Variable                                 | Purpose                                                                                                                                                |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `VITE_SOLANA_CLUSTER`                    | Default cluster (`devnet`)                                                                                                                             |
+| `VITE_RPC_URL_{DEVNET,MAINNET,LOCALNET}` | RPC endpoint overrides. Inlined into the public bundle: never a keyed URL in a build                                                                   |
+| `VITE_SETTLEMENT_PROGRAM_ID`             | Override the committed IDL's program id                                                                                                                |
+| `VITE_LG_URL_{LOCALNET,DEVNET,MAINNET}`  | liquidity-guard upstreams: the dev-proxy targets under `npm run dev`, and inlined into production builds, where the client calls the upstream directly |
+| `LG_API_KEY_{LOCALNET,DEVNET,MAINNET}`   | liquidity-guard API key sent as `X-API-Key` on `/check` (CI secrets; public client identifier once built)                                              |
+| `DEV_WALLET_KEYPAIR_DIR`                 | Dev-only: folder of Solana CLI keypairs registered as in-browser test wallets (dev server only, never in builds)                                       |
 
-Note: the attestation service's ed25519 pubkey is deliberately **not** an env
-var — the on-chain `Config.liquidity_guard` field is the source of truth, and
-the dev-only `HealthPill` surfaces any drift.
+Notes:
+
+- The attestation service's ed25519 pubkey is deliberately **not** an env
+  var — the on-chain `Config.liquidity_guard` field is the source of truth,
+  and the navbar `HealthPill` (visible in production too) surfaces any drift.
+- **Production CSP** — `vite build` emits a Content-Security-Policy whose
+  `connect-src` lists only the default public devnet/mainnet RPC hosts, the
+  two default liquidity-guard hosts and Jupiter. A production build with
+  `VITE_RPC_URL_*` or `VITE_LG_URL_*` pointed elsewhere is blocked by its own
+  CSP until `vite.config.ts` is updated, and the Localnet cluster cannot work
+  in a production build.
+- Variables used only by the seed script and the e2e suite (`RPC_URL`,
+  `LG_API_KEY`, `ANCHOR_WALLET`, `REPLAY_RPC`, `RECORD_RPC`, …) are documented
+  in [`scripts/README.md`](scripts/README.md) and
+  [`e2e/README.md`](e2e/README.md).
 
 ## Scripts
 
-| Command                                    | What it does                                                                            |
-| ------------------------------------------ | --------------------------------------------------------------------------------------- |
-| `npm run dev`                              | Vite dev server on :3000                                                                |
-| `npm run build`                            | Production build → `build/` (transpile only — **does not type-check**)                  |
-| `npm run typecheck`                        | `tsc --noEmit` — the real type signal                                                   |
-| `npm run lint` / `format` / `format:check` | ESLint (flat config) / Prettier                                                         |
-| `npm test` / `test:watch`                  | Vitest — decoders, state-machine guards, fee/deadline math, PDAs, market stats, rewards |
-| `npm run test:e2e` / `test:e2e:report`     | Playwright end-to-end suite / open the last report                                      |
-| `npm run copy-idl`                         | Refresh `src/chain/idl/` from `../settlement-engine/target`                             |
-| `npm run seed`                             | Append devnet/localnet fixtures across all 9 states                                     |
+| Command                                    | What it does                                                                                                            |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `npm run dev`                              | Vite dev server on :3000                                                                                                |
+| `npm run build`                            | Production build → `build/` (transpile only — **does not type-check**)                                                  |
+| `npm run typecheck`                        | `tsc --noEmit` — the real type signal                                                                                   |
+| `npm run lint` / `format` / `format:check` | ESLint (flat config) / Prettier                                                                                         |
+| `npm test` / `test:watch`                  | Vitest — decoders, state-machine guards, fee/deadline math, PDAs, market stats, rewards, plus RTL component/hook suites |
+| `npm run test:coverage`                    | Vitest with coverage; fails under the thresholds (see Testing)                                                          |
+| `npm run test:e2e` / `test:e2e:report`     | Hermetic read-only Playwright suite (`desktop` + `mobile`) / open the last report                                       |
+| `npm run test:e2e:tx`                      | Full transaction lifecycle against live devnet (funded dev wallets required)                                            |
+| `npm run test:e2e:record`                  | Re-capture the RPC cassette from a working devnet                                                                       |
+| `npm run copy-idl`                         | Refresh `src/chain/idl/` from `../settlement-engine/target`                                                             |
+| `npm run seed`                             | Append devnet/localnet fixtures across all 9 states                                                                     |
+| `bash scripts/dev-localnet.sh`             | Start `anchor localnet`, build and deploy the program (needs `../settlement-engine`)                                    |
+| `node scripts/check-bundle-size.mjs`       | Check `build/` against the gzip budget (run `npm run build` first; `--markdown` / `--json`)                             |
+
+`npm install` also sets up a husky pre-commit hook that runs lint-staged
+(Prettier on staged files, ESLint on `.ts`/`.tsx`).
 
 ## Testing
 
 - **Unit** (`src/chain/__tests__/`, `src/app/lib/__tests__/`): pure-logic
-  suites; fixtures round-trip through the committed IDL's Borsh coder, so
-  decoder ↔ IDL parity is proven without a validator.
-- **End-to-end** (`e2e/`): Playwright drives the real app against live devnet
-  using **dev-only keypair-backed wallets** (`src/dev/devWallet.ts`) — no
-  browser extension needed. Three projects: `desktop` + `mobile` (read-only,
-  run on every PR) and `tx` (the full lifecycle including the reward claim —
-  runs on `workflow_dispatch` or a `[full-e2e]` commit). `[skip-e2e]` in a
-  commit message bypasses the PR job. See [`e2e/README.md`](e2e/README.md).
+  suites on the node Vitest project; fixtures round-trip through the
+  committed IDL's Borsh coder, so decoder ↔ IDL parity is proven without a
+  validator.
+- **Component** (`src/app/components/__tests__/`,
+  `src/app/hooks/__tests__/`): React Testing Library suites on a jsdom Vitest
+  project.
+- **Coverage** (`npm run test:coverage`, enforced in CI) over `src/chain/`
+  and `src/app/lib/`: statements and lines 70 %, functions 65 %, branches
+  60 %, and statements 80 % for `src/chain/**`.
+- **End-to-end** (`e2e/`): Playwright drives the real dev server using
+  **dev-only keypair-backed wallets** (`src/dev/devWallet.ts`) — no browser
+  extension needed. Three projects: `desktop` + `mobile` are read-only and
+  **hermetic** (RPC replayed from the committed cassette
+  `e2e/fixtures/rpc-cassette.json`, pinned clock, ephemeral unfunded wallets;
+  no devnet, no secrets), and run on every PR (forks included) and every push
+  to `main`. `tx` is the full lifecycle including the reward claim against
+  **live devnet** with funded wallets — it runs on `workflow_dispatch` or a
+  `[full-e2e]` commit. The read-only projects also carry the axe-core
+  accessibility specs. See [`e2e/README.md`](e2e/README.md).
+- **Bundle budget** (`scripts/bundle-budget.json`, enforced in CI): 600 kB
+  gzip for the initial load, 650 kB gzip for all JS.
 
 ## Dev tooling
 
-- **`/dev/stories`** — component gallery (no auth required): state pipeline,
-  deadline ring, bond breakdown, responsive modal, rewards section, the RFQ
-  wizard, and more.
-- **`/dashboard?debug=1`** — decoded on-chain `Config` panel.
-- **`HealthPill`** — liquidity-guard health + pubkey-drift indicator (dev
-  builds only).
+- **`/dev/stories`** — component gallery (dev server only, no auth
+  required): state pipeline, deadline ring, bond breakdown, responsive modal,
+  rewards section, the RFQ wizard, and more.
+- **`/dashboard?debug=1`** — decoded on-chain `Config` panel (dev server
+  only).
 - **Dev wallets** — point `DEV_WALLET_KEYPAIR_DIR` at a folder of _devnet_
   keypairs and each appears in the wallet picker as `Dev: <name>`, signing
   locally. Never point this at mainnet keys.
+
+## Screens
+
+Everything lives under `/dashboard`, behind the `signMessage` gate:
+
+| Route                                         | Screen                                                                                              |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `/dashboard`                                  | Marketplace (RFQs grouped by state, live market stats)                                              |
+| `/dashboard/rfq/:rfqId`                       | RFQ detail with the single action bar; `?action=<id>` deep links fire only when the action is legal |
+| `/dashboard/quote/:quoteId/reveal`, `/settle` | Reveal and settle a quote (commit-hash diff, reveal-ticket recovery, funding check, receipt)        |
+| `/dashboard/my-activity`                      | RFQs posted, quotes submitted, rewards (pending / claimed, batch claim)                             |
+| `/dashboard/transparency`                     | Slashed-bonds and fees ledgers, per mint                                                            |
+
+The navbar control rail carries the liquidity-guard `HealthPill` (health and
+pubkey-drift indicator, polled every 15 s, visible in production), the
+notification center and the cluster picker. RFQ detail also exposes the proof
+inspector (commit-hash preimage and local ed25519 verification) and a
+settlement receipt PNG export.
 
 ## Design
 
@@ -215,16 +285,23 @@ Visual source of truth: the
 
 ## Companion repositories
 
-| Repo                   | Role                                                                                                |
-| ---------------------- | --------------------------------------------------------------------------------------------------- |
-| `../settlement-engine` | Anchor program — account layouts, instruction guards, fee math. **The Rust wins on any ambiguity.** |
-| `../liquidity-guard`   | ed25519 attestation microservice gating `commit_quote` (`/health`, `/check`)                        |
+| Repo                   | Role                                                                                                    |
+| ---------------------- | ------------------------------------------------------------------------------------------------------- |
+| `../settlement-engine` | Anchor program — account layouts, instruction guards, fee math. **The Rust wins on any ambiguity.**     |
+| `../liquidity-guard`   | ed25519 attestation microservice gating `commit_quote` (`/health`, `/check`; also `/ready`, `/metrics`) |
+| `../landing-page`      | Marketing site at `unleak.trade` (waitlist sign-up, FAQ)                                                |
+| `../waitlist`          | Waitlist backend; airdrops devnet uUSDC to activated members                                            |
+| `../docs`              | Protocol documentation and user guide (GitBook)                                                         |
 
 ## Deployment
 
 - **Production** — GitHub Pages via `.github/workflows/deploy.yml` on push to
-  `main` (SPA fallback + CNAME for `app.unleak.trade`).
-- **PR previews** — Vercel via `.github/workflows/preview.yml` (internal PRs
-  only).
-- **CI** — typecheck + lint + unit tests + read-only e2e on every PR
-  (`ci.yml`); full transaction e2e on demand (`e2e.yml`).
+  `main` or a manual `workflow_dispatch` run (SPA fallback + CNAME for
+  `app.unleak.trade`).
+- **PR previews** — Vercel via `.github/workflows/preview.yml` (internal,
+  non-Dependabot PRs only).
+- **CI** — typecheck + lint + unit tests with coverage thresholds + hermetic
+  read-only e2e + bundle-size budget on every PR and push to `main`
+  (`ci.yml`); full transaction e2e on `workflow_dispatch` or a `[full-e2e]`
+  commit (`e2e.yml`). Dependabot keeps dependencies current
+  (`.github/dependabot.yml`).
