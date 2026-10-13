@@ -89,3 +89,43 @@ export function buildCsp({ lgTargets, rpcOverrides }: CspInputs): string {
     "upgrade-insecure-requests",
   ].join("; ");
 }
+
+const CHARSET = '<meta charset="UTF-8" />';
+// A <script> with no src attribute, i.e. an inline one.
+const INLINE_SCRIPT = /<script\b(?![^>]*\bsrc\s*=)([^>]*)>/gi;
+// Data blocks the browser never executes, so script-src does not apply.
+const DATA_BLOCK = /\btype\s*=\s*["']?application\/(ld\+)?json\b/i;
+
+/**
+ * Puts the policy right after <meta charset> (which must stay in the first
+ * 1024 bytes, and before every script, which a later meta would not cover)
+ * and fails the build if an inline executable script slipped into the page:
+ * script-src has no 'unsafe-inline', so it would be dead in production.
+ */
+export function injectCsp(html: string, policy: string): string {
+  if (!html.includes(CHARSET)) throw new Error(`inject-csp: index.html has no ${CHARSET}`);
+  for (const [, attrs = ""] of html.matchAll(INLINE_SCRIPT)) {
+    if (!DATA_BLOCK.test(attrs)) {
+      throw new Error("inject-csp: inline <script> in index.html; move it to a file");
+    }
+  }
+  return html.replace(
+    CHARSET,
+    `${CHARSET}\n    <meta http-equiv="Content-Security-Policy" content="${policy}" />`,
+  );
+}
+
+/**
+ * Vite plugin: build only (the dev server needs inline scripts and a websocket
+ * for HMR), and `order: "post"` so it sees the tags Vite itself injects.
+ */
+export function cspPlugin(policy: string) {
+  return {
+    name: "inject-csp",
+    apply: "build" as const,
+    transformIndexHtml: {
+      order: "post" as const,
+      handler: (html: string) => injectCsp(html, policy),
+    },
+  };
+}

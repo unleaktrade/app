@@ -5,7 +5,7 @@ import fs from "fs";
 import tailwindcss from "@tailwindcss/vite";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import babel from "@rolldown/plugin-babel";
-import { buildCsp } from "./src/security/csp";
+import { buildCsp, cspPlugin } from "./src/security/csp";
 
 // Dev-only keypair-backed wallets (src/dev/devWallet.ts) so Claude / local dev
 // can drive wallet-gated flows without a real Phantom-style extension. Only
@@ -72,36 +72,27 @@ export default defineConfig(({ mode, command }) => {
     rewrite: (p) => p.replace(new RegExp(`^/liquidity-guard/${segment}`), ""),
   });
 
-  // Inject the production CSP <meta> at build time only (apply: "build"). The
+  // Production CSP <meta>, build only (see cspPlugin in src/security/csp.ts). The
   // policy is derived from the same resolved upstreams the bundle will call,
   // so a VITE_LG_URL_* / VITE_RPC_URL_* override is never silently blocked.
   // Rationale per directive lives in src/security/csp.ts.
-  const csp = buildCsp({
-    lgTargets: lgTarget,
-    rpcOverrides: {
-      devnet: env.VITE_RPC_URL_DEVNET,
-      mainnet: env.VITE_RPC_URL_MAINNET,
-      localnet: env.VITE_RPC_URL_LOCALNET,
-    },
-  });
-  const cspPlugin = {
-    name: "inject-csp",
-    apply: "build" as const,
-    transformIndexHtml: () => [
-      {
-        tag: "meta",
-        attrs: { "http-equiv": "Content-Security-Policy", content: csp },
-        injectTo: "head-prepend" as const,
+  const csp = cspPlugin(
+    buildCsp({
+      lgTargets: lgTarget,
+      rpcOverrides: {
+        devnet: env.VITE_RPC_URL_DEVNET,
+        mainnet: env.VITE_RPC_URL_MAINNET,
+        localnet: env.VITE_RPC_URL_LOCALNET,
       },
-    ],
-  };
+    }),
+  );
 
   return {
     // React Compiler (babel-plugin-react-compiler via the rolldown babel bridge)
     // runs right after the JSX transform; automatic memoisation replaces the
     // manual useMemo/useCallback discipline, and the compiler-prep lint rules
     // in eslint.config.js keep components within the Rules of React.
-    plugins: [react(), babel({ presets: [reactCompilerPreset()] }), tailwindcss(), cspPlugin],
+    plugins: [react(), babel({ presets: [reactCompilerPreset()] }), tailwindcss(), csp],
     resolve: {
       alias: {
         // Support Figma Make asset imports in Vite

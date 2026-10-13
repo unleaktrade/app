@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCsp, type CspInputs } from "@/security/csp";
+import { buildCsp, cspPlugin, injectCsp, type CspInputs } from "@/security/csp";
 
 const LG_DEFAULTS: CspInputs["lgTargets"] = {
   localnet: "http://localhost:8080",
@@ -85,5 +85,45 @@ describe("buildCsp", () => {
     });
     expect(src).not.toContain("not");
     expect(src.some((s) => s.startsWith("ftp"))).toBe(false);
+  });
+});
+
+describe("injectCsp", () => {
+  const html = (head: string) =>
+    `<!doctype html>\n<html>\n  <head>\n    <meta charset="UTF-8" />\n${head}  </head>\n</html>`;
+
+  it("puts the policy right after <meta charset>, before any script", () => {
+    const out = injectCsp(
+      html('    <script type="module" src="/a.js"></script>\n'),
+      "x-src 'self'",
+    );
+    const meta = out.indexOf('http-equiv="Content-Security-Policy"');
+    expect(meta).toBeGreaterThan(out.indexOf("<meta charset"));
+    expect(meta).toBeLessThan(out.indexOf("<script"));
+    expect(out).toContain(`content="x-src 'self'"`);
+  });
+
+  it("fails the build on an inline executable script", () => {
+    expect(() => injectCsp(html("    <script>window.x = 1</script>\n"), "p")).toThrow(/inline/);
+    expect(() =>
+      injectCsp(html('    <script type="module">import "/a.js"</script>\n'), "p"),
+    ).toThrow(/inline/);
+  });
+
+  it("lets JSON data blocks through", () => {
+    expect(() =>
+      injectCsp(html('    <script type="application/ld+json">{}</script>\n'), "p"),
+    ).not.toThrow();
+  });
+
+  it("fails loudly when the charset meta is missing", () => {
+    expect(() => injectCsp("<html><head></head></html>", "p")).toThrow(/charset/);
+  });
+
+  it("is a build-only, post-order Vite plugin", () => {
+    const plugin = cspPlugin("p");
+    expect(plugin.apply).toBe("build");
+    expect(plugin.transformIndexHtml.order).toBe("post");
+    expect(plugin.transformIndexHtml.handler(html(""))).toContain('content="p"');
   });
 });
