@@ -676,6 +676,7 @@ async function main() {
         treasuryWallet,
         rfq,
         settlement,
+        maker: makerKp.publicKey,
         usdcMint,
         baseMint: BASE_MINT,
         quoteMint: QUOTE_MINT,

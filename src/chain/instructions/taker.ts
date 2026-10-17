@@ -113,6 +113,8 @@ export async function buildRevealQuoteTx(p: RevealQuoteParams): Promise<Transact
 // complete_settlement — the taker funds; base/quote/fees route, bonds refund.
 // quote + slashed_bonds_tracker are passed as remaining accounts (the handler
 // looks them up by derivation). Needs the CU bump (many token transfers).
+// `maker` lets the program re-create maker payout ATAs the maker closed
+// (taker pays the rent), so a maker cannot block settlement that way.
 // ---------------------------------------------------------------------------
 
 export interface CompleteSettlementParams {
@@ -138,6 +140,7 @@ export async function buildCompleteSettlementTx(p: CompleteSettlementParams): Pr
       treasuryWallet: treasury,
       rfq: rfqPda,
       settlement: deriveSettlementPda(env.programId, rfqPda)[0],
+      maker,
       usdcMint: usdc,
       baseMint: base,
       quoteMint,
