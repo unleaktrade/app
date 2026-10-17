@@ -5,6 +5,7 @@ import fs from "fs";
 import tailwindcss from "@tailwindcss/vite";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import babel from "@rolldown/plugin-babel";
+import { buildCsp, cspPlugin } from "./src/security/csp";
 
 // Dev-only keypair-backed wallets (src/dev/devWallet.ts) so Claude / local dev
 // can drive wallet-gated flows without a real Phantom-style extension. Only
@@ -46,44 +47,6 @@ const LG_DEFAULTS = {
   mainnet: "https://liquidity-guard-mainnet-162b828790cf.herokuapp.com",
 } as const;
 
-// Production Content-Security-Policy. Injected as a <meta> only on `vite build`
-// (never the dev server — a page CSP would break Vite's HMR websocket and
-// tooling). GitHub Pages can't set response headers, so the meta is the only
-// lever; frame-ancestors / report-uri (header-only directives) are therefore
-// out of scope. Rationale per directive:
-//   script-src 'self'          — only our own bundled chunks execute; wallet
-//                                extensions run as content scripts (their own
-//                                origin) and talk via postMessage, so they need
-//                                no page-CSP exception.
-//   style-src  'unsafe-inline' — motion/recharts/Tailwind set inline style
-//                                attributes; unavoidable and low-risk vs scripts.
-//   connect-src                — Solana RPC (https + wss for subscriptions),
-//                                the per-cluster liquidity-guard upstreams, and
-//                                the Jupiter token/price API (src/app/lib/jupiter.ts).
-//   img-src https:             — remote token logos (Jupiter CDN) + data: (QR /
-//                                html-to-image receipts).
-function buildCsp(): string {
-  return [
-    "default-src 'self'",
-    "base-uri 'self'",
-    "object-src 'none'",
-    "script-src 'self'",
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https:",
-    "font-src 'self'",
-    "worker-src 'self' blob:",
-    "frame-src 'self'",
-    "form-action 'self'",
-    [
-      "connect-src 'self'",
-      "https://api.devnet.solana.com wss://api.devnet.solana.com",
-      "https://api.mainnet-beta.solana.com wss://api.mainnet-beta.solana.com",
-      `${LG_DEFAULTS.devnet} ${LG_DEFAULTS.mainnet}`,
-      "https://lite-api.jup.ag",
-    ].join(" "),
-  ].join("; ");
-}
-
 export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const lgTarget = {
@@ -109,25 +72,27 @@ export default defineConfig(({ mode, command }) => {
     rewrite: (p) => p.replace(new RegExp(`^/liquidity-guard/${segment}`), ""),
   });
 
-  // Inject the production CSP <meta> at build time only (apply: "build").
-  const cspPlugin = {
-    name: "inject-csp",
-    apply: "build" as const,
-    transformIndexHtml: () => [
-      {
-        tag: "meta",
-        attrs: { "http-equiv": "Content-Security-Policy", content: buildCsp() },
-        injectTo: "head-prepend" as const,
+  // Production CSP <meta>, build only (see cspPlugin in src/security/csp.ts). The
+  // policy is derived from the same resolved upstreams the bundle will call,
+  // so a VITE_LG_URL_* / VITE_RPC_URL_* override is never silently blocked.
+  // Rationale per directive lives in src/security/csp.ts.
+  const csp = cspPlugin(
+    buildCsp({
+      lgTargets: lgTarget,
+      rpcOverrides: {
+        devnet: env.VITE_RPC_URL_DEVNET,
+        mainnet: env.VITE_RPC_URL_MAINNET,
+        localnet: env.VITE_RPC_URL_LOCALNET,
       },
-    ],
-  };
+    }),
+  );
 
   return {
     // React Compiler (babel-plugin-react-compiler via the rolldown babel bridge)
     // runs right after the JSX transform; automatic memoisation replaces the
     // manual useMemo/useCallback discipline, and the compiler-prep lint rules
     // in eslint.config.js keep components within the Rules of React.
-    plugins: [react(), babel({ presets: [reactCompilerPreset()] }), tailwindcss(), cspPlugin],
+    plugins: [react(), babel({ presets: [reactCompilerPreset()] }), tailwindcss(), csp],
     resolve: {
       alias: {
         // Support Figma Make asset imports in Vite
