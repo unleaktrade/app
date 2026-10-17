@@ -119,8 +119,8 @@ context in
   mint exists only on Solana devnet and the tokens have no real-world value.
   There is no faucet for this mint; if you run out, use the support path on
   the landing FAQ (`https://unleak.trade/faq#devnet-usdc`).
-- **What 1000 covers** — roughly **~96 RFQ cycles** at current devnet sizes,
-  so the allocation is plenty for exploring every flow.
+- **What 1000 covers** — plenty for exploring every flow: bond sizes are set
+  per RFQ, so how many cycles it funds depends on the RFQs you post and quote.
 - **Empty balance ≠ something went wrong** — an empty or missing balance may
   mean the distribution is still pending or the RPC is lagging. It is never,
   by itself, proof that a distribution did not happen — check your status via
@@ -148,20 +148,24 @@ Needs the sibling repos checked out next to this one (`../settlement-engine`,
 `../liquidity-guard`).
 
 ```bash
-bash scripts/dev-localnet.sh    # anchor localnet + program deploy
-npm run copy-idl                # refresh src/chain/idl/ after anchor build
+bash scripts/dev-localnet.sh    # background validator + program deploy
+spl-token create-token --decimals 6 -u localhost   # local USDC mint, once
 # run liquidity-guard on :8080 (see its README; needs SIGNING_KEY + USDC_MINT)
-# initialise Config once on the local validator, from ../settlement-engine:
-#   ANCHOR_PROVIDER_URL=localnet LIQUIDITY_GUARD=<guard /health service_pubkey> \
-#   USDC_MINT=<your local USDC mint> yarn init-config
+LIQUIDITY_GUARD=<guard /health service_pubkey> USDC_MINT=<local USDC mint> \
+  bash scripts/dev-localnet.sh  # restart on the same ledger + init Config
+npm run copy-idl                # refresh src/chain/idl/ after anchor build
 npm run seed -- --cluster localnet --usdc-source <keypair holding that mint>
 npm run dev                     # switch the navbar cluster picker to Localnet
 ```
 
-`npm run seed` aborts when the `Config` account does not exist, and
-`dev-localnet.sh` does not create it (the `anchor run init-config` hint it
-prints is stale: the script alias is `init-config-devnet`, or `yarn
-init-config`). Without `--usdc-source` the seed creates Draft RFQs only.
+`dev-localnet.sh` runs `solana-test-validator` in the background (pid and log
+under `../settlement-engine/.anchor/`), builds and deploys the program, and
+initialises `Config` when `LIQUIDITY_GUARD` and `USDC_MINT` are set; without
+them it prints the equivalent `yarn init-config` command. `npm run seed`
+aborts when `Config` does not exist. Re-running the script keeps the ledger;
+`RESET=1` wipes it, after which the mint must be created again (`init_config`
+does not check that it exists). Without `--usdc-source` the seed creates Draft
+RFQs only.
 Localnet works in `npm run dev` only: the production CSP does not allow
 `localhost` (see below).
 
