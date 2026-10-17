@@ -2,7 +2,8 @@
 // E2E suite. These sign the signMessage auth gate locally (no chain contact),
 // and being brand-new they are guaranteed uninvolved in any RFQ — exactly what
 // the "connected but uninvolved wallet" assertions need. No funds, no secrets,
-// nothing to leak. CI regenerates them fresh each run.
+// nothing to leak. Manual helper only: CI and `npm run test:e2e` do not call it —
+// playwright.config.ts generates its own ephemeral wallets under REPLAY_RPC.
 //
 // Usage: node scripts/gen-dev-wallets.mjs <dir>
 //        (falls back to $DEV_WALLET_KEYPAIR_DIR)

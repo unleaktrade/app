@@ -42,7 +42,8 @@ export const env = {
   // The USDC mint is never read from env — every real code path reads it live
   // from the decoded Config account (config.usdcMint) or a decoded RFQ's own
   // snapshot (rfq.usdcMint), so there's no client-side default to keep in sync.
-  // liquidity-guard URLs are per-cluster and live only in the Vite proxy config
-  // (vite.config.ts, VITE_LG_URL_*). The client always calls the same-origin
-  // proxy path /liquidity-guard/<cluster>/* — never a raw URL — so no client env.
+  // liquidity-guard URLs are per-cluster and resolved in vite.config.ts
+  // (VITE_LG_URL_* over LG_DEFAULTS), not here: dev calls the same-origin proxy
+  // path /liquidity-guard/<cluster>/*, a build calls the upstream inlined via
+  // __LG_TARGETS__ (see src/chain/liquidityGuard.ts).
 } as const;
