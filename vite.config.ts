@@ -126,22 +126,29 @@ export default defineConfig(({ mode, command }) => {
           // so they cache across app-code deploys (and so the bundle budget
           // measures a meaningful boundary). web3.js + Anchor are needed at boot
           // by the wallet providers, so vendor-solana loads eagerly; recharts is
-          // only reached from lazy routes, so vendor-charts stays async.
-          manualChunks(id) {
-            if (!id.includes("node_modules")) return undefined;
-            if (
-              id.includes("@solana") ||
-              id.includes("@coral-xyz") ||
-              id.includes("web3.js") ||
-              id.includes("jayson") ||
-              id.includes("rpc-websockets")
-            ) {
-              return "vendor-solana";
-            }
-            if (id.includes("recharts") || id.includes("/d3-") || id.includes("victory")) {
-              return "vendor-charts";
-            }
-            return undefined;
+          // only reached from lazy routes, so vendor-charts must stay async.
+          //
+          // `includeDependenciesRecursively: false` is load-bearing: rolldown's
+          // default (true) drags every dependency of a captured module into the
+          // group, so react / react-dom / clsx / eventemitter3 /
+          // use-sync-external-store (all recharts deps) landed in vendor-charts
+          // and the entry had to modulepreload the whole charts chunk — which
+          // blew the initial-load budget once recharts grew (3.10 → 3.11).
+          // Shared deps now fall through to rolldown's automatic chunking.
+          codeSplitting: {
+            groups: [
+              {
+                name: "vendor-solana",
+                test: /node_modules[\\/].*(@solana|@coral-xyz|web3\.js|jayson|rpc-websockets)/,
+                priority: 20,
+              },
+              {
+                name: "vendor-charts",
+                test: /node_modules[\\/].*(recharts|[\\/]d3-|victory)/,
+                priority: 10,
+                includeDependenciesRecursively: false,
+              },
+            ],
           },
         },
       },
